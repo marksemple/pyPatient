@@ -15,11 +15,9 @@
 
 ### Contribution guidelines ###
 
-* Writing tests
-* Code review
-* Other guidelines
+* Keep it private, yo!
 
 ### Who do I talk to? ###
 
-* Repo owner or admin
-* Other community or team contact
+* Mark Semple < mark.joseph.semple@gmail.com > 
+* Alex Nicolae < alexandru.mihai.nicolae@gmail.com > 
