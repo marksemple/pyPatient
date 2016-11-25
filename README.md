@@ -6,12 +6,8 @@
 
 ### How do I get set up? ###
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+* Put Local Copy of this Repository at: C:\...\python-3.4.4.amd64\Lib\site-packages\dicomModule
+* import as "dicomModule"
 
 ### Contribution guidelines ###
 
@@ -20,4 +16,4 @@
 ### Who do I talk to? ###
 
 * Mark Semple < mark.joseph.semple@gmail.com > 
-* Alex Nicolae < alexandru.mihai.nicolae@gmail.com > 
+* Alex Nicolae < alexandru.mihai.nicolae@gmail.com >
