@@ -57,7 +57,6 @@ class dicomViewWidget(QWidget):
     def createControls(self):
         self.sliceSlider = QSlider()
         self.sliceSlider.setEnabled(True)
-        self.sliceSlider.sliderPressed.connect(self.onSliderPressed)
         self.sliceSlider.valueChanged.connect(self.sliderChanged)
         self.depthGauge = QLabel("0.0 mm")
         self.depthGauge.setMinimumWidth(50)
@@ -88,9 +87,6 @@ class dicomViewWidget(QWidget):
         self.configureSliceSlider()
         self.updateScene(0)
 
-    def onSliderPressed(self):
-        pass
-
     def configureSliceSlider(self):
         dicomMin = min(self.ImVolume.sliceLoc2Ind.keys())
         dicomMax = max(self.ImVolume.sliceLoc2Ind.keys())
@@ -101,6 +97,8 @@ class dicomViewWidget(QWidget):
         self.sliderChanged()
 
     def updateScene(self, sliceInd):
+        if not self.showingImage:
+            return
         try:
             sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
         except KeyError as e:
