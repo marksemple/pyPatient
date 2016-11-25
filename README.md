@@ -2,9 +2,7 @@
 
 ### What is this repository for? ###
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+* Contains a python module with useful components for making GUIs that manipulate DICOM image files
 
 ### How do I get set up? ###
 
