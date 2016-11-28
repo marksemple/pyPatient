@@ -65,6 +65,7 @@ class dicomViewWidget(QWidget):
         self.dirFinder.clicked.connect(self.selectImages)
 
     def selectImages(self):
+        print("dirFinder Clicked")
         dicomDir = QFileDialog.getExistingDirectory(
             parent=self,
             caption="Select Dicom Directory",
