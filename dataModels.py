@@ -41,8 +41,6 @@ class DicomDataModel(object):
         self.sliceLimits = [float(x) for x in sliceLimits]
         self.PP2IMTransformation = self.write_T_Patient2Pixels()
         self.IM2PPTransformation = self.write_T_Pixels2Patient()
-        # print(self.PP2IMTransformation)
-        # print(self.IM2PPTransformation)
 
         # CONTOUR INITIALIZATION
         if contFile is not None:
@@ -85,8 +83,6 @@ class DicomDataModel(object):
         self.sliceLocationList = sorted(TempSliceLocationList)
         self.sliceLoc2Ind = dict(zip(self.sliceLocationList, sliceIndList))
         self.sliceInd2Loc = dict(zip(sliceIndList, self.sliceLocationList))
-
-        # print(self.sliceLocationList)
 
         for ind, sliceLoc in enumerate(self.sliceLocationList):
             index = UnsortedSliceLoc2Ind[sliceLoc]
@@ -165,7 +161,6 @@ class DicomDataModel(object):
 
         for ind, thisROI in enumerate(di.ROIContourSequence):
             thisName = contourNames[ind].ROIName
-            # print("adding contour: ", thisName)
 
             # scan through colors to match with anatomical part
             thisCol = 'w'
@@ -182,9 +177,9 @@ class DicomDataModel(object):
                                                    ROIindex=ind,
                                                    colz=thisCol,
                                                    UID_SLD=uidSLD)
-            except AttributeError as atberr:
+            except AttributeError as aterr:
                 print("No contour data in %s" % thisName)
-                print(atberr)
+                print(aterr)
 
         return contourObjs
 
@@ -300,6 +295,7 @@ def FormatForDicom(contourData):
     stringData = [str(item) for item in flatData]
     return stringData
 
+
 def organizeDirectory(directory):
     # Sift through directory to get list of files, return: imFile contFile
     # Expecting to see two dirs: one for Images, one for Contours
@@ -319,10 +315,10 @@ def organizeDirectory(directory):
             if '_rtst_' in thisDir.lower():
                 print('Contours directory: %s' % thisDir)
                 contDir = os.path.join(root, thisDir)
-            elif '_us_' in thisDir.lower():
+            elif '_us_' in thisDir.lower() or thisDir == "US":
                 print('Ultrasound directory: %s' % thisDir)
                 imDir = os.path.join(root, thisDir)
-            elif '_mr_' in thisDir.lower():
+            elif '_mr_' in thisDir.lower() or thisDir == "MR":
                 print('MRI directory: %s' % thisDir)
                 imDir = os.path.join(root, thisDir)
             else:

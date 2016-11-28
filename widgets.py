@@ -2,10 +2,11 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
                          QSlider, QLabel, QPushButton, QFileDialog)
-from pyqtgraph import PlotWidget, ImageItem
+from pyqtgraph import PlotWidget, ImageItem, mkPen, LegendItem
 import numpy as np
 
 from dicomModule.dataModels import *
+from dicomModule.ContourDataItem import contourPlotModel
 import sys
 
 
@@ -16,33 +17,29 @@ class dicomViewWidget(QWidget):
      """
 
     def __init__(self, parent=None, directory=None, **kwargs):
-
         super().__init__(parent=parent)
+
         self.showingImage = False
         self.new_slice_to_show = True
         self.thisSliceLoc = 0
+        self.startingDirectory = "C:\\"  # Where to begin dicom im search
         self.thisSliceIndex = 0
         self.T_MRI_Ref = np.eye(4)
         self.T_patient_pixels = np.eye(4)
-        self.viewToolsLayout = depthLayout = QVBoxLayout()
-        ImAxes = self.createAxes()
-        self.createControls()
-        depthLayout.addWidget(self.dirFinder, 0, Qt.AlignCenter)
-        depthLayout.addWidget(self.depthGauge, 0, Qt.AlignCenter)
-        depthLayout.addWidget(self.sliceSlider, 1, Qt.AlignHCenter)
-        depthLayout.addWidget(self.sliceIndGauge, 0, Qt.AlignCenter)
-        centralLayout = QHBoxLayout()
-        centralLayout.addWidget(ImAxes)
-        centralLayout.addLayout(depthLayout)
-        self.setLayout(centralLayout)
-        self.ImAxes = ImAxes
+        self.PlottableContours = {}
 
-        if directory is not None:
-            self.addImages(directory)
+        self.createControls()
+        self.createAxes()
+
+        centralLayout = QHBoxLayout()
+        centralLayout.addWidget(self.ImAxes)
+        centralLayout.addLayout(self.viewToolsLayout)
+        self.setLayout(centralLayout)
+
 
     def createAxes(self):
-        ImAxes = PlotWidget()
-        self.myPlot = myPlot = ImAxes.getPlotItem()
+        ImAxes = self.ImAxes = self.getImAxesObject()
+        myPlot = self.myPlot = ImAxes.getPlotItem()
         myPlot.showAxis('bottom', False)
         myPlot.showAxis('left', False)
         myView = myPlot.getViewBox()
@@ -50,11 +47,13 @@ class dicomViewWidget(QWidget):
         myView.invertY(True)
         ImAxes.setRange(xRange=(-200, 200))
         ImAxes.setBackground('#C0C0C0')
-        self.PlottableImage = ImageItem(pxMode=False)
-        self.myPlot.addItem(self.PlottableImage)
-        return ImAxes
+
+    def getImAxesObject(self):
+        return PlotWidget()
 
     def createControls(self):
+        self.viewToolsLayout = depthLayout = QVBoxLayout()
+
         self.sliceSlider = QSlider()
         self.sliceSlider.setEnabled(True)
         self.sliceSlider.valueChanged.connect(self.sliderChanged)
@@ -64,18 +63,24 @@ class dicomViewWidget(QWidget):
         self.dirFinder = QPushButton("Select Images")
         self.dirFinder.clicked.connect(self.selectImages)
 
+        depthLayout.addWidget(self.dirFinder, 0, Qt.AlignCenter)
+        depthLayout.addWidget(self.depthGauge, 0, Qt.AlignCenter)
+        depthLayout.addWidget(self.sliceSlider, 1, Qt.AlignHCenter)
+        depthLayout.addWidget(self.sliceIndGauge, 0, Qt.AlignCenter)
+
     def selectImages(self):
-        print("dirFinder Clicked")
         dicomDir = QFileDialog.getExistingDirectory(
             parent=self,
             caption="Select Dicom Directory",
-            directory="P:\\USERS\\PUBLIC\\Mark Semple\\EM Navigation\\Practice DICOM Sets\\EM test")
+            directory=self.startingDirectory)
         if dicomDir is '':
-            pass
             return
         self.addImages(dicomDir)
 
     def addImages(self, diDir):
+        self.ClearAxes()
+        self.PlottableImage = ImageItem(pxMode=False)
+        self.myPlot.addItem(self.PlottableImage)
         try:
             self.ImVolume = DicomDataModel(diDir=diDir)
         except Exception as e:
@@ -83,10 +88,26 @@ class dicomViewWidget(QWidget):
             return
         self.T_patient_pixels = self.ImVolume.PP2IMTransformation
         self.PlottableImage.setImage(self.ImVolume.pixelData[:, :, 0].T)
+        if self.ImVolume.contourObjs:
+            self.createContourPlottables(contourDict=self.ImVolume.contourObjs)
         self.showingImage = True
         self.ImAxes.autoRange()
         self.configureSliceSlider()
         self.updateScene(0)
+
+    def createContourPlottables(self, contourDict):
+        """ create/store dict of 'active contour objects' for plotting
+        also make, but don't store list of projections of contours """
+        for contour in contourDict.values():
+            self.PlottableContours[contour.contourName] = []
+            for loops in range(contour.NLoops):
+                pen = mkPen(color=contour.colz, width=2)
+                contourLine = contourPlotModel(contourName=contour.contourName,
+                                               pen=pen, symbol=None)
+                self.myPlot.addItem(contourLine)
+                self.PlottableContours[contour.contourName].append(contourLine)
+
+        self.populateLegend()
 
     def configureSliceSlider(self):
         dicomMin = min(self.ImVolume.sliceLoc2Ind.keys())
@@ -96,19 +117,6 @@ class dicomViewWidget(QWidget):
         self.sliceSlider.setRange(dicomMin, dicomMax)
         self.sliceSlider.setValue(dicomMin)
         self.sliderChanged()
-
-    def updateScene(self, sliceInd):
-        if not self.showingImage:
-            return
-        try:
-            sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
-        except KeyError as e:
-            print(e)
-        # update Image
-        newImage = self.ImVolume.pixelData[:, :, sliceInd].T
-        self.PlottableImage.setImage(image=newImage, autoDownsample=True)
-        # update Contours
-        # self.ContourData2Plottable(self.ImVolume.contourObjs, sliceInd)
 
     def sliderChanged(self):
         if not self.showingImage:
@@ -127,6 +135,40 @@ class dicomViewWidget(QWidget):
         self.thisSliceLoc = newSliceLoc
         self.updateScene(newSliceLoc)
 
+    def updateScene(self, sliceInd):
+        if not self.showingImage:
+            return
+
+        try:
+            sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
+        except KeyError as e:
+            print(e)
+
+        self.updateImage(sliceInd)
+        self.updateContours(sliceInd)
+
+    # def updateScene(self, sliceInd):
+    #     try:
+    #         sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
+    #     except KeyError as e:
+    #         print(e)
+    #     # update Image
+    #     newImage = self.ImVolume.pixelData[:, :, sliceInd].T
+    #     self.PlottableImage.setImage(image=newImage, autoDownsample=True)
+    #     # update Contours
+    #     self.ContourData2Plottable(self.ImVolume.contourObjs, sliceInd)
+    #     for contour in list(self.activeContours.values())[0]:
+    #         contour.setDefaultData()
+
+    def updateImage(self, sliceInd):
+        newImage = self.ImVolume.pixelData[:, :, sliceInd].T
+        self.PlottableImage.setImage(image=newImage, autoDownsample=True)
+
+    def updateContours(self, sliceInd):
+        self.ContourData2Plottable(modelDict=self.ImVolume.contourObjs,
+                                   plottableDict=self.PlottableContours,
+                                   sliceInd=sliceInd)
+
     def updateGauges(self, newSliderVal=0):
         newSliderVal = self.dispView.sliceSlider.value()
         newSliceLocation = min(self.ImVolume.sliceLoc2Ind.keys(),
@@ -134,6 +176,73 @@ class dicomViewWidget(QWidget):
         newSliceIndex = self.ImVolume.sliceLoc2Ind[newSliceLocation]
         self.thisSliceIndex = newSliceIndex
         self.thisSliceLoc = newSliceLocation
+
+    def ContourData2Plottable(self, modelDict, plottableDict, sliceInd):
+        """ update active contour objects """
+        sliceLoc = self.thisSliceLoc
+
+        for contour in modelDict:
+            thisDataModel = modelDict[contour]
+            thisPlottable = plottableDict[contour]
+
+            for loop in range(thisDataModel.NLoops):
+                if sliceLoc in thisDataModel.slice2ContCoords:
+                    pts = thisDataModel.slice2ContCoords[sliceLoc][loop]
+                    ptShape = pts.shape
+                    if ptShape[1] == 3:  # if a bunch of row-vectors:
+                        pts = pts.T
+                        ptShape = pts.shape
+                    placeholder = np.ones((4, ptShape[1]))
+                    placeholder[:-1, :] = pts
+                    pts = placeholder
+                    pts = self.ImVolume.PP2IMTransformation.dot(pts)
+                    xs = pts[:][0]
+                    ys = pts[:][1]
+                    zs = pts[:][2]
+                else:
+                    xs = []
+                    ys = []
+                    zs = []
+
+                thisPlottable[loop].setData(x=xs, y=ys, z=zs)
+    #             thesePlottables[loop].setDefaultData()
+
+    def ContourPlottable2Data(self):
+        contourPlottable = self.ImAxes.activeContourPlottable
+        pts_ = np.asarray(contourPlottable.getData()).T
+        temp = np.ones([len(pts_[:, 1]), 4])
+        temp[:, 0:2] = pts_
+        temp[:, 2] = self.thisSliceIndex
+        pts = self.ImVolume.IM2PPTransformation.dot(temp.T).T
+        for contour in self.ImVolume.contourObjs.values():
+            if contour.contourName == contourPlottable.contourName:
+                contour.slice2ContCoords[self.thisSliceLoc][0] = pts[:, 0:3]
+
+    # def ContourPlottable2Data(self):
+    #     contourPlottable = self.ImAxes.activeContour
+    #     contourPlottable.setDefaultData()
+    #     pts_ = np.asarray(contourPlottable.getData()).T
+    #     temp = np.ones([len(pts_[:, 1]), 4])
+    #     temp[:, 0:2] = pts_
+    #     temp[:, 2] = self.thisSliceIndex
+    #     pts = self.ImVolume.IM2PPTransformation.dot(temp.T).T
+    #     try:
+    #         for cont in self.ImVolume.contourObjs.values():
+    #             if cont.contourName == contourPlottable.contourName:
+    #                 cont.slice2ContCoords[self.thisSliceLoc][0] = pts[:, 0:3]
+    #     except KeyError as ke:
+    #         pass
+
+    def populateLegend(self):
+        legend = LegendItem()
+        legend.setParentItem(self.ImAxes.getPlotItem())
+        for contourName in self.PlottableContours:
+            thisLine = self.PlottableContours[contourName][0]
+            legend.addItem(item=thisLine,
+                           name=('   ' + contourName))
+
+    def ClearAxes(self):
+        self.myPlot.clear()
 
     def closeEvent(self, event):
         print("Closing the app")
