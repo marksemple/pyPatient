@@ -33,6 +33,9 @@ class DicomDataModel(object):
         self.contDir = contDir
         self.contFile = contFile
 
+        print("Images at: %s" % self.imDir)
+        print("Contours in: %s" % self.contFile)
+
         # VOLUME INITIALIZATION
         self.staticProperties = getStaticDicomSizeProps(imFileList[0])
         self.setVaryingDicomSizeProps(imFileList)
@@ -88,17 +91,22 @@ class DicomDataModel(object):
             index = UnsortedSliceLoc2Ind[sliceLoc]
             self.pixelData[:, :, ind] = TempPixelData[:, :, index]
 
+        print(self.sliceLocationList)
+
         # PUT IN DICOM FILE
     def write_T_Patient2Pixels(self):
         """ Transformaton of Patient Coordinate to Pixel Indices
             """
         sliceLoc0 = self.sliceInd2Loc[0]
+        sliceSpan = self.sliceInd2Loc[1] - self.sliceInd2Loc[0]
 
         # ROTATION
         temp = np.eye(4)
         R = self.staticProperties['ImageOrientationPatient']
-        temp[0:3, 0:3] = R.T
+        # temp[0:3, 0:3] = R.T  # HFS
+        temp[0:3, 0:3] = R  # FFS
         Rotation = temp
+        print("pat2pix R = \n", Rotation)
 
         # TRANSLATION
         temp = np.eye(4)
@@ -111,7 +119,7 @@ class DicomDataModel(object):
         scales = self.staticProperties['PixelSpacing']
         scaleMat = np.array([[1 / scales[0], 0, 0],
                              [0, 1 / scales[1], 0],
-                             [0, 0, 1]])
+                             [0, 0, 1 / sliceSpan]])
         temp[0:3, 0:3] = scaleMat
         Scaling = temp
 
@@ -121,12 +129,16 @@ class DicomDataModel(object):
         """ Transformation of Pixel Indices to Patient Coordinates
             Inverse of Above Transformation """
         sliceLoc0 = self.sliceInd2Loc[0]
+        sliceSpan = self.sliceInd2Loc[1] - self.sliceInd2Loc[0]
 
         # ROTATION
         temp = np.eye(4)
         R = self.staticProperties['ImageOrientationPatient']
-        temp[0:3, 0:3] = R
+        # temp[0:3, 0:3] = R  # HFS
+        temp[0:3, 0:3] = R.T  # FFS
         Rotation = temp
+        # Rotation = np.eye(4)
+        print("pix2pat R = \n", Rotation)
 
         # TRANSLATION
         temp = np.eye(4)
@@ -139,11 +151,12 @@ class DicomDataModel(object):
         scales = self.staticProperties['PixelSpacing']
         scaleMat = np.array([[scales[0], 0, 0],
                              [0, scales[1], 0],
-                             [0, 0, 1]])
+                             [0, 0, sliceSpan]])
         temp[0:3, 0:3] = scaleMat
         Scaling = temp
         # return Scaling.dot(Rotation).dot(Translation)
-        return Translation.dot(Rotation).dot(Scaling)
+        # return Translation.dot(Rotation).dot(Scaling)
+        return np.eye(4)
 
     def getContours(self, contFile):
         """ One Contour Object for each ROI in the structure set """
@@ -222,6 +235,13 @@ class contourObj(object):
             thisData = np.asarray(thisSlice.ContourData)
             howMany = len(thisData)
             TransformedConDat = np.reshape(thisData, (howMany / 3, 3))
+
+            # print(TransformedConDat)
+
+            # replicate contour first point in last point (to close loop)
+            TransformedConDat = np.append(TransformedConDat,
+                                          [TransformedConDat[0, :]],
+                                          0)
 
             try:
                 contourNumber = thisSlice.ContourNumber
@@ -363,10 +383,20 @@ def getDicomFileData(filePath):
     try:
         imageOrientation = getImOrientation(di)
         imPos = np.array([float(x) for x in di.ImagePositionPatient])
+
+        # try:
+        #     if di.PatientPosition == "FFS":
+        #         di.PatientPosition = "HFS"
+        #         print("overwriting patient orientation")
+        #         pydicom.write_file(filePath, di)
+        # except:
+        #     pass
+
         try:
             sliceLoc = round(1000 * di.SliceLocation) / 1000
         except:
             sliceLoc = round(1000 * imageOrientation.dot(imPos[2])) / 1000
+
         pixelData = np.asarray(di.pixel_array)
         thisDiDict = {'UID': di.SOPInstanceUID,
                       'ImagePositionPatient': imPos,
@@ -384,9 +414,14 @@ def getStaticDicomSizeProps(imFile):
     di = pydicom.read_file(imFile)
     staticProps = {}
     staticProps['ImageOrientationPatient'] = getImOrientation(di)
+    print("IOP: ", staticProps['ImageOrientationPatient'])
     staticProps['Rows'] = di.Rows
     staticProps['Cols'] = di.Columns
     staticProps['PixelSpacing'] = [float(pxsp) for pxsp in di.PixelSpacing]
+    try:
+        staticProps['PatientPosition'] = di.PatientPosition
+    except:
+        staticProps['PatientPosition'] = ''
     return staticProps
 
 
@@ -419,15 +454,3 @@ def getProstateLimits(contourDict):
 
 if __name__ == "__main__":
     pass
-
-    myPath = r"P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)"
-    dcm = DicomDataModel(diDir=myPath)
-
-    # myPoint = np.array([1, 2, 3, 1])
-    # myPt2 = dcm.PP2IMTransformation.dot(myPoint)
-    # myPt3 = dcm.IM2PPTransformation.dot(myPt2)
-
-    # slks = list(dcm.contourObjs['prostate'].slice2ContCoords.keys())
-    # contData = dcm.contourObjs['prostate'].slice2ContCoords[slks[0]][0]
-    # stringOut = FormatForDicom(contData)
-    # print(stringOut)

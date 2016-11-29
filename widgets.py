@@ -204,6 +204,8 @@ class dicomViewWidget(QWidget):
                     ys = []
                     zs = []
 
+                # print(zs)
+
                 thisPlottable[loop].setData(x=xs, y=ys, z=zs)
     #             thesePlottables[loop].setDefaultData()
 
