@@ -20,22 +20,14 @@ class dicomViewWidget(QWidget):
         super().__init__(parent=parent)
 
         self.parent = parent
-
         self.showingImage = False
         self.new_slice_to_show = True
-        self.imagesAdded = False
-
         self.startingDirectory = "C:\\"  # Where to begin dicom im search
-
-        self.thisSliceLoc = 0
-        self.thisSliceIndex = 0
-
-        self.T_MRI_Ref = np.eye(4)
-        self.T_patient_pixels = np.eye(4)
-        self.PlottableContours = {}
 
         self.createControls()
         self.createAxes()
+
+        self.initializeModel()
 
         centralLayout = QHBoxLayout()
         centralLayout.addWidget(self.ImAxes)
@@ -43,8 +35,7 @@ class dicomViewWidget(QWidget):
         self.setLayout(centralLayout)
 
         if directory is not None:
-            self.imagesAdded = True
-            self.addImages(diDir)
+            self.addImages(directory)
 
     def createAxes(self):
         ImAxes = self.ImAxes = self.getImAxesObject()
@@ -56,13 +47,14 @@ class dicomViewWidget(QWidget):
         myView.invertY(True)
         ImAxes.setRange(xRange=(-200, 200))
         ImAxes.setBackground('#C0C0C0')
+        legend = self.legend = LegendItem()
+        legend.setParentItem(myPlot)
 
     def getImAxesObject(self):
         return PlotWidget()
 
     def createControls(self):
         self.viewToolsLayout = depthLayout = QVBoxLayout()
-
         self.sliceSlider = QSlider()
         self.sliceSlider.setEnabled(True)
         self.sliceSlider.valueChanged.connect(self.sliderChanged)
@@ -77,6 +69,15 @@ class dicomViewWidget(QWidget):
         depthLayout.addWidget(self.sliceSlider, 1, Qt.AlignHCenter)
         depthLayout.addWidget(self.sliceIndGauge, 0, Qt.AlignCenter)
 
+    def initializeModel(self):
+        self.thisSliceLoc = 0
+        self.thisSliceIndex = 0
+        self.T_MRI_Ref = np.eye(4)
+        self.T_patient_pixels = np.eye(4)
+        self.PlottableContours = {}
+        self.sliceIndGauge.setText("Slice 0 / 0")
+        self.depthGauge.setText("0.0 mm")
+
     def selectImages(self):
         dicomDir = QFileDialog.getExistingDirectory(
             parent=self,
@@ -86,35 +87,25 @@ class dicomViewWidget(QWidget):
         if dicomDir is '':
             return
 
-        if not self.imagesAdded:
-            self.addImages(dicomDir)
-
-        else:
-            self.__init__(parent=parent,
-                          directory=dicomDir)
-
-    def refreshModel(self):
-        pass
+        self.addImages(diDir=dicomDir)
 
     def setupAddImages(self):
         self.dirFinder.setText("Select Images")
         self.dirFinder.clicked.disconnect()
         self.dirFinder.clicked.connect(self.selectImages)
 
-    def setupClearImages(self):
-        self.dirFinder.setText("Clear Data")
-        self.dirFinder.clicked.disconnect()
-        self.dirFinder.clicked.connect(self.ClearAxes)
-
     def addImages(self, diDir):
-        self.ClearAxes()
-        self.PlottableImage = ImageItem(pxMode=False)
-        self.myPlot.addItem(self.PlottableImage)
         try:
             self.ImVolume = DicomDataModel(diDir=diDir)
         except Exception as e:
             print(e)
             return
+
+        self.initializeModel()  # slices, transforms, etc.
+        self.PlottableImage = ImageItem(pxMode=False)
+        self.PlottableImage.setZValue(-1)  # put at background
+        self.myPlot.addItem(self.PlottableImage)
+
         self.T_patient_pixels = self.ImVolume.PP2IMTransformation
         self.PlottableImage.setImage(self.ImVolume.pixelData[:, :, 0].T)
         if self.ImVolume.contourObjs:
@@ -124,14 +115,20 @@ class dicomViewWidget(QWidget):
         self.configureSliceSlider()
         self.updateScene(0)
         self.setupClearImages()
-        print("do the clear images")
 
-    def ClearAxes(self):
+    def setupClearImages(self):
+        self.dirFinder.setText("Clear Data")
+        self.dirFinder.clicked.disconnect()
+        self.dirFinder.clicked.connect(self.clearImages)
+
+    def clearImages(self):
         self.myPlot.clear()
+        # self.myPlot.removeItem(self.PlottableImage)
+        self.initializeModel()
+
+        self.showingImage = False
+        self.clearLegend(self.legend)
         self.setupAddImages()
-        # GET RID OF LEGEND, TOO
-        self.__init__(parent=parent,
-              directory=None)
 
     def createContourPlottables(self, contourDict):
         """ create/store dict of 'active contour objects' for plotting
@@ -144,8 +141,7 @@ class dicomViewWidget(QWidget):
                                                pen=pen, symbol=None)
                 self.myPlot.addItem(contourLine)
                 self.PlottableContours[contour.contourName].append(contourLine)
-
-        self.populateLegend()
+        self.populateLegend(self.legend)
 
     def configureSliceSlider(self):
         dicomMin = min(self.ImVolume.sliceLoc2Ind.keys())
@@ -273,13 +269,17 @@ class dicomViewWidget(QWidget):
     #     except KeyError as ke:
     #         pass
 
-    def populateLegend(self):
-        legend = LegendItem()
-        legend.setParentItem(self.ImAxes.getPlotItem())
+    def populateLegend(self, legend):
         for contourName in self.PlottableContours:
             thisLine = self.PlottableContours[contourName][0]
             legend.addItem(item=thisLine,
                            name=('   ' + contourName))
+
+    def clearLegend(self, legend):
+        legend.items = []
+        while legend.layout.count() > 0:
+            legend.layout.removeAt(0)
+        self.myPlot.removeItem(legend)
 
     def closeEvent(self, event):
         print("Closing the app")
@@ -289,7 +289,7 @@ class dicomViewWidget(QWidget):
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)
-    form = dicomViewWidget()
+    form = dicomViewWidget(directory=r"C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\DeformableRegistration\CLEAN - Sample Data 10-02-2016\MRtemp")
     app.setActiveWindow(form)
     form.show()
 

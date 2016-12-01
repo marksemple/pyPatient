@@ -78,29 +78,6 @@ class contourPlotModel(PlotDataItem):
         self.setData(x=tempData[:, 0], y=tempData[:, 1])
 
 
-class MarkPGPlotCircle(PlotDataItem):
-    def __init__(self, color='w', centre=(0, 0),
-                 radius=1, res=80, penWidth=2, *args, **kwargs):
-        super(MarkPGPlotCircle, self).__init__(*args, **kwargs)
-        self.x0 = np.array([np.cos(i) for i in np.linspace(0, 2 * np.pi, res)])
-        self.y0 = np.array([np.sin(i) for i in np.linspace(0, 2 * np.pi, res)])
-        self.setCircleData(centre, radius)
-        self.myPen = mkPen(color=color, width=penWidth)
-        self.setPen(self.myPen)
-
-    def setCircleData(self, centre=(0, 0), radius=1, *args, **kwargs):
-        self.dataPts = self.transformData(self, centre, radius)
-        super(MarkPGPlotCircle, self).setData(x=self.dataPts[:, 0],
-                                              y=self.dataPts[:, 1],
-                                              *args, **kwargs)
-
-    @staticmethod
-    def transformData(self, centre, radius):
-        ptList = np.array([radius * self.x0 + centre[0],
-                           radius * self.y0 + centre[1]])
-        return ptList.T
-
-
 def PolygonToPlotItem(polygon):
     npPoly = np.array(polygon.exterior)
     return npPoly[:, 0], npPoly[:, 1]

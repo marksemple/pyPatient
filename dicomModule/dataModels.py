@@ -103,10 +103,10 @@ class DicomDataModel(object):
         # ROTATION
         temp = np.eye(4)
         R = self.staticProperties['ImageOrientationPatient']
-        # temp[0:3, 0:3] = R.T  # HFS
-        temp[0:3, 0:3] = R  # FFS
+        temp[0:3, 0:3] = R.T  # HFS
+        # temp[0:3, 0:3] = R  # FFS
         Rotation = temp
-        print("pat2pix R = \n", Rotation)
+        # print("pat2pix R = \n", Rotation)
 
         # TRANSLATION
         temp = np.eye(4)
@@ -134,11 +134,11 @@ class DicomDataModel(object):
         # ROTATION
         temp = np.eye(4)
         R = self.staticProperties['ImageOrientationPatient']
-        # temp[0:3, 0:3] = R  # HFS
-        temp[0:3, 0:3] = R.T  # FFS
+        temp[0:3, 0:3] = R  # HFS
+        # temp[0:3, 0:3] = R.T  # FFS
         Rotation = temp
         # Rotation = np.eye(4)
-        print("pix2pat R = \n", Rotation)
+        # print("pix2pat R = \n", Rotation)
 
         # TRANSLATION
         temp = np.eye(4)
@@ -414,7 +414,7 @@ def getStaticDicomSizeProps(imFile):
     di = pydicom.read_file(imFile)
     staticProps = {}
     staticProps['ImageOrientationPatient'] = getImOrientation(di)
-    print("IOP: ", staticProps['ImageOrientationPatient'])
+    # print("IOP: ", staticProps['ImageOrientationPatient'])
     staticProps['Rows'] = di.Rows
     staticProps['Cols'] = di.Columns
     staticProps['PixelSpacing'] = [float(pxsp) for pxsp in di.PixelSpacing]
