@@ -19,11 +19,17 @@ class dicomViewWidget(QWidget):
     def __init__(self, parent=None, directory=None, **kwargs):
         super().__init__(parent=parent)
 
+        self.parent = parent
+
         self.showingImage = False
         self.new_slice_to_show = True
-        self.thisSliceLoc = 0
+        self.imagesAdded = False
+
         self.startingDirectory = "C:\\"  # Where to begin dicom im search
+
+        self.thisSliceLoc = 0
         self.thisSliceIndex = 0
+
         self.T_MRI_Ref = np.eye(4)
         self.T_patient_pixels = np.eye(4)
         self.PlottableContours = {}
@@ -36,6 +42,9 @@ class dicomViewWidget(QWidget):
         centralLayout.addLayout(self.viewToolsLayout)
         self.setLayout(centralLayout)
 
+        if directory is not None:
+            self.imagesAdded = True
+            self.addImages(diDir)
 
     def createAxes(self):
         ImAxes = self.ImAxes = self.getImAxesObject()
@@ -73,9 +82,29 @@ class dicomViewWidget(QWidget):
             parent=self,
             caption="Select Dicom Directory",
             directory=self.startingDirectory)
+
         if dicomDir is '':
             return
-        self.addImages(dicomDir)
+
+        if not self.imagesAdded:
+            self.addImages(dicomDir)
+
+        else:
+            self.__init__(parent=parent,
+                          directory=dicomDir)
+
+    def refreshModel(self):
+        pass
+
+    def setupAddImages(self):
+        self.dirFinder.setText("Select Images")
+        self.dirFinder.clicked.disconnect()
+        self.dirFinder.clicked.connect(self.selectImages)
+
+    def setupClearImages(self):
+        self.dirFinder.setText("Clear Data")
+        self.dirFinder.clicked.disconnect()
+        self.dirFinder.clicked.connect(self.ClearAxes)
 
     def addImages(self, diDir):
         self.ClearAxes()
@@ -94,6 +123,15 @@ class dicomViewWidget(QWidget):
         self.ImAxes.autoRange()
         self.configureSliceSlider()
         self.updateScene(0)
+        self.setupClearImages()
+        print("do the clear images")
+
+    def ClearAxes(self):
+        self.myPlot.clear()
+        self.setupAddImages()
+        # GET RID OF LEGEND, TOO
+        self.__init__(parent=parent,
+              directory=None)
 
     def createContourPlottables(self, contourDict):
         """ create/store dict of 'active contour objects' for plotting
@@ -242,9 +280,6 @@ class dicomViewWidget(QWidget):
             thisLine = self.PlottableContours[contourName][0]
             legend.addItem(item=thisLine,
                            name=('   ' + contourName))
-
-    def ClearAxes(self):
-        self.myPlot.clear()
 
     def closeEvent(self, event):
         print("Closing the app")
