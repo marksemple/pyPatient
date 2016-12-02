@@ -103,8 +103,8 @@ class DicomDataModel(object):
         # ROTATION
         temp = np.eye(4)
         R = self.staticProperties['ImageOrientationPatient']
-        temp[0:3, 0:3] = R.T  # HFS
-        # temp[0:3, 0:3] = R  # FFS
+        # temp[0:3, 0:3] = R.T  # HFS
+        temp[0:3, 0:3] = R  # FFS
         Rotation = temp
         # print("pat2pix R = \n", Rotation)
 
@@ -134,8 +134,9 @@ class DicomDataModel(object):
         # ROTATION
         temp = np.eye(4)
         R = self.staticProperties['ImageOrientationPatient']
-        temp[0:3, 0:3] = R  # HFS
-        # temp[0:3, 0:3] = R.T  # FFS
+        # if self.staticProperties[
+        # temp[0:3, 0:3] = R  # HFS
+        temp[0:3, 0:3] = R.T  # FFS
         Rotation = temp
         # Rotation = np.eye(4)
         # print("pix2pat R = \n", Rotation)
@@ -384,9 +385,6 @@ def getDicomFileData(filePath):
         imageOrientation = getImOrientation(di)
         imPos = np.array([float(x) for x in di.ImagePositionPatient])
 
-        # try:
-        #     if di.PatientPosition == "FFS":
-        #         di.PatientPosition = "HFS"
         #         print("overwriting patient orientation")
         #         pydicom.write_file(filePath, di)
         # except:
@@ -429,6 +427,10 @@ def getImOrientation(di):
     # get the Volume Rotation from file (remains const)
     if isinstance(di, str):
         di = pydicom.read_file(di)
+    try:
+        patPos = di.PatientPosition
+    except AttributeError as AE:
+        patPos = None
     imOr = di.ImageOrientationPatient  # Field exists in both US and MR
     v1Str = imOr[0:3]
     v2Str = imOr[3:]
@@ -437,8 +439,14 @@ def getImOrientation(di):
     V2 = np.array([float(x) for x in v2Str])
     V2 = V2 / np.linalg.norm(V2)
     V3 = np.cross(V1, V2)
-    R = np.array([V1, V2, V3])
-    return R  # a 3x3 Rotation matrix
+    R = np.array([V1, V2, V3])  # a 3x3 Rotation matrix
+
+    if patPos == "FFS":
+        return R
+    if patPos == "HFS":  # ims taken Backwards!
+        return R.T
+
+    return R
 
 
 def getProstateLimits(contourDict):
