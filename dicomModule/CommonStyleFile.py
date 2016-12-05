@@ -99,11 +99,11 @@ QLabel {
     padding: 0px;
     font-size: 10pt;
     min-width: 80px;
+    max-width: 300px;
 }
 QLabel:selected {
     border-color: accentCol
 }
-
 
 
 QSlider {
@@ -127,6 +127,7 @@ QSlider::handle {
     margin-right: -6px;
 }
 
+
 QComboBox::down-arrow {
 image: url(./res/dropdown.png);
 }
@@ -135,6 +136,7 @@ border: 1px solid accentCol;
 border-radius: 2px;
 background: lightAccent;
 }
+
 
 QTabWidget::pane {
     border: 2px solid accentCol}

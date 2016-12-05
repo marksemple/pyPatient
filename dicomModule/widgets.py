@@ -1,7 +1,8 @@
 # Third-party Modules
 from PyQt4 import QtCore
 from PyQt4.QtGui import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
-                         QSlider, QLabel, QPushButton, QFileDialog)
+                         QSlider, QLabel, QPushButton, QFileDialog,
+                         QDialogButtonBox, QMessageBox, QIcon)
 from pyqtgraph import PlotWidget, ImageItem, mkPen, LegendItem
 import numpy as np
 
@@ -26,10 +27,6 @@ class dicomViewWidget(QWidget):
 
         self.createControls()
         self.createAxes()
-
-        self.PlottableImage = ImageItem(pxMode=False)
-        self.PlottableImage.setZValue(-1)  # put at background
-        self.myPlot.addItem(self.PlottableImage)
 
         self.initializeModel()
 
@@ -105,7 +102,12 @@ class dicomViewWidget(QWidget):
         self.initializeModel()  # slices, transforms, etc.
 
         self.T_patient_pixels = self.ImVolume.PP2IMTransformation
+
+        self.PlottableImage = ImageItem(pxMode=False)
+        self.PlottableImage.setZValue(-1)  # put at background
+        self.myPlot.addItem(self.PlottableImage)
         self.PlottableImage.setImage(self.ImVolume.pixelData[:, :, 0].T)
+
         if self.ImVolume.contourObjs:
             self.createContourPlottables(contourDict=self.ImVolume.contourObjs)
         self.showingImage = True
@@ -117,13 +119,25 @@ class dicomViewWidget(QWidget):
     def setupClearImages(self):
         self.dirFinder.setText("Clear Data")
         self.dirFinder.clicked.disconnect()
-        self.dirFinder.clicked.connect(self.clearImages)
+        self.dirFinder.clicked.connect(self.clearImagesWarning)
+
+    def clearImagesWarning(self, **kwargs):
+        qbb = QMessageBox(**kwargs)
+        # print(WarnIcon)
+        # qbb.setIcon(QIcon(WarnIcon))
+        qbb.setText("Are you sure you want to clear data?")
+        qbb.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        resp = qbb.exec_()
+        # print("response:", resp)
+        if resp == 16384:
+            self.clearImages()
+        else:
+            pass
 
     def clearImages(self):
         self.myPlot.clear()
         # self.myPlot.removeItem(self.PlottableImage)
         self.initializeModel()
-
         self.showingImage = False
         self.clearLegend(self.legend)
         self.setupAddImages()
@@ -165,16 +179,17 @@ class dicomViewWidget(QWidget):
             "Slice {}/{}".format(newSliceIndex, maxInd))
         self.thisSliceIndex = newSliceIndex
         self.thisSliceLoc = newSliceLoc
-        self.updateScene(newSliceLoc)
+        # print("Slice: ", newSliceIndex)
+        self.updateScene(sliceInd=newSliceIndex)
 
     def updateScene(self, sliceInd):
         if not self.showingImage:
             return
 
-        try:
-            sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
-        except KeyError as e:
-            print(e)
+        # try:
+        #     sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
+        # except KeyError as e:
+        #     print(e)
 
         self.updateImage(sliceInd)
         self.updateContours(sliceInd)
