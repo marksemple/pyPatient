@@ -78,6 +78,8 @@ class contourPlotModel(PlotDataItem):
         self.setData(x=tempData[:, 0], y=tempData[:, 1])
 
 
+
+
 def PolygonToPlotItem(polygon):
     npPoly = np.array(polygon.exterior)
     return npPoly[:, 0], npPoly[:, 1]

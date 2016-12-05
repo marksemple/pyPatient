@@ -9,16 +9,15 @@ import sys
 import os
 
 # Third-Party Modules
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt4 import QtCore, QtGui
 
 
-class DicomGUI(QMainWindow):
+class DicomGUI(QtGui.QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.createMenu()
         self.createMainFrame()
+        self.createMenu()
         self.createStatusBar()
         self.applyStyling()
 
@@ -51,8 +50,8 @@ class DicomGUI(QMainWindow):
         self.statusBar()
 
     def createMenu(self):
-        self.toolbar = QToolBar()
-        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
+        self.toolbar = QtGui.QToolBar()
+        self.addToolBar(QtCore.Qt.TopToolBarArea, self.toolbar)
 
         connect_action = self.mkAction('&Connect',
                                        shortcut='Ctrl+C',
@@ -90,9 +89,10 @@ class DicomGUI(QMainWindow):
                                      tip='About')
 
         """ ADD TO MENUBAR """
-        file_menu = self.menuBar().addMenu("&File")
-        settings_menu = self.menuBar().addMenu("&Settings")
-        help_menu = self.menuBar().addMenu("&Help")
+        file_menu = self.file_menu = self.menuBar().addMenu("File")
+        # view_menu = self.view_menu = self.menuBar().addMenu("View")
+        settings_menu = self.settings_menu = self.menuBar().addMenu("Settings")
+        help_menu = self.help_menu = self.menuBar().addMenu("Help")
 
         add_actions(file_menu,
                     (connect_action,
@@ -122,7 +122,7 @@ class DicomGUI(QMainWindow):
         self.about_action = about_action
         self.exit_action = exit_action
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def stbar(self, message, dur):
         # for catching signals to update msgbar
         self.statusBar().showMessage(message, dur)
@@ -131,16 +131,16 @@ class DicomGUI(QMainWindow):
                  icon=None, tip=None, checkable=False,
                  signal="triggered()"):
 
-        action = QAction(text, self)
+        action = QtGui.QAction(text, self)
         if icon is not None:
-            action.setIcon(QIcon(icon))
+            action.setIcon(QtGui.QIcon(icon))
         if shortcut is not None:
             action.setShortcut(shortcut)
         if tip is not None:
             action.setToolTip(tip)
             action.setStatusTip(tip)
         if slot is not None:
-            self.connect(action, SIGNAL(signal), slot)
+            self.connect(action, QtCore.SIGNAL(signal), slot)
         if checkable:
             action.setCheckable(True)
         return action
@@ -162,7 +162,7 @@ def add_actions(target, actions, isCheckable=False):
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    app = QtGui.QApplication(sys.argv)
     form = DicomGUI()
     app.setActiveWindow(form)
     form.show()

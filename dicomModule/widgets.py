@@ -1,5 +1,5 @@
 # Third-party Modules
-from PyQt4.QtCore import *
+from PyQt4 import QtCore
 from PyQt4.QtGui import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
                          QSlider, QLabel, QPushButton, QFileDialog)
 from pyqtgraph import PlotWidget, ImageItem, mkPen, LegendItem
@@ -27,15 +27,16 @@ class dicomViewWidget(QWidget):
         self.createControls()
         self.createAxes()
 
+        self.PlottableImage = ImageItem(pxMode=False)
+        self.PlottableImage.setZValue(-1)  # put at background
+        self.myPlot.addItem(self.PlottableImage)
+
         self.initializeModel()
 
         centralLayout = QHBoxLayout()
         centralLayout.addWidget(self.ImAxes)
         centralLayout.addLayout(self.viewToolsLayout)
         self.setLayout(centralLayout)
-
-        if directory is not None:
-            self.addImages(directory)
 
     def createAxes(self):
         ImAxes = self.ImAxes = self.getImAxesObject()
@@ -64,10 +65,10 @@ class dicomViewWidget(QWidget):
         self.dirFinder = QPushButton("Select Images")
         self.dirFinder.clicked.connect(self.selectImages)
 
-        depthLayout.addWidget(self.dirFinder, 0, Qt.AlignCenter)
-        depthLayout.addWidget(self.depthGauge, 0, Qt.AlignCenter)
-        depthLayout.addWidget(self.sliceSlider, 1, Qt.AlignHCenter)
-        depthLayout.addWidget(self.sliceIndGauge, 0, Qt.AlignCenter)
+        depthLayout.addWidget(self.dirFinder, 0, QtCore.Qt.AlignCenter)
+        depthLayout.addWidget(self.depthGauge, 0, QtCore.Qt.AlignCenter)
+        depthLayout.addWidget(self.sliceSlider, 1, QtCore.Qt.AlignHCenter)
+        depthLayout.addWidget(self.sliceIndGauge, 0, QtCore.Qt.AlignCenter)
 
     def initializeModel(self):
         self.thisSliceLoc = 0
@@ -102,9 +103,6 @@ class dicomViewWidget(QWidget):
             return
 
         self.initializeModel()  # slices, transforms, etc.
-        self.PlottableImage = ImageItem(pxMode=False)
-        self.PlottableImage.setZValue(-1)  # put at background
-        self.myPlot.addItem(self.PlottableImage)
 
         self.T_patient_pixels = self.ImVolume.PP2IMTransformation
         self.PlottableImage.setImage(self.ImVolume.pixelData[:, :, 0].T)
