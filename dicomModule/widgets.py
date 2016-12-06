@@ -2,7 +2,7 @@
 from PyQt4 import QtCore
 from PyQt4.QtGui import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
                          QSlider, QLabel, QPushButton, QFileDialog,
-                         QDialogButtonBox, QMessageBox, QIcon)
+                         QDialogButtonBox, QMessageBox, QIcon, QDialog)
 from pyqtgraph import PlotWidget, ImageItem, mkPen, LegendItem
 import numpy as np
 
@@ -72,6 +72,7 @@ class dicomViewWidget(QWidget):
         self.thisSliceIndex = 0
         self.T_MRI_Ref = np.eye(4)
         self.T_patient_pixels = np.eye(4)
+        self.T_pixels_patient = np.eye(4)
         self.PlottableContours = {}
         self.sliceIndGauge.setText("Slice 0 / 0")
         self.depthGauge.setText("0.0 mm")
@@ -102,6 +103,7 @@ class dicomViewWidget(QWidget):
         self.initializeModel()  # slices, transforms, etc.
 
         self.T_patient_pixels = self.ImVolume.PP2IMTransformation
+        self.T_pixels_patient = self.ImVolume.IM2PPTransformation
 
         self.PlottableImage = ImageItem(pxMode=False)
         self.PlottableImage.setZValue(-1)  # put at background
@@ -122,17 +124,25 @@ class dicomViewWidget(QWidget):
         self.dirFinder.clicked.connect(self.clearImagesWarning)
 
     def clearImagesWarning(self, **kwargs):
-        qbb = QMessageBox(**kwargs)
-        # print(WarnIcon)
-        # qbb.setIcon(QIcon(WarnIcon))
-        qbb.setText("Are you sure you want to clear data?")
-        qbb.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
-        resp = qbb.exec_()
-        # print("response:", resp)
-        if resp == 16384:
-            self.clearImages()
-        else:
-            pass
+        qbb = QDialog(**kwargs)
+        qbb.setWindowTitle("Clear Data?")
+        qbb.setWindowModality(QtCore.Qt.ApplicationModal)
+
+        ok = QPushButton("Clear")
+        no = QPushButton("Cancel")
+        ok.clicked.connect(self.clearImages)
+        ok.clicked.connect(qbb.close)
+        no.clicked.connect(qbb.close)
+
+        layout = QVBoxLayout(qbb)
+        layout.addWidget(QLabel("Are you sure you want to clear data?"))
+        layout.addSpacing(20)
+        bttnLayout = QHBoxLayout()
+        bttnLayout.addWidget(ok)
+        bttnLayout.addWidget(no)
+        layout.addLayout(bttnLayout)
+
+        qbb.exec_()
 
     def clearImages(self):
         self.myPlot.clear()
@@ -186,26 +196,8 @@ class dicomViewWidget(QWidget):
         if not self.showingImage:
             return
 
-        # try:
-        #     sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
-        # except KeyError as e:
-        #     print(e)
-
         self.updateImage(sliceInd)
         self.updateContours(sliceInd)
-
-    # def updateScene(self, sliceInd):
-    #     try:
-    #         sliceInd = self.ImVolume.sliceLoc2Ind[sliceInd]
-    #     except KeyError as e:
-    #         print(e)
-    #     # update Image
-    #     newImage = self.ImVolume.pixelData[:, :, sliceInd].T
-    #     self.PlottableImage.setImage(image=newImage, autoDownsample=True)
-    #     # update Contours
-    #     self.ContourData2Plottable(self.ImVolume.contourObjs, sliceInd)
-    #     for contour in list(self.activeContours.values())[0]:
-    #         contour.setDefaultData()
 
     def updateImage(self, sliceInd):
         newImage = self.ImVolume.pixelData[:, :, sliceInd].T
