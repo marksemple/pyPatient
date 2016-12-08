@@ -3,6 +3,7 @@
 # Build-in Modules
 import os
 import time
+from copy import deepcopy
 from multiprocessing.pool import ThreadPool
 # import sys
 # import itertools
@@ -28,13 +29,13 @@ class DicomDataModel(object):
         # FILE IO STUFF
         imDir, imFileList, contDir, contFile = organizeDirectory(diDir)
         self.dicomDir = diDir
-        self.imDir = imDir
+        # self.imDir = imDir
         self.imFileList = imFileList
-        self.contDir = contDir
+        # self.contDir = contDir
         self.contFile = contFile
 
-        print("Images at: %s" % self.imDir)
-        print("Contours in: %s" % self.contFile)
+        print("Images at: %s" % imDir)
+        print("Contours at: %s" % contFile)
 
         # VOLUME INITIALIZATION
         self.staticProperties = getStaticDicomSizeProps(imFileList[0])
@@ -47,7 +48,7 @@ class DicomDataModel(object):
 
         # CONTOUR INITIALIZATION
         if contFile is not None:
-            self.contourObjs = self.getContours(self.contFile)
+            self.contourObjs = self.getContours(contFile)
             self.prostateLimits = getProstateLimits(self.contourObjs)
         else:
             self.contourObjs = []
@@ -60,7 +61,9 @@ class DicomDataModel(object):
         self.sliceLocationList = []
         self.sliceLoc2PositionPatient = dict()
         self.UIDsliceLocDict = dict()
+        self.UIDsliceIndDict = dict()
         self.UIDFileNameDict = dict()
+
         # slice2Pix = dict()
         TempPixelData = np.empty([self.staticProperties['Rows'],
                                   self.staticProperties['Cols'],
@@ -87,11 +90,16 @@ class DicomDataModel(object):
         self.sliceLoc2Ind = dict(zip(self.sliceLocationList, sliceIndList))
         self.sliceInd2Loc = dict(zip(sliceIndList, self.sliceLocationList))
 
+        self.UIDsliceIndDict = deepcopy(self.UIDsliceLocDict)
+        for UID in self.UIDsliceIndDict:
+            self.UIDsliceIndDict[UID] = self.sliceLoc2Ind[
+                self.UIDsliceLocDict[UID]]
+
         for ind, sliceLoc in enumerate(self.sliceLocationList):
             index = UnsortedSliceLoc2Ind[sliceLoc]
             self.pixelData[:, :, ind] = TempPixelData[:, :, index]
 
-        print(self.sliceLocationList)
+        print("Slices at: ", self.sliceLocationList)
 
         # PUT IN DICOM FILE
     def write_T_Patient2Pixels(self):
@@ -165,6 +173,7 @@ class DicomDataModel(object):
         di = pydicom.read_file(fp=contFile, force=True)
         contourNames = di.StructureSetROISequence
         uidSLD = self.UIDsliceLocDict
+        uidSIND = self.UIDsliceIndDict
         R = self.staticProperties['ImageOrientationPatient']
         colz = {'prostate': 'g',
                 'urethra': 'y',
@@ -190,7 +199,8 @@ class DicomDataModel(object):
                                                    name=thisName,
                                                    ROIindex=ind,
                                                    colz=thisCol,
-                                                   UID_SLD=uidSLD)
+                                                   UID_SLD=uidSLD,
+                                                   UID_SIND=uidSIND)
             except AttributeError as aterr:
                 print("No contour data in %s" % thisName)
                 print(aterr)
@@ -208,77 +218,80 @@ class contourObj(object):
                  name='',
                  ROIindex=0,
                  colz='w',
-                 UID_SLD={}):
+                 UID_SLD={},
+                 UID_SIND={}):
+
+        self.UID_SIND = UID_SIND
+        self.contourName = name
+        self.filePath = filePath
+        self.ROIindex = ROIindex
+
+        print(name, ' - ', ROIindex)
 
         self.wasModified = False
         self.slice2ContCoords = dict()
         self.contNum2Slice = dict()
-
-        self.contourName = name
-        # self.colz = colz
-        self.filePath = filePath
-        self.ROIindex = ROIindex
+        self.colz = [int(x) for x in thisROI.ROIDisplayColor]
         self.NLoops = 1
 
-        self.colz = [int(x) for x in thisROI.ROIDisplayColor]
+        try:
+            contourNumber = thisROI.ContourSequence[0].ReferencedROINumber
+        except AttributeError:
+            contourNumber = thisROI.ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID
+        self.contourNumber = contourNumber
 
-        # Make sure contour not empty.
-        if not hasattr(thisROI, 'ContourSequence'):
+        if hasattr(thisROI, 'ContourSequence'):
+            self.populateSliceDict(thisROI.ContourSequence)
+        else:
             print("No Contours in %s" % name)
             raise AttributeError
 
-        # print("%s is ROI number: " % name, ROIindex)
 
-        numberOfLoops = dict()
-        # READ THROUGH DICOM FILE ROI, GET SLICES AND CONTOUR DATA
-        for sliceInd, thisSlice in enumerate(thisROI.ContourSequence):
-            # GET CONTOUR COORDINATE LIST, RESHAPE TO <M/3 by 3>
+    def populateSliceDict(self, cs):
+        """ Iterate through this ROI's contour sequences, put into dict """
+
+        loopDict = dict()
+
+        for thisSlice in cs:
+            # Reshape coordinates to <M/3 by 3>
             thisData = np.asarray(thisSlice.ContourData)
-            howMany = len(thisData)
-            TransformedConDat = np.reshape(thisData, (howMany / 3, 3))
-
-            # print(TransformedConDat)
-
+            TransformedConDat = np.reshape(thisData, (len(thisData) / 3, 3))
             # replicate contour first point in last point (to close loop)
             TransformedConDat = np.append(TransformedConDat,
-                                          [TransformedConDat[0, :]],
-                                          0)
+                                          [TransformedConDat[0, :]], 0)
 
-            try:
-                contourNumber = thisSlice.ContourNumber
-            except AttributeError as e:
-                # print(e)
-                contourNumber = thisSlice.ContourImageSequence[0].ReferencedSOPInstanceUID
+            # try:
+            cis = thisSlice.ContourImageSequence[0]
+            SOP_UID = cis.ReferencedSOPInstanceUID
+            sliceInd = self.UID_SIND[SOP_UID]  # from id to slice location
+            # except:
+            #     print("ERROR making CONTOUR")
+            #     return
+                # sliceLoc = thisData[2]
 
-            try:
-                cis = thisSlice.ContourImageSequence[0]
-                SOP_UID = cis.ReferencedSOPInstanceUID
-                sliceLoc = UID_SLD[SOP_UID]  # from id to slice location
-            except:
-                sliceLoc = thisData[2]
+            # Keep track of loops per slice
+            loopDict[sliceInd] = 1
 
-            sliceLoc = round(sliceLoc * 1000) / 1000
-            # print("Your SliceLoc is: ", sliceLoc)
-            # IF ALREADY AN ENTRY THERE, APPEND ANOTHER:
-            numberOfLoops[sliceLoc] = 1
-            if sliceLoc in self.slice2ContCoords.keys():
-                numberOfLoops[sliceLoc] += 1
-                self.slice2ContCoords[sliceLoc].append(TransformedConDat)
-                self.contNum2Slice[contourNumber].append(sliceLoc)
+            if sliceInd in self.slice2ContCoords.keys():
+                loopDict[sliceInd] += 1
+                self.slice2ContCoords[sliceInd].append(TransformedConDat)
+                self.contNum2Slice[self.contourNumber].append(sliceInd)
             else:
-                self.slice2ContCoords[sliceLoc] = [TransformedConDat]
-                self.contNum2Slice[contourNumber] = [sliceLoc]
+                self.slice2ContCoords[sliceInd] = [TransformedConDat]
+                self.contNum2Slice[self.contourNumber] = [sliceInd]
 
         # PAD SLICE LISTS WITH EMPTIES SO ALL WITH SAME AMOUNT OF DATA
-        maxLoops = max(numberOfLoops.values())
+        maxLoops = max(loopDict.values())
         self.NLoops = maxLoops
-        for sliceLoc in self.slice2ContCoords:
-            if numberOfLoops[sliceLoc] < maxLoops:
-                diff = maxLoops - numberOfLoops[sliceLoc]
+        for sliceInd in self.slice2ContCoords:
+            if loopDict[sliceInd] < maxLoops:
+                diff = maxLoops - loopDict[sliceInd]
                 for i in range(diff):
-                    self.slice2ContCoords[sliceLoc].append(np.array([[],
+                    self.slice2ContCoords[sliceInd].append(np.array([[],
                                                                      [],
-                                                                     []]))
+                                                                     []]).T)
+
+        print("NL:",  loopDict)
 
     def writeToFile(self):
         di = pydicom.read_file(self.filePath)
@@ -286,12 +299,13 @@ class contourObj(object):
         # rInd = self.ROIindex
         thisROI = di.ROIContourSequence[self.ROIindex]
         for thisContSeq in thisROI.ContourSequence:
+
             try:
                 contNum = thisContSeq.ContourNumber
             except:
                 contNum = thisContSeq.ContourImageSequence[0].ReferencedSOPInstanceUID
 
-            upData = self.slice2ContCoords[self.contNum2Slice[contNum][0]][0]
+            upData = self.slice2ContCoords[self.contNum2Slice[contNum]][0]
             print("shape: ", upData.shape)
             upDataStr = FormatForDicom(upData)
             thisContSeq.ContourData = upDataStr
@@ -301,11 +315,6 @@ class contourObj(object):
             thisContSeq.NumberOfContourPoints = str(int(npts))
             # print(str(len(upDataStr)/3))
             # print(contNum)
-
-            # print("contour number:", contourNumber)
-        # for contour in di.ROIContourSequence[self.ROIindex].ContourSequence:
-        #     if len(contour.ContourData) > 100:
-        #         print(contour.ContourData)
 
         pydicom.write_file(self.filePath, di)
         time.sleep(1)
@@ -373,11 +382,16 @@ def isImageDicom(filePath):
 
 def isContourDicom(filePath):
     dcm = pydicom.read_file(fp=filePath, force=True)
-    if hasattr(dcm, "StructureSetROISequence"):
-        return True
-    else:
-        return False
-
+    try:
+        if dcm.Modality.lower() == "rtstruct":
+            return True
+        else:
+            return False
+    except AttributeError:
+        if hasattr(dcm, "StructureSetROISequence"):
+            return True
+        else:
+            return False
 
 def getDicomFileData(filePath):
     di = pydicom.read_file(filePath)
