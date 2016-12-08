@@ -31,24 +31,27 @@ class dicomViewWidget(QWidget):
         self.initializeModel()
 
         centralLayout = QHBoxLayout()
-        centralLayout.addWidget(self.ImAxes)
+        centralLayout.addWidget(self.PlotWidge)
         centralLayout.addLayout(self.viewToolsLayout)
         self.setLayout(centralLayout)
 
     def createAxes(self):
-        ImAxes = self.ImAxes = self.getImAxesObject()
-        myPlot = self.myPlot = ImAxes.getPlotItem()
+        PlotWidge = self.PlotWidge = self.getPlotWidgeObject()
+        myPlot = self.myPlot = PlotWidge.getPlotItem()
         myPlot.showAxis('bottom', False)
         myPlot.showAxis('left', False)
         myView = myPlot.getViewBox()
         myView.setAspectLocked(True)
         myView.invertY(True)
-        ImAxes.setRange(xRange=(-200, 200))
-        ImAxes.setBackground('#C0C0C0')
+        PlotWidge.setRange(xRange=(-200, 200))
+        PlotWidge.setBackground('#C0C0C0')
+        PlotWidge.hideButtons()
         legend = self.legend = LegendItem()
         legend.setParentItem(myPlot)
 
-    def getImAxesObject(self):
+    def getPlotWidgeObject(self):
+        # For Default DicomViewWidget: use Default pyqtgraph Plot Widget
+        # Can be overrode using this function in subclasses of DicomViewWidget
         return PlotWidget()
 
     def createControls(self):
@@ -102,18 +105,23 @@ class dicomViewWidget(QWidget):
 
         self.initializeModel()  # slices, transforms, etc.
 
+        # Get DicomData Pixel Transformations
         self.T_patient_pixels = self.ImVolume.PP2IMTransformation
         self.T_pixels_patient = self.ImVolume.IM2PPTransformation
 
+        # Add Image Object (for DICOM pixel array)
         self.PlottableImage = ImageItem(pxMode=False)
         self.PlottableImage.setZValue(-1)  # put at background
-        self.myPlot.addItem(self.PlottableImage)
         self.PlottableImage.setImage(self.ImVolume.pixelData[:, :, 0].T)
+        self.myPlot.addItem(self.PlottableImage)
 
+        # Add Contour Object
         if self.ImVolume.contourObjs:
             self.createContourPlottables(contourDict=self.ImVolume.contourObjs)
+
+        # Tidy Up
         self.showingImage = True
-        self.ImAxes.autoRange()
+        self.PlotWidge.autoRange()
         self.configureSliceSlider()
         self.updateScene(0)
         self.setupClearImages()
@@ -161,6 +169,8 @@ class dicomViewWidget(QWidget):
                 pen = mkPen(color=contour.colz, width=2)
                 contourLine = contourPlotModel(contourName=contour.contourName,
                                                pen=pen, symbol=None)
+
+                # END HERE, STUFF BELOW ADD ELSEWHERE
                 self.myPlot.addItem(contourLine)
                 self.PlottableContours[contour.contourName].append(contourLine)
         self.populateLegend(self.legend)
@@ -198,15 +208,18 @@ class dicomViewWidget(QWidget):
 
         self.updateImage(sliceInd)
         self.updateContours(sliceInd)
+        # UPDATE CONTOURS
+        # for contour in self.contours:
+        #    contour.updatePlottable(sliceInd)
 
     def updateImage(self, sliceInd):
         newImage = self.ImVolume.pixelData[:, :, sliceInd].T
         self.PlottableImage.setImage(image=newImage, autoDownsample=True)
 
-    def updateContours(self, sliceInd):
-        self.ContourData2Plottable(modelDict=self.ImVolume.contourObjs,
-                                   plottableDict=self.PlottableContours,
-                                   sliceInd=sliceInd)
+    # def updateContours(self, sliceInd):
+    #     self.ContourData2Plottable(modelDict=self.ImVolume.contourObjs,
+    #                                plottableDict=self.PlottableContours,
+    #                                sliceInd=sliceInd)
 
     def updateGauges(self, newSliderVal=0):
         newSliderVal = self.dispView.sliceSlider.value()
@@ -216,51 +229,51 @@ class dicomViewWidget(QWidget):
         self.thisSliceIndex = newSliceIndex
         self.thisSliceLoc = newSliceLocation
 
-    def ContourData2Plottable(self, modelDict, plottableDict, sliceInd):
-        """ update active contour objects """
-        sliceLoc = self.thisSliceLoc
+    # def ContourData2Plottable(self, modelDict, plottableDict, sliceInd):
+    #     """ update active contour objects """
+    #     sliceLoc = self.thisSliceLoc
 
-        for contour in modelDict:
-            thisDataModel = modelDict[contour]
-            thisPlottable = plottableDict[contour]
+    #     for contour in modelDict:
+    #         thisDataModel = modelDict[contour]
+    #         thisPlottable = plottableDict[contour]
 
-            for loop in range(thisDataModel.NLoops):
-                if sliceLoc in thisDataModel.slice2ContCoords:
-                    pts = thisDataModel.slice2ContCoords[sliceLoc][loop]
-                    ptShape = pts.shape
-                    if ptShape[1] == 3:  # if a bunch of row-vectors:
-                        pts = pts.T
-                        ptShape = pts.shape
-                    placeholder = np.ones((4, ptShape[1]))
-                    placeholder[:-1, :] = pts
-                    pts = placeholder
-                    pts = self.ImVolume.PP2IMTransformation.dot(pts)
-                    xs = pts[:][0]
-                    ys = pts[:][1]
-                    zs = pts[:][2]
-                else:
-                    xs = []
-                    ys = []
-                    zs = []
+    #         for loop in range(thisDataModel.NLoops):
+    #             if sliceLoc in thisDataModel.slice2ContCoords:
+    #                 pts = thisDataModel.slice2ContCoords[sliceLoc][loop]
+    #                 ptShape = pts.shape
+    #                 if ptShape[1] == 3:  # if a bunch of row-vectors:
+    #                     pts = pts.T
+    #                     ptShape = pts.shape
+    #                 placeholder = np.ones((4, ptShape[1]))
+    #                 placeholder[:-1, :] = pts
+    #                 pts = placeholder
+    #                 pts = self.ImVolume.PP2IMTransformation.dot(pts)
+    #                 xs = pts[:][0]
+    #                 ys = pts[:][1]
+    #                 zs = pts[:][2]
+    #             else:
+    #                 xs = []
+    #                 ys = []
+    #                 zs = []
 
-                # print(zs)
+    #             # print(zs)
 
-                thisPlottable[loop].setData(x=xs, y=ys, z=zs)
-    #             thesePlottables[loop].setDefaultData()
-
-    def ContourPlottable2Data(self):
-        contourPlottable = self.ImAxes.activeContourPlottable
-        pts_ = np.asarray(contourPlottable.getData()).T
-        temp = np.ones([len(pts_[:, 1]), 4])
-        temp[:, 0:2] = pts_
-        temp[:, 2] = self.thisSliceIndex
-        pts = self.ImVolume.IM2PPTransformation.dot(temp.T).T
-        for contour in self.ImVolume.contourObjs.values():
-            if contour.contourName == contourPlottable.contourName:
-                contour.slice2ContCoords[self.thisSliceLoc][0] = pts[:, 0:3]
+    #             thisPlottable[loop].setData(x=xs, y=ys, z=zs)
+    # #             thesePlottables[loop].setDefaultData()
 
     # def ContourPlottable2Data(self):
-    #     contourPlottable = self.ImAxes.activeContour
+    #     contourPlottable = self.PlotWidge.activeContourPlottable
+    #     pts_ = np.asarray(contourPlottable.getData()).T
+    #     temp = np.ones([len(pts_[:, 1]), 4])
+    #     temp[:, 0:2] = pts_
+    #     temp[:, 2] = self.thisSliceIndex
+    #     pts = self.ImVolume.IM2PPTransformation.dot(temp.T).T
+    #     for contour in self.ImVolume.contourObjs.values():
+    #         if contour.contourName == contourPlottable.contourName:
+    #             contour.slice2ContCoords[self.thisSliceLoc][0] = pts[:, 0:3]
+
+    # def ContourPlottable2Data(self):
+    #     contourPlottable = self.PlotWidge.activeContour
     #     contourPlottable.setDefaultData()
     #     pts_ = np.asarray(contourPlottable.getData()).T
     #     temp = np.ones([len(pts_[:, 1]), 4])
