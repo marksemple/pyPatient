@@ -208,6 +208,11 @@ class DicomDataModel(object):
         return contourObjs
 
 
+# Make a Dict
+
+def makeContourDict()
+
+
 class contourObj(object):
     """ for each ROI, make one of these """
 
