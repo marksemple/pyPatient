@@ -80,6 +80,14 @@ class dicomViewWidget(QWidget):
         self.PlottableContours = {}
         self.sliceIndGauge.setText("Slice 0 / 0")
         self.depthGauge.setText("0.0 mm")
+        self.currentUID = 0
+
+    def updateScene(self, sliceUID):
+        if not self.showingImage:
+            return
+        self.PlottableImage.updatePlottable(UID=sliceUID)
+        for contour in self.PlottableContours:
+            contour.updatePlottable(UID=sliceUID)
 
     def setupAddDataModel(self):
         self.dirFinder.setText("Select Images")
@@ -94,57 +102,48 @@ class dicomViewWidget(QWidget):
             directory=self.startingDirectory)
         if dicomDir is '':
             return
-        try:
-            self.ImVolume = DicomDataModel(diDir=dicomDir)
-        except Exception as e:
-            print(e)
-            return
+        # try:
+        self.ImVolume = DicomDataModel(diDir=dicomDir)
+        # except Exception as e:
+            # print(e)
+            # print("error in making IMVolume")
+            # return
 
-        self.addImages(self.ImVolume)
+        self.addImages(imageModel=self.ImVolume)
 
     def addImages(self, imageModel):
         # Get DicomData Pixel Transformations
         self.T_patient_pixels = imageModel.PP2IMTransformation
         self.T_pixels_patient = imageModel.IM2PPTransformation
+        self.UID_zero = imageModel.Ind2UID[0]
+        self.currentUID = self.UID_zero
 
         # Add Image Object (for DICOM pixel array)
         self.PlottableImage = DicomImagePlotItem(dicomModel=imageModel)
         self.myPlot.addItem(self.PlottableImage)
 
-        # Add Contour Object
-        if imageModel.contourObjs:
-            self.createContourPlottables(contourDict=imageModel.contourObjs)
+        # Add Contour Object (if there are any!)
+        if bool(imageModel.contourObjs):
+            self.createContourPlottables(contourDict=imageModel.contourObjs,
+                                         Pat2PixTForm=self.T_patient_pixels,
+                                         UID2IndDict=imageModel.UID2Ind)
 
         # Tidy Up
         self.showingImage = True
         self.PlotWidge.autoRange()
         self.configureSliceSlider()
-        self.updateScene(0)
+        # self.updateScene(self.UID_zero)
         self.setupClearDataModel()
 
-    def createContourPlottables(self, contourDict):
-        """ create/store dict of 'active contour objects' for plotting
+    def createContourPlottables(self, contourDict, *args, **kwargs):
+        """ create/store list of 'active contour objects' for plotting
         also make, but don't store list of projections of contours """
 
-        indRange = range(0, max(self.ImVolume.sliceInd2Loc.keys())+1)
-        print('iRange', list(indRange))
-
-        for contour in contourDict.values():
-            self.PlottableContours[contour.contourName] = []
-            pen = mkPen(color=contour.colz, width=2)
-
-            for loop in range(contour.NLoops):
-
-                contourLine = DicomContourPlotItem(
-                    contourDataModel=contour,
-                    loopInd=loop,
-                    Pat2PixTForm=self.T_patient_pixels,
-                    sliceIndList=list(indRange),
-                    pen=pen, symbol=None)
-
-                # END HERE, STUFF BELOW ADD ELSEWHERE
-                self.myPlot.addItem(contourLine)
-                self.PlottableContours[contour.contourName].append(contourLine)
+        self.PlottableContours = []
+        for ROI in contourDict['ROI']:
+            contourItem = DicomContourPlotItem(ROIDict=ROI, *args, **kwargs)
+            self.PlottableContours.append(contourItem)
+            self.myPlot.addItem(contourItem)
 
         self.populateLegend(self.legend)
 
@@ -177,7 +176,7 @@ class dicomViewWidget(QWidget):
         """ Reset and Clear Axes """
         self.myPlot.clear()
         # for item in [self.PlottableImage]:
-            # del item
+        # del item
         self.showingImage = False
         self.clearLegend(self.legend)
         self.initializeModel()
@@ -205,18 +204,11 @@ class dicomViewWidget(QWidget):
         self.depthGauge.setText("{:>1.2f} mm".format(newSliceLoc))
         self.sliceIndGauge.setText(
             "Slice {}/{}".format(newSliceIndex, maxInd))
-        self.thisSliceIndex = newSliceIndex
-        self.thisSliceLoc = newSliceLoc
-        # print("Slice: ", newSliceIndex)
-        self.updateScene(sliceInd=newSliceIndex)
 
-    def updateScene(self, sliceInd):
-        if not self.showingImage:
-            return
-        self.PlottableImage.updatePlottable(sliceIndex=sliceInd)
-        for contour in self.PlottableContours.values():
-            for loop in contour:
-                loop.updatePlottable(sliceIndex=sliceInd)
+        newUID = self.ImVolume.Loc2UID[newSliceLoc]
+        if not newUID == self.currentUID:
+            self.currentUID = newUID
+            self.updateScene(sliceUID=newUID)
 
     def updateGauges(self, newSliderVal=0):
         newSliderVal = self.dispView.sliceSlider.value()
@@ -227,10 +219,9 @@ class dicomViewWidget(QWidget):
         self.thisSliceLoc = newSliceLocation
 
     def populateLegend(self, legend):
-        for contourName in self.PlottableContours:
-            thisLine = self.PlottableContours[contourName][0]
-            legend.addItem(item=thisLine,
-                           name=('   ' + contourName))
+        for contour in self.PlottableContours:
+            legend.addItem(item=contour,
+                           name=('   ' + contour.ROIDict['ROIName']))
 
     def clearLegend(self, legend):
         legend.items = []
@@ -246,7 +237,8 @@ class dicomViewWidget(QWidget):
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)
-    form = dicomViewWidget(directory=r"C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\DeformableRegistration\CLEAN - Sample Data 10-02-2016\MRtemp")
+    form = dicomViewWidget(
+        directory=r"C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\DeformableRegistration\CLEAN - Sample Data 10-02-2016\MRtemp")
     app.setActiveWindow(form)
     form.show()
 

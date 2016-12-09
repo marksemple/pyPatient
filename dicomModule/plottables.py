@@ -23,10 +23,12 @@ class DicomImagePlotItem(pg.ImageItem):
 
     def __init__(self, dicomModel=None, *args, **kwargs):
         super().__init__(pxMode=False, *args, **kwargs)
-        if dicomModel:
+        if bool(dicomModel):
             self.pixelData = dicomModel.pixelData
+            self.UID2IndDict = dicomModel.UID2Ind
+            self.updatePlottable(dicomModel.UID_zero)
+        # USE UID INSTEAD OF INDEX ?
         self.setZValue(-1)
-        self.updatePlottable(0)
 
     def setImage(self, sliceIndex=0):
         image = self.pixelData[:, :, sliceIndex].T
@@ -35,7 +37,8 @@ class DicomImagePlotItem(pg.ImageItem):
     def addModel(self, model):
         self.pixelData = model.PixelData
 
-    def updatePlottable(self, sliceIndex=0):
+    def updatePlottable(self, UID):
+        sliceIndex = self.UID2IndDict[UID]
         self.setImage(sliceIndex)
 
 
@@ -46,21 +49,19 @@ class DicomContourPlotItem(pg.PlotDataItem):
     """
 
     def __init__(self,
-                 contourDataModel=None,
-                 loopInd=0,
+                 ROIDict={},
                  Pat2PixTForm=np.eye(4),
-                 sliceIndList=[],
-                 pen=pg.mkPen('w'),
+                 UID2IndDict={},
                  *args, **kwargs):
 
         self.setPat2PixTForm(tform=Pat2PixTForm)
-        self.loopInd = loopInd
-        self.populateSliceDict(sliceList=sliceIndList,
-                               contour=contourDataModel)
-
+        pen = pg.mkPen(color=ROIDict['ROICol'], width=2)
+        self.ROIDict = ROIDict
+        self.UID2IndDict = UID2IndDict
+        self.populateSliceDict(list(UID2IndDict.keys()))
         super().__init__(pen=pen, *args, **kwargs)
 
-    def populateSliceDict(self, sliceList, contour):
+    def populateSliceDict(self, sliceList):
         """ use sliceList to create dictionary linking index to data """
 
         if not sliceList:
@@ -68,15 +69,12 @@ class DicomContourPlotItem(pg.PlotDataItem):
             return
 
         self.sliceDict = dict.fromkeys(sliceList)
-        for entry in self.sliceDict:
-            if entry in contour.slice2ContCoords:
-                thisDat = contour.slice2ContCoords[entry][self.loopInd]
-                self.sliceDict[entry] = np.asarray(thisDat).T
-            else:
-                self.sliceDict[entry] = np.asarray([[], [], []])
 
-    # def addPoint(self, ):
-    #     pass
+        for entry in self.sliceDict:
+            if entry in self.ROIDict['ContourData']:
+                self.sliceDict[entry] = self.ROIDict['ContourData'][entry]
+            else:
+                self.sliceDict[entry] = np.asarray([[], [], []]).T
 
     def setPat2PixTForm(self, tform):
         self.Pat2PixTForm = tform
@@ -93,12 +91,12 @@ class DicomContourPlotItem(pg.PlotDataItem):
             y = temp2[1, :]
         super().setData(x=x, y=y, *args, **kwargs)
 
-    def updatePlottable(self, sliceIndex=0):
+    def updatePlottable(self, UID):
         """ update data being shown with Slice Index """
-        if len(self.sliceDict[sliceIndex]) > 0:
-            sliceData = self.sliceDict[sliceIndex]
-            x = sliceData[0, :]
-            y = sliceData[1, :]
+        if len(self.sliceDict[UID]) > 0:
+            sliceData = self.sliceDict[UID]
+            x = sliceData[:, 0]
+            y = sliceData[:, 1]
         else:
             x = []
             y = []
@@ -164,7 +162,7 @@ class DicomDataPlotItem(pg.ScatterPlotItem):
             # print('<x = ', x,' , y = ', y, ' >')
         super().setData(x=x, y=y, *args, **kwargs)
 
-    def updatePlottable(self):
+    def updatePlottable(self, *args, **kwargs):
         pass
 
     def hide(self):
@@ -183,44 +181,48 @@ class SliceDataPlotItem(DicomDataPlotItem):
         - **kwargs: anything else that can go into a scatter plot item
     """
 
-    def __init__(self, sliceIndList=[], *args, **kwargs):
+    def __init__(self, UID2IndDict={}, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.populateSliceDict(sliceIndList)
+        self.populateSliceDict(UID2IndDict)
+        self.UID2IndDict = UID2IndDict
         self.nPts = 0
 
-    def populateSliceDict(self, sliceList):
+    def populateSliceDict(self, UID2IndDict):
         """ use sliceList to create dictionary linking index to data """
-        if sliceList:
-            self.sliceDict = dict.fromkeys(sliceList)
+        if bool(UID2IndDict):
+            self.sliceDict = dict.fromkeys(UID2IndDict)
             for entry in self.sliceDict:
                 self.sliceDict[entry] = []
         else:
             self.sliceDict = {0: []}
 
-    def addPoint(self, sliceIndex=0, x=[], y=[]):
+    def addPoint(self, sliceUID=0, x=[], y=[]):
         """ append point to certain slice """
         self.nPts += 1
         point = [x, y]
-        self.sliceDict[sliceIndex].append(point)
-        self.updatePlottable(sliceIndex=sliceIndex)
+        self.sliceDict[sliceUID].append(point)
+        self.updatePlottable(sliceUID=sliceUID)
 
-    def clearPoints(self, sliceIndex=0):
+    def clearPoints(self, sliceUID=0):
         """ Refresh sliceDict """
         self.nPts = 0
-        self.populateSliceDict(sliceList=self.sliceDict.keys())
-        self.updatePlottable(sliceIndex=sliceIndex)
+        self.populateSliceDict(UID2IndDict=self.sliceDict.keys())
+        self.updatePlottable(sliceUID=sliceUID)
 
-    def updatePlottable(self, sliceIndex=0):
+    def updatePlottable(self, sliceUID):
         """ update data being shown with Slice Index """
-        if len(self.sliceDict[sliceIndex]) > 0:
-            sliceData = np.asarray(self.sliceDict[sliceIndex])
-            self.setData(x=sliceData[:, 0], y=sliceData[:, 1])
-        else:
+        try:
+            if len(self.sliceDict[sliceUID]) > 0:
+                sliceData = np.asarray(self.sliceDict[sliceUID])
+                self.setData(x=sliceData[:, 0], y=sliceData[:, 1])
+            else:
+                self.setData(x=[], y=[])
+        except:
             self.setData(x=[], y=[])
-
 
 class contourProjectionItem(DicomDataPlotItem):
     """ docstring """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Shapely UNION
