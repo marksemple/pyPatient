@@ -92,18 +92,21 @@ QLineEdit {
     padding: 4px}
 
 
-
 QLabel {
+max-width: 300px;
+}
+
+/*
     border-color: white;
     margin: 0px;
     padding: 0px;
-    font-size: 10pt;
+    font-size: 5pt;
     min-width: 80px;
     max-width: 300px;
 }
 QLabel:selected {
     border-color: accentCol
-}
+}*/
 
 
 QSlider {

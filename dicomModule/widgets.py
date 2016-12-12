@@ -28,7 +28,6 @@ class dicomViewWidget(QWidget):
 
         self.createControls()
         self.createAxes()
-        self.PlottableImage = ImageItem()
         self.initializeModel()
 
         centralLayout = QHBoxLayout()
@@ -81,13 +80,14 @@ class dicomViewWidget(QWidget):
         self.sliceIndGauge.setText("Slice 0 / 0")
         self.depthGauge.setText("0.0 mm")
         self.currentUID = 0
+        self.UID_zero = 0
+        self.PlottableImage = ImageItem()
 
     def updateScene(self, sliceUID):
-        if not self.showingImage:
-            return
-        self.PlottableImage.updatePlottable(UID=sliceUID)
-        for contour in self.PlottableContours:
-            contour.updatePlottable(UID=sliceUID)
+        if self.showingImage:
+            self.PlottableImage.updatePlottable(UID=sliceUID)
+            for contour in self.PlottableContours:
+                contour.updatePlottable(UID=sliceUID)
 
     def setupAddDataModel(self):
         self.dirFinder.setText("Select Images")

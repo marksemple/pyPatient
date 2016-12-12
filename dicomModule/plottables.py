@@ -103,7 +103,7 @@ class DicomContourPlotItem(pg.PlotDataItem):
         self.setData(x=x, y=y)
 
 
-class DicomDataPlotItem(pg.ScatterPlotItem):
+class DicomDataPlotItem(pg.PlotDataItem):
     """ Abstract ScatterPlotItem that shows same regardless of slice
     Inputs:
         - symbolDict: dictionary describing the markers and lines
@@ -114,34 +114,30 @@ class DicomDataPlotItem(pg.ScatterPlotItem):
     """
 
     def __init__(self, symbolDict={},
-                 Pat2PixTForm=np.eye(4), *args, **kwargs):
+                 Pat2PixTForm=np.eye(4),
+                 *args, **kwargs):
 
         self.setPat2PixTForm(Pat2PixTForm)
-        super().__init__(pxMode=False, antialias=True, *args, **kwargs)
+        super().__init__(pxMode=False,
+                         antialias=True,
+                         *args, **kwargs)
+        self.setSymbolDict(symbolDict)
 
-    def setSymbolDict(self, symbolDict=[]):
+    def setSymbolDict(self, symbolDict={}):
         """ apply marker/line symbol style from dictionary entries """
-        if not symbolDict:
+        if not bool(symbolDict):
             return
 
-        if not isinstance(symbolDict, list):
-            symbolDict = [symbolDict]
+        s = symbolDict['symbol']
+        ss = symbolDict['symbolSize']
+        sp = symbolDict['symbolPen']
+        sb = symbolDict['symbolBrush']
 
-        if len(symbolDict) == 1:
-            s = symbolDict[0]['symbol']
-            ss = symbolDict[0]['size']
-            sp = symbolDict[0]['pen']
-            sb = symbolDict[0]['brush']
-        else:
-            s = [item['symbol'] for item in symbolDict]
-            ss = [item['size'] for item in symbolDict]
-            sp = [item['pen'] for item in symbolDict]
-            sb = [item['brush'] for item in symbolDict]
-
+        self.setPen(None)
         self.setSymbol(s)
-        self.setSize(ss)
-        self.setPen(sp)
-        self.setBrush(sb)
+        self.setSymbolSize(ss)
+        self.setSymbolPen(sp)
+        self.setSymbolBrush(sb)
 
     def populateSliceDict(self, *args, **kwargs):
         pass
@@ -202,6 +198,7 @@ class SliceDataPlotItem(DicomDataPlotItem):
         point = [x, y]
         self.sliceDict[sliceUID].append(point)
         self.updatePlottable(sliceUID=sliceUID)
+        # print("Refs at: ", self.sliceDict)
 
     def clearPoints(self, sliceUID=0):
         """ Refresh sliceDict """
@@ -211,14 +208,16 @@ class SliceDataPlotItem(DicomDataPlotItem):
 
     def updatePlottable(self, sliceUID):
         """ update data being shown with Slice Index """
-        try:
-            if len(self.sliceDict[sliceUID]) > 0:
-                sliceData = np.asarray(self.sliceDict[sliceUID])
-                self.setData(x=sliceData[:, 0], y=sliceData[:, 1])
-            else:
-                self.setData(x=[], y=[])
-        except:
+        # print("Update Slice , uid:", sliceUID)
+        # try:
+        if len(self.sliceDict[sliceUID]) > 0:
+            sliceData = np.asarray(self.sliceDict[sliceUID])
+            self.setData(x=sliceData[:, 0], y=sliceData[:, 1])
+        else:
             self.setData(x=[], y=[])
+        # except Exception as e:
+            # print(e, "in slicer updater")
+            # self.setData(x=[], y=[])
 
 class contourProjectionItem(DicomDataPlotItem):
     """ docstring """

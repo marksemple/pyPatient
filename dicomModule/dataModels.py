@@ -103,11 +103,11 @@ class DicomDataModel(object):
         print("Slices at: ", self.sliceLocationList)
 
         # PUT IN DICOM FILE
-    def write_T_Patient2Pixels(self):
+    def write_T_Patient2Pixels(self, ind=0):
         """ Transformaton of Patient Coordinate to Pixel Indices
             """
-        sliceLoc0 = self.sliceInd2Loc[0]
-        sliceSpan = self.sliceInd2Loc[1] - self.sliceInd2Loc[0]
+        sliceLoc0 = self.sliceInd2Loc[ind]
+        sliceSpan = self.sliceInd2Loc[1] - self.sliceInd2Loc[ind]
         # SEE IF TRUE: that we can assume to use IM Pos Pat of slice 1 only
 
         # ROTATION
