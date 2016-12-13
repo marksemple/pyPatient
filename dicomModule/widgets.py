@@ -113,9 +113,10 @@ class dicomViewWidget(QWidget):
 
     def addImages(self, imageModel):
         # Get DicomData Pixel Transformations
-        self.T_patient_pixels = imageModel.PP2IMTransformation
-        self.T_pixels_patient = imageModel.IM2PPTransformation
+        # self.T_patient_pixels = imageModel.PP2IMTransformation
+        # self.T_pixels_patient = imageModel.IM2PPTransformation
         self.UID_zero = imageModel.Ind2UID[0]
+        TPat2Pix = imageModel.dataDict[self.UID_zero]['TPat2Pix']
         self.currentUID = self.UID_zero
 
         # Add Image Object (for DICOM pixel array)
@@ -125,7 +126,7 @@ class dicomViewWidget(QWidget):
         # Add Contour Object (if there are any!)
         if bool(imageModel.contourObjs):
             self.createContourPlottables(contourDict=imageModel.contourObjs,
-                                         Pat2PixTForm=self.T_patient_pixels,
+                                         Pat2PixTForm=TPat2Pix,
                                          UID2IndDict=imageModel.UID2Ind)
 
         # Tidy Up
@@ -183,8 +184,8 @@ class dicomViewWidget(QWidget):
         self.setupAddDataModel()
 
     def configureSliceSlider(self):
-        dicomMin = min(self.ImVolume.sliceLoc2Ind.keys())
-        dicomMax = max(self.ImVolume.sliceLoc2Ind.keys())
+        dicomMin = min(self.ImVolume.Loc2Ind.keys())
+        dicomMax = max(self.ImVolume.Loc2Ind.keys())
         # dicomRange = dicomMax - dicomMin
         self.sliceSlider.setEnabled(True)
         self.sliceSlider.setRange(dicomMin, dicomMax)
@@ -196,16 +197,16 @@ class dicomViewWidget(QWidget):
             return
         """ on change of SliceSlider value: """
         newSliderVal = self.sliceSlider.value()
-        newSliceLoc = min(self.ImVolume.sliceLoc2Ind.keys(),
+        newSliceLoc = min(self.ImVolume.Loc2Ind.keys(),
                           key=lambda x: abs(x - newSliderVal))
-        newSliceIndex = self.ImVolume.sliceLoc2Ind[newSliceLoc]
+        newSliceIndex = self.ImVolume.Loc2Ind[newSliceLoc]
         newSliceLoc = round(newSliceLoc * 1000) / 1000
-        maxInd = max(self.ImVolume.sliceInd2Loc.keys())
+        maxInd = max(self.ImVolume.Ind2Loc.keys())
         self.depthGauge.setText("{:>1.2f} mm".format(newSliceLoc))
         self.sliceIndGauge.setText(
             "Slice {}/{}".format(newSliceIndex, maxInd))
 
-        newUID = self.ImVolume.Loc2UID[newSliceLoc]
+        newUID = self.ImVolume.Ind2UID[newSliceIndex]
         if not newUID == self.currentUID:
             self.currentUID = newUID
             self.updateScene(sliceUID=newUID)

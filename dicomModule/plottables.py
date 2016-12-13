@@ -23,11 +23,12 @@ class DicomImagePlotItem(pg.ImageItem):
 
     def __init__(self, dicomModel=None, *args, **kwargs):
         super().__init__(pxMode=False, *args, **kwargs)
+
         if bool(dicomModel):
-            self.pixelData = dicomModel.pixelData
+            self.pixelData = dicomModel.getPixelData()
             self.UID2IndDict = dicomModel.UID2Ind
             self.updatePlottable(dicomModel.UID_zero)
-        # USE UID INSTEAD OF INDEX ?
+
         self.setZValue(-1)
 
     def setImage(self, sliceIndex=0):
@@ -79,28 +80,33 @@ class DicomContourPlotItem(pg.PlotDataItem):
     def setPat2PixTForm(self, tform):
         self.Pat2PixTForm = tform
 
-    def setData(self, x=[], y=[], tForm=True, *args, **kwargs):
-        """ Overwrites ScatterPlotItem setData() method to
-            apply transformation before setting data """
-        if tForm:
-            temp = np.ones((4, len(x)))
-            temp[0, :] = x
-            temp[1, :] = y
-            temp2 = self.Pat2PixTForm.dot(temp)
-            x = temp2[0, :]
-            y = temp2[1, :]
-        super().setData(x=x, y=y, *args, **kwargs)
-
     def updatePlottable(self, UID):
         """ update data being shown with Slice Index """
         if len(self.sliceDict[UID]) > 0:
             sliceData = self.sliceDict[UID]
             x = sliceData[:, 0]
             y = sliceData[:, 1]
+            z = sliceData[:, 2]
         else:
             x = []
             y = []
-        self.setData(x=x, y=y)
+            z = []
+        self.setData(x=x, y=y, z=z)
+
+    def setData(self, x=[], y=[], z=[], tForm=True, *args, **kwargs):
+        """ Overwrites ScatterPlotItem setData() method to
+            apply transformation before setting data """
+        if tForm:
+            temp = np.ones((4, len(x)))
+            temp[0, :] = x
+            temp[1, :] = y
+            temp[2, :] = z
+            temp2 = self.Pat2PixTForm.dot(temp)
+            x = temp2[0, :]
+            y = temp2[1, :]
+            z = temp2[2, :]
+        super().setData(x=x, y=y, *args, **kwargs)
+
 
 
 class DicomDataPlotItem(pg.PlotDataItem):

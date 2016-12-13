@@ -25,8 +25,11 @@ class DicomDataModel(object):
         and provides a useful interface to the data within the image volume
     """
 
-    def __init__(self, parent=None, diDir=None):
+    def __init__(self, diDir=None):
         # FILE IO STUFF
+        if diDir is None:
+            return None
+
         imDir, imFileList, contDir, contFile = organizeDirectory(diDir)
         self.dicomDir = diDir
         self.imFileList = imFileList
@@ -41,260 +44,91 @@ class DicomDataModel(object):
         sliceLimits = [min(self.sliceLocationList),
                        max(self.sliceLocationList)]
         self.sliceLimits = [float(x) for x in sliceLimits]
-        self.PP2IMTransformation = self.write_T_Patient2Pixels()
-        self.IM2PPTransformation = self.write_T_Pixels2Patient()
+
+        # self.PP2IMTransformation = self.write_T_Patient2Pixels(self.UID_zero)
+        # self.IM2PPTransformation = self.write_T_Pixels2Patient(self.UID_zero)
 
         # CONTOUR INITIALIZATION
         self.contourObjs = contourDCM2Dict(RTSTFilePath=contFile)
         self.prostateLimits = getProstateLimits(contourDict=self.contourObjs,
                                                 uid2loc=self.UID2Loc)
 
-    def setVaryingDicomSizeProps(self, imFileList):
+    def getPixelData(self):
+        """  """
+        pixelData = np.zeros([self.staticProperties['Rows'],
+                              self.staticProperties['Cols'],
+                              self.NSlices])
+        # for ind, sliceLoc in enumerate(self.sliceLocationList):
+        #     index = UnsortedSliceLoc2Ind[sliceLoc]
+        for uid in self.dataDict:
+            ind = self.UID2Ind[uid]
+            pixelData[:, :, ind] = self.dataDict[uid]['PixelData']
+
+        return pixelData
+
+    def setVaryingDicomSizeProps(self, imFileList=[]):
         # set the DICOM properties that vary for each file
-        self.NSlices = len(imFileList)
-        sliceIndList = []
-        TempSliceLocationList = []
-        self.sliceLocationList = []
-        self.sliceLoc2PositionPatient = dict()
+        sp = self.staticProperties
+        self.dataDict = {}
 
-        self.UID2Loc = UID2Loc = dict()
-        self.UID2FileName = UID2FileName = dict()
+        self.UID2Loc = {}  # check
+        self.Loc2UID = {}  # check
+        self.UID2Ind = {}
+        self.Ind2UID = {}
+        self.Loc2Ind = {}  # check
+        self.Ind2Loc = {}  # check
 
-        # slice2Pix = dict()
-        TempPixelData = np.empty([self.staticProperties['Rows'],
-                                  self.staticProperties['Cols'],
-                                  self.NSlices])
-        self.pixelData = np.empty([self.staticProperties['Rows'],
-                                   self.staticProperties['Cols'],
-                                   self.NSlices])
+        tempIndList = []
+        tempLocList = []
 
-        threads = len(imFileList)
-        pool = ThreadPool(threads)
+        NSlices = self.NSlices = len(imFileList)
+        print("N:", NSlices)
+        pool = ThreadPool(NSlices)
         results = pool.map(func=getDicomFileData, iterable=imFileList)
 
         for ind, entry in enumerate(results):  # each dicom's data
-            self.sliceLoc2PositionPatient[
-                entry['SliceLocation']] = entry['ImagePositionPatient']
 
-            UID2Loc[entry['UID']] = entry['SliceLocation']
-            UID2FileName[entry['UID']] = entry['FileName']
-            TempSliceLocationList.append(entry['SliceLocation'])
-            sliceIndList.append(ind)
-            TempPixelData[:, :, ind] = np.asarray(entry['PixelData'])
+            UID = entry['UID']
+            self.dataDict[UID] = entry
+            tempLocList.append(entry['SliceLocation'])
+            tempIndList.append(ind)
+            self.Loc2UID[entry['SliceLocation']] = entry['UID']
+            self.UID2Loc[entry['UID']] = entry['SliceLocation']
 
-        UnsortedSliceLoc2Ind = dict(zip(TempSliceLocationList, sliceIndList))
-        self.sliceLocationList = sorted(TempSliceLocationList)
-        self.sliceLoc2Ind = dict(zip(self.sliceLocationList, sliceIndList))
-        self.sliceInd2Loc = dict(zip(sliceIndList, self.sliceLocationList))
+        # UnsortedSliceLoc2Ind = dict(zip(tempLocList, tempIndList))
+        self.sliceLocationList = sorted(tempLocList)
+        self.Loc2Ind = dict(zip(self.sliceLocationList, tempIndList))
+        self.Ind2Loc = dict(zip(tempIndList, self.sliceLocationList))
+        self.UID2Ind = deepcopy(self.UID2Loc)
+        for UID in self.UID2Ind:
+            thisInd = self.Loc2Ind[self.UID2Loc[UID]]
+            self.UID2Ind[UID] = thisInd
+            self.Ind2UID[thisInd] = UID
+        start = self.sliceLocationList[0]
+        end = self.sliceLocationList[1]
+        self.staticProperties['SliceSpacing'] = end - start
+        print(self.staticProperties['SliceSpacing'])
+        self.UID_zero = UID_zero = self.Ind2UID[0]
 
-        self.UID2Ind = UID2Ind = deepcopy(UID2Loc)
-        for UID in UID2Ind:
-            UID2Ind[UID] = self.sliceLoc2Ind[UID2Loc[UID]]
+        ipp0 = self.dataDict[UID_zero]['ImagePositionPatient']
 
-        for ind, sliceLoc in enumerate(self.sliceLocationList):
-            index = UnsortedSliceLoc2Ind[sliceLoc]
-            self.pixelData[:, :, ind] = TempPixelData[:, :, index]
+        # Pixel Space - Patient Space transformations
+        for uid in self.dataDict:
 
-        self.Ind2UID = {y: x for x, y in UID2Ind.items()}
-        self.Loc2UID = {y: x for x, y in UID2Loc.items()}
-        self.FileName2UID = {y: x for x, y in UID2FileName.items()}
-        self.UID_zero = self.Ind2UID[0]
+            tpix2pat = getTPix2Pat(sp['PixelSpacing'],
+                                   sp['SliceSpacing'],
+                                   sp['ImageOrientationPatient'],
+                                   self.dataDict[uid]['ImagePositionPatient'],
+                                   ipp0)
 
-        print("Slices at: ", self.sliceLocationList)
+            tpat2pix = getTPat2Pix(sp['PixelSpacing'],
+                                   sp['SliceSpacing'],
+                                   sp['ImageOrientationPatient'],
+                                   self.dataDict[uid]['ImagePositionPatient'],
+                                   ipp0)
 
-        # PUT IN DICOM FILE
-    def write_T_Patient2Pixels(self, ind=0):
-        """ Transformaton of Patient Coordinate to Pixel Indices
-            """
-        sliceLoc0 = self.sliceInd2Loc[ind]
-        sliceSpan = self.sliceInd2Loc[1] - self.sliceInd2Loc[ind]
-        # SEE IF TRUE: that we can assume to use IM Pos Pat of slice 1 only
-
-        # ROTATION
-        temp = np.eye(4)
-        R = self.staticProperties['ImageOrientationPatient']
-        # temp[0:3, 0:3] = R.T  # HFS
-        temp[0:3, 0:3] = R  # FFS
-        Rotation = temp
-        # print("pat2pix R = \n", Rotation)
-
-        # TRANSLATION
-        temp = np.eye(4)
-        offset = self.sliceLoc2PositionPatient[sliceLoc0]
-        temp[0:3, -1] = - offset[0:3]
-        Translation = temp
-
-        # SCALING
-        temp = np.eye(4)
-        scales = self.staticProperties['PixelSpacing']
-        scaleMat = np.array([[1 / scales[0], 0, 0],
-                             [0, 1 / scales[1], 0],
-                             [0, 0, 1 / sliceSpan]])
-        temp[0:3, 0:3] = scaleMat
-        Scaling = temp
-
-        return Scaling.dot(Rotation).dot(Translation)
-
-    def write_T_Pixels2Patient(self):
-        """ Transformation of Pixel Indices to Patient Coordinates
-            Inverse of Above Transformation """
-        sliceLoc0 = self.sliceInd2Loc[0]
-        sliceSpan = self.sliceInd2Loc[1] - self.sliceInd2Loc[0]
-
-        # ROTATION
-        temp = np.eye(4)
-        R = self.staticProperties['ImageOrientationPatient']
-        # if self.staticProperties[
-        # temp[0:3, 0:3] = R  # HFS
-        temp[0:3, 0:3] = R.T  # FFS
-        Rotation = temp
-        # Rotation = np.eye(4)
-        # print("pix2pat R = \n", Rotation)
-
-        # TRANSLATION
-        temp = np.eye(4)
-        offset = self.sliceLoc2PositionPatient[sliceLoc0]
-        temp[0:3, -1] = offset[0:3]
-        Translation = temp
-
-        # SCALING
-        temp = np.eye(4)
-        scales = self.staticProperties['PixelSpacing']
-        scaleMat = np.array([[scales[0], 0, 0],
-                             [0, scales[1], 0],
-                             [0, 0, sliceSpan]])
-        temp[0:3, 0:3] = scaleMat
-        Scaling = temp
-        # return Scaling.dot(Rotation).dot(Translation)
-        return Translation.dot(Rotation).dot(Scaling)
-        # return np.eye(4)
-
-    def getContours(self, contFile):
-        pass
-        """ One Contour Object for each ROI in the structure set """
-        # contourObjs = {}
-        # di = pydicom.read_file(fp=contFile, force=True)
-        # contourNames = di.StructureSetROISequence
-        # uidSLD = self.UID2LocDict
-        # uidSIND = self.UID2IndDict
-        # R = self.staticProperties['ImageOrientationPatient']
-        # colz = {'prostate': 'g',
-        #         'urethra': 'y',
-        #         'rectum': 'w',
-        #         'boost_expanded': np.array([255, 128, 0]),
-        #         'boost': np.array([255, 64, 0]),
-        #         'dil': np.array([255, 64, 0])}
-
-        # for ind, thisROI in enumerate(di.ROIContourSequence):
-        #     thisName = contourNames[ind].ROIName
-
-        #     # scan through colors to match with anatomical part
-        #     thisCol = 'w'
-        #     for anatomy in colz.keys():
-        #         if anatomy == thisName.lower():
-        #             thisCol = colz[anatomy]
-        #             break
-
-        #     try:
-        #         contourObjs[thisName] = contourObj(thisROI=thisROI,
-        #                                            R=R,
-        #                                            filePath=contFile,
-        #                                            name=thisName,
-        #                                            ROIindex=ind,
-        #                                            colz=thisCol,
-        #                                            UID_SLD=uidSLD,
-        #                                            UID_SIND=uidSIND)
-        #     except AttributeError as aterr:
-        #         print("No contour data in %s" % thisName)
-        #         print(aterr)
-
-        # return contourObjs
-
-
-# class contourObj(object):
-#     """ for each ROI, make one of these """
-
-#     def __init__(self,
-#                  thisROI,
-#                  R=np.eye(3),
-#                  filePath='.',
-#                  name='',
-#                  ROIindex=0,
-#                  colz='w',
-#                  UID_SLD={},
-#                  UID_SIND={}):
-
-#         self.UID_SIND = UID_SIND
-#         self.contourName = name
-#         self.filePath = filePath
-#         self.ROIindex = ROIindex
-
-#         print(name, ' - ', ROIindex)
-
-#         self.wasModified = False
-#         self.slice2ContCoords = dict()
-#         self.contNum2Slice = dict()
-#         self.colz = [int(x) for x in thisROI.ROIDisplayColor]
-#         self.NLoops = 1
-
-#         try:
-#             contourNumber = thisROI.ContourSequence[0].ReferencedROINumber
-#         except AttributeError:
-#             contourNumber = thisROI.ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID
-#         self.contourNumber = contourNumber
-
-#         if hasattr(thisROI, 'ContourSequence'):
-#             self.populateSliceDict(thisROI.ContourSequence)
-#         else:
-#             print("No Contours in %s" % name)
-#             raise AttributeError
-
-
-#     def populateSliceDict(self, cs):
-#         """ Iterate through this ROI's contour sequences, put into dict """
-
-#         # loopDict = dict()
-
-#         # for thisSlice in cs:
-#         #     # Reshape coordinates to <M/3 by 3>
-#         #     thisData = np.asarray(thisSlice.ContourData)
-#         #     TransformedConDat = np.reshape(thisData, (len(thisData) / 3, 3))
-#         #     # replicate contour first point in last point (to close loop)
-#         #     TransformedConDat = np.append(TransformedConDat,
-#         #                                   [TransformedConDat[0, :]], 0)
-
-#         #     # try:
-#         #     cis = thisSlice.ContourImageSequence[0]
-#         #     SOP_UID = cis.ReferencedSOPInstanceUID
-#         #     sliceInd = self.UID_SIND[SOP_UID]  # from id to slice location
-#         #     # except:
-#         #     #     print("ERROR making CONTOUR")
-#         #     #     return
-#         #         # sliceLoc = thisData[2]
-
-#         #     # Keep track of loops per slice
-#         #     loopDict[sliceInd] = 1
-
-#         #     if sliceInd in self.slice2ContCoords.keys():
-#         #         loopDict[sliceInd] += 1
-#         #         self.slice2ContCoords[sliceInd].append(TransformedConDat)
-#         #         self.contNum2Slice[self.contourNumber].append(sliceInd)
-#         #     else:
-#         #         self.slice2ContCoords[sliceInd] = [TransformedConDat]
-#         #         self.contNum2Slice[self.contourNumber] = [sliceInd]
-
-#         # # PAD SLICE LISTS WITH EMPTIES SO ALL WITH SAME AMOUNT OF DATA
-#         # maxLoops = max(loopDict.values())
-#         # self.NLoops = maxLoops
-#         # for sliceInd in self.slice2ContCoords:
-#         #     if loopDict[sliceInd] < maxLoops:
-#         #         diff = maxLoops - loopDict[sliceInd]
-#         #         for i in range(diff):
-#         #             self.slice2ContCoords[sliceInd].append(np.array([[],
-#         #                                                              [],
-#         #                                                              []]).T)
-
-#         # print("NL:",  loopDict)
+            self.dataDict[uid]['TPix2Pat'] = tpix2pat
+            self.dataDict[uid]['TPat2Pix'] = tpat2pix
 
 
 def FormatForDicom(contourData):
@@ -306,6 +140,8 @@ def FormatForDicom(contourData):
 def organizeDirectory(directory):
     # Sift through directory to get list of files, return: imFile contFile
     # Expecting to see two dirs: one for Images, one for Contours
+
+    print("\n~~ Organizing ~~\n")
 
     tt0 = time.time()
     contFile = None
@@ -343,8 +179,9 @@ def organizeDirectory(directory):
                 if isContourDicom(fPath):
                     contFile = fPath
 
-    print('Total of %d dicom image files' % len(imFileList))
-    print("Org time: ", time.time() - tt0)
+    print('Found %d image files in %d s' % (len(imFileList),
+                                            time.time() - tt0))
+    # print("Org time: ", time.time() - tt0)
 
     return imDir, imFileList, contDir, contFile
 
@@ -382,11 +219,12 @@ def getDicomFileData(filePath):
         # except:
         #     pass
 
-        try:
-            sliceLoc = round(1000 * di.SliceLocation) / 1000
-        except:
-            sliceLoc = round(1000 * imageOrientation.dot(imPos[2])) / 1000
+        # try:
+        # sliceLoc = round(1000 * di.SliceLocation) / 1000
+        # except:
+        sliceLoc = float(imageOrientation.dot(imPos)[2])
         pixelData = np.asarray(di.pixel_array)
+
         thisDiDict = {'UID': di.SOPInstanceUID,
                       'ImagePositionPatient': imPos,
                       'ImageOrientationPatient': imageOrientation,
@@ -432,10 +270,71 @@ def getImOrientation(di):
     V3 = np.cross(V1, V2)
     R = np.array([V1, V2, V3])  # a 3x3 Rotation matrix
     if patPos == "FFS":
+        # print("FFS")
         return R
     if patPos == "HFS":  # ims taken Backwards!
+        # print("HFS")
         return R.T
     return R
+
+
+def getTPat2Pix(pixSpacing=[1, 1],
+                sliceSpacing=1,
+                ImOrPat=np.eye(3),
+                ImPosPat=np.array([0, 0, 0]),
+                ImPosPat0=np.array([0, 0, 0])):
+    """ Transformaton of Patient Coordinate to Pixel Indices """
+    # ROTATION
+    temp = np.eye(4)
+    temp[0:3, 0:3] = ImOrPat  # FFS
+    Rotation = temp
+
+    # TRANSLATION
+    temp = np.eye(4)
+    offset = ImPosPat  # - ImPosPat0
+    temp[0:3, -1] = - offset[0:3]
+    Translation = temp
+
+    # SCALING
+    temp = np.eye(4)
+    scaleMat = np.array([[1 / pixSpacing[0], 0, 0],
+                         [0, 1 / pixSpacing[1], 0],
+                         [0, 0, 1 / sliceSpacing]])
+    temp[0:3, 0:3] = scaleMat
+    Scaling = temp
+
+    # return Scaling.dot(Translation)
+    return Scaling.dot(Rotation).dot(Translation)
+
+
+def getTPix2Pat(pixSpacing=[1, 1],
+                sliceSpacing=1,
+                ImOrPat=np.eye(3),
+                ImPosPat=np.array([0, 0, 0]),
+                ImPosPat0=np.array([0, 0, 0])):
+    """ Transformation of Pixel Indices to Patient Coordinates
+        Inverse of Above Transformation """
+
+    # ROTATION
+    temp = np.eye(4)
+    temp[0:3, 0:3] = ImOrPat.T  # FFS
+    Rotation = temp
+
+    # TRANSLATION
+    temp = np.eye(4)
+    offset = ImPosPat  # - ImPosPat0
+    temp[0:3, -1] = offset[0:3]
+    Translation = temp
+
+    # SCALING
+    temp = np.eye(4)
+    scaleMat = np.array([[pixSpacing[0], 0, 0],
+                         [0, pixSpacing[1], 0],
+                         [0, 0, sliceSpacing]])
+    temp[0:3, 0:3] = scaleMat
+    Scaling = temp
+
+    return Translation.dot(Rotation).dot(Scaling)
 
 
 def getProstateLimits(contourDict, uid2loc):
@@ -488,6 +387,8 @@ def contourDCM2Dict(RTSTFilePath=''):
                 existingData = ROIDict['ContourData'][thisUID]
                 existingData = np.append(existingData, reshapedData, 0)
 
+            # print(ROIDict['ContourData'])
+
         contourDict['ROI'].append(ROIDict)
 
     return contourDict
@@ -521,8 +422,19 @@ def contourDict2DCM(contourDict, pathname):
 
 
 if __name__ == "__main__":
-    pathn = r"P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)\YU, YAN_3138146_RTst_2016-07-14_121417_mrgb1F_EMTEST_n1__00000\2.16.840.1.114362.1.6.5.4.15706.9994565197.426983378.1037.53.dcm"
+    pathn = r"P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)"
 
-    rtst = contourDCM2Dict(pathn)
+    di = DicomDataModel(diDir=pathn)
+    # print(di)
 
-    print(rtst)
+    uid0 = di.Ind2UID[0]
+
+    for i in range(0, 10):
+        uid = di.Ind2UID[i]
+        ipp = di.dataDict[uid]['ImagePositionPatient']
+
+        ipp_ = np.append(ipp, np.array([1]))
+
+        out = di.dataDict[uid0]['TPat2Pix'].dot(ipp_)
+
+        print(i, ': ', out)
