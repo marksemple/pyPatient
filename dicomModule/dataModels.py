@@ -107,28 +107,20 @@ class DicomDataModel(object):
         start = self.sliceLocationList[0]
         end = self.sliceLocationList[1]
         self.staticProperties['SliceSpacing'] = end - start
-        print(self.staticProperties['SliceSpacing'])
         self.UID_zero = UID_zero = self.Ind2UID[0]
 
-        ipp0 = self.dataDict[UID_zero]['ImagePositionPatient']
+        ippo = self.dataDict[UID_zero]['ImagePositionPatient']
 
         # Pixel Space - Patient Space transformations
-        for uid in self.dataDict:
+        self.TPix2Pat = getTPix2Pat(sp['PixelSpacing'],
+                                    sp['SliceSpacing'],
+                                    sp['ImageOrientationPatient'],
+                                    ippo)
 
-            tpix2pat = getTPix2Pat(sp['PixelSpacing'],
-                                   sp['SliceSpacing'],
-                                   sp['ImageOrientationPatient'],
-                                   self.dataDict[uid]['ImagePositionPatient'],
-                                   ipp0)
-
-            tpat2pix = getTPat2Pix(sp['PixelSpacing'],
-                                   sp['SliceSpacing'],
-                                   sp['ImageOrientationPatient'],
-                                   self.dataDict[uid]['ImagePositionPatient'],
-                                   ipp0)
-
-            self.dataDict[uid]['TPix2Pat'] = tpix2pat
-            self.dataDict[uid]['TPat2Pix'] = tpat2pix
+        self.TPat2Pix = getTPat2Pix(sp['PixelSpacing'],
+                                    sp['SliceSpacing'],
+                                    sp['ImageOrientationPatient'],
+                                    ippo)
 
 
 def FormatForDicom(contourData):
@@ -281,8 +273,7 @@ def getImOrientation(di):
 def getTPat2Pix(pixSpacing=[1, 1],
                 sliceSpacing=1,
                 ImOrPat=np.eye(3),
-                ImPosPat=np.array([0, 0, 0]),
-                ImPosPat0=np.array([0, 0, 0])):
+                ImPosPat=np.array([0, 0, 0])):
     """ Transformaton of Patient Coordinate to Pixel Indices """
     # ROTATION
     temp = np.eye(4)
@@ -310,8 +301,7 @@ def getTPat2Pix(pixSpacing=[1, 1],
 def getTPix2Pat(pixSpacing=[1, 1],
                 sliceSpacing=1,
                 ImOrPat=np.eye(3),
-                ImPosPat=np.array([0, 0, 0]),
-                ImPosPat0=np.array([0, 0, 0])):
+                ImPosPat=np.array([0, 0, 0])):
     """ Transformation of Pixel Indices to Patient Coordinates
         Inverse of Above Transformation """
 

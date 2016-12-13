@@ -115,8 +115,8 @@ class dicomViewWidget(QWidget):
         # Get DicomData Pixel Transformations
         # self.T_patient_pixels = imageModel.PP2IMTransformation
         # self.T_pixels_patient = imageModel.IM2PPTransformation
+        TPat2Pix = imageModel.TPat2Pix
         self.UID_zero = imageModel.Ind2UID[0]
-        TPat2Pix = imageModel.dataDict[self.UID_zero]['TPat2Pix']
         self.currentUID = self.UID_zero
 
         # Add Image Object (for DICOM pixel array)
@@ -133,7 +133,6 @@ class dicomViewWidget(QWidget):
         self.showingImage = True
         self.PlotWidge.autoRange()
         self.configureSliceSlider()
-        # self.updateScene(self.UID_zero)
         self.setupClearDataModel()
 
     def createContourPlottables(self, contourDict, *args, **kwargs):

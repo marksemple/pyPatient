@@ -51,7 +51,7 @@ class DicomGUI(QtGui.QMainWindow):
 
     def createMenu(self):
         self.toolbar = QtGui.QToolBar()
-        self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolbar)
+        self.addToolBar(QtCore.Qt.TopToolBarArea, self.toolbar)
 
         connect_action = self.mkAction('&Connect',
                                        shortcut='Ctrl+C',

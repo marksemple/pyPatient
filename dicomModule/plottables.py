@@ -108,7 +108,6 @@ class DicomContourPlotItem(pg.PlotDataItem):
         super().setData(x=x, y=y, *args, **kwargs)
 
 
-
 class DicomDataPlotItem(pg.PlotDataItem):
     """ Abstract ScatterPlotItem that shows same regardless of slice
     Inputs:
@@ -151,13 +150,15 @@ class DicomDataPlotItem(pg.PlotDataItem):
     def setPat2PixTForm(self, tform):
         self.Pat2PixTForm = tform
 
-    def setData(self, x=[], y=[], tForm=True, *args, **kwargs):
+    def setData(self, x=[], y=[], z=[], tForm=True, *args, **kwargs):
         """ Overwrites ScatterPlotItem setData() method to
             apply transformation before setting data """
         if tForm:
-            temp = np.ones((4, len(x)))
+            temp = np.zeros((4, len(x)))
             temp[0, :] = x
             temp[1, :] = y
+            # temp[2, :] = np.zeros((1,len(x)))
+            temp[3, :] = np.ones((1, len(x)))
             temp2 = self.Pat2PixTForm.dot(temp)
             x = temp2[0, :]
             y = temp2[1, :]
