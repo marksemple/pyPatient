@@ -57,7 +57,9 @@ class DicomContourPlotItem(pg.PlotDataItem):
 
         self.setPat2PixTForm(tform=Pat2PixTForm)
         pen = pg.mkPen(color=ROIDict['ROICol'], width=2)
+        self.myPen = pen
         self.ROIDict = ROIDict
+        # self.name = ROIDict['ROIName']
         self.UID2IndDict = UID2IndDict
         self.populateSliceDict(list(UID2IndDict.keys()))
         super().__init__(pen=pen, *args, **kwargs)
@@ -239,8 +241,8 @@ class editableContourPlotItem(DicomContourPlotItem):
     """ A contour object that can be altered """
 
     def __init__(self, *args, **kwargs):
-        # recurrentPoly
-        pass
+        super().__init__(*args, **kwargs)
+        print("EDITABLE THO")
 
     def setDefaultData(self):
         self.defaultData = np.asarray(self.getData()).T
@@ -250,7 +252,7 @@ class editableContourPlotItem(DicomContourPlotItem):
         return(recurrentPoly.contains(Point([point.x(), point.y()])))
 
     def addPoint(self, circle, newPt, size):
-        polydata = MarkPGPlotCircle.transformData(circle, newPt, size)
+        polydata = painterCircle.transformData(circle, newPt, size)
         newPoly = Polygon(polydata)
         try:
             recurrentPoly = PlotItemToPolygon(self)
@@ -261,13 +263,13 @@ class editableContourPlotItem(DicomContourPlotItem):
             print(e)
 
     def subPoint(self, circle, newPt, size):
-        polydata = MarkPGPlotCircle.transformData(circle, newPt, size)
+        polydata = painterCircle.transformData(circle, newPt, size)
         newPoly = Polygon(polydata)
         try:
             recurrentPoly = PlotItemToPolygon(self)
             recurrentPoly = recurrentPoly.difference(newPoly)
             X, Y = PolygonToPlotItem(recurrentPoly)
-            self.setData(x=X, y=Y)
+            self.setData(x=X, y=Y, z=np.ones(len(X)))
         except AttributeError as e:
             print(e)
 
@@ -306,6 +308,29 @@ class editableContourPlotItem(DicomContourPlotItem):
         for contour in self.ImVolume.contourObjs.values():
             if contour.contourName == contourPlottable.contourName:
                 contour.slice2ContCoords[self.thisSliceLoc][0] = pts[:, 0:3]
+
+
+class painterCircle(pg.PlotDataItem):
+    def __init__(self, color='w', centre=(0, 0),
+                 radius=1, res=80, penWidth=2, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x0 = np.array([np.cos(i) for i in np.linspace(0, 2 * np.pi, res)])
+        self.y0 = np.array([np.sin(i) for i in np.linspace(0, 2 * np.pi, res)])
+        self.setCircleData(centre, radius)
+        self.myPen = pg.mkPen(color=color, width=penWidth)
+        self.setPen(self.myPen)
+
+    def setCircleData(self, centre=(0, 0), radius=1, *args, **kwargs):
+        self.dataPts = self.transformData(self, centre, radius)
+        super().setData(x=self.dataPts[:, 0],
+                        y=self.dataPts[:, 1],
+                        *args, **kwargs)
+
+    @staticmethod
+    def transformData(self, centre, radius):
+        ptList = np.array([radius * self.x0 + centre[0],
+                           radius * self.y0 + centre[1]])
+        return ptList.T
 
 
 def PolygonToPlotItem(polygon):

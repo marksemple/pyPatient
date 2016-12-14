@@ -86,7 +86,7 @@ class dicomViewWidget(QWidget):
     def updateScene(self, sliceUID):
         if self.showingImage:
             self.PlottableImage.updatePlottable(UID=sliceUID)
-            for contour in self.PlottableContours:
+            for contour in self.PlottableContours.values():
                 contour.updatePlottable(UID=sliceUID)
 
     def setupAddDataModel(self):
@@ -139,13 +139,17 @@ class dicomViewWidget(QWidget):
         """ create/store list of 'active contour objects' for plotting
         also make, but don't store list of projections of contours """
 
-        self.PlottableContours = []
+        self.PlottableContours = {}
         for ROI in contourDict['ROI']:
-            contourItem = DicomContourPlotItem(ROIDict=ROI, *args, **kwargs)
-            self.PlottableContours.append(contourItem)
-            self.myPlot.addItem(contourItem)
+            contourP = self.getContourPlottable(ROIDict=ROI, *args, **kwargs)
+            self.PlottableContours[ROI['ROIName']] = contourP
+            self.myPlot.addItem(contourP)
 
-        self.populateLegend(self.legend)
+        self.populateLegend(legend=self.legend,
+                            contourDict=self.PlottableContours)
+
+    def getContourPlottable(self, *args, **kwargs):
+        return DicomContourPlotItem(*args, **kwargs)
 
     def setupClearDataModel(self):
         """ Change bttn function to be CLEAR DATA """
@@ -218,10 +222,10 @@ class dicomViewWidget(QWidget):
         self.thisSliceIndex = newSliceIndex
         self.thisSliceLoc = newSliceLocation
 
-    def populateLegend(self, legend):
-        for contour in self.PlottableContours:
-            legend.addItem(item=contour,
-                           name=('   ' + contour.ROIDict['ROIName']))
+    def populateLegend(self, legend, contourDict={}):
+        for thisContour in contourDict:
+            legend.addItem(item=contourDict[thisContour],
+                           name=('   ' + thisContour))
 
     def clearLegend(self, legend):
         legend.items = []

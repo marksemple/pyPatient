@@ -26,6 +26,7 @@ class DicomDataModel(object):
     """
 
     def __init__(self, diDir=None):
+        """ """
         # FILE IO STUFF
         if diDir is None:
             return None
@@ -67,6 +68,7 @@ class DicomDataModel(object):
         return pixelData
 
     def setVaryingDicomSizeProps(self, imFileList=[]):
+        """ """
         # set the DICOM properties that vary for each file
         sp = self.staticProperties
         self.dataDict = {}
@@ -124,6 +126,7 @@ class DicomDataModel(object):
 
 
 def FormatForDicom(contourData):
+    """ """
     flatData = contourData.flatten()
     stringData = [str(item) for item in flatData]
     return stringData
@@ -380,6 +383,7 @@ def contourDCM2Dict(RTSTFilePath=''):
             # print(ROIDict['ContourData'])
 
         contourDict['ROI'].append(ROIDict)
+        contourDict[ROIDict['ROIName']] = ROIDict
 
     return contourDict
 
