@@ -365,7 +365,13 @@ def contourDCM2Dict(RTSTFilePath=''):
 
         # For each ContourSequence (ie. Closed-Data-Loop) in this ROI
         for CS in thisROI.ContourSequence:
-            thisUID = CS.ContourImageSequence[0].ReferencedSOPInstanceUID
+            try:
+                thisUID = CS.ContourImageSequence[0].ReferencedSOPInstanceUID
+            except AttributeError as ae:
+                rfors = di.ReferencedFrameOfReference[0]
+                rtrStudySeq = rfors.RTReferencedStudySequence[0]
+                rtrSeriesSeq = rtrStudySeq.RTReferencedSeriesSequence[0]
+                CIS = rtrSeriesSeq.ContourImageSequence
             thisData = np.asarray(CS.ContourData)
             # Reshape data list to be <Nx3> matrix
             reshapedData = np.reshape(thisData, (len(thisData) / 3, 3))
