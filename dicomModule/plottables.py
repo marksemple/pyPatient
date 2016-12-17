@@ -218,7 +218,6 @@ class SliceDataPlotItem(DicomDataPlotItem):
     def updatePlottable(self, sliceUID):
         """ update data being shown with Slice Index """
         # print("Update Slice , uid:", sliceUID)
-        # try:
         if len(self.sliceDict[sliceUID]) > 0:
             sliceData = np.asarray(self.sliceDict[sliceUID])
             self.setData(x=sliceData[:, 0], y=sliceData[:, 1])

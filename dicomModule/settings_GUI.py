@@ -149,13 +149,10 @@ class JSONSettingsInterface(QDialog):
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)
-    # pass path in
-
     try:
         US = JSONSettingsInterface.json2dict(r'./config.json')
     except:
         US = JSONSettingsInterface.InitializeSettings()
-
     form = JSONSettingsInterface(userSettings=US)
     form.show()
     sys.exit(app.exec_())
