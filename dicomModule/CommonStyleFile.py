@@ -33,8 +33,8 @@ def getCommonStyleFile():
     return """
 QWidget {
     background-color: white;
-    margin: 0pt;
-    padding: 0pt;
+    margin: 2pt;
+    padding: 2pt;
     /*font: large "Arial"*/
     }
 

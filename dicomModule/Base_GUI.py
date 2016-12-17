@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Base GUI to be used in Python programs
