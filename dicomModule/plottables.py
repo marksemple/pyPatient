@@ -112,6 +112,7 @@ class DicomContourPlotItem(pg.PlotDataItem):
 
 class DicomDataPlotItem(pg.PlotDataItem):
     """ Abstract ScatterPlotItem that shows same regardless of slice
+    Applies Transformation from Patient space to Pixel Space
     Inputs:
         - symbolDict: dictionary describing the markers and lines
         - Pat2PixTForm: 4x4 numpy array that describes transformation
@@ -134,17 +135,16 @@ class DicomDataPlotItem(pg.PlotDataItem):
         """ apply marker/line symbol style from dictionary entries """
         if not bool(symbolDict):
             return
-
-        s = symbolDict['symbol']
-        ss = symbolDict['symbolSize']
-        sp = symbolDict['symbolPen']
-        sb = symbolDict['symbolBrush']
-
-        self.setPen(None)
-        self.setSymbol(s)
-        self.setSymbolSize(ss)
-        self.setSymbolPen(sp)
-        self.setSymbolBrush(sb)
+        if 'pen' in symbolDict:
+            self.setPen(symbolDict['pen'])
+        if 'symbol' in symbolDict:
+            self.setSymbol(symbolDict['symbol'])
+        if 'symbolSize' in symbolDict:
+            self.setSymbolSize(symbolDict['symbolSize'])
+        if 'symbolPen' in symbolDict:
+            self.setSymbolPen(symbolDict['symbolPen'])
+        if 'symbolBrush' in symbolDict:
+            self.setSymbolBrush(symbolDict['symbolBrush'])
 
     def populateSliceDict(self, *args, **kwargs):
         pass
@@ -155,17 +155,24 @@ class DicomDataPlotItem(pg.PlotDataItem):
     def setData(self, x=[], y=[], z=[], tForm=True, *args, **kwargs):
         """ Overwrites ScatterPlotItem setData() method to
             apply transformation before setting data """
+
+        try:
+            nPts = len(x)
+        except TypeError:
+            nPts = 1
+
         if tForm:
-            temp = np.zeros((4, len(x)))
+            temp = np.zeros((4, nPts))
             temp[0, :] = x
             temp[1, :] = y
-            # temp[2, :] = np.zeros((1,len(x)))
-            temp[3, :] = np.ones((1, len(x)))
+            temp[2, :] = np.zeros((1, nPts))
+            temp[3, :] = np.ones((1, nPts))
             temp2 = self.Pat2PixTForm.dot(temp)
             x = temp2[0, :]
             y = temp2[1, :]
-            # print('<x = ', x,' , y = ', y, ' >')
-        super().setData(x=x, y=y, *args, **kwargs)
+            z = temp2[2, :]
+            # print('<x = %d, y = %d, z = %d>' % (x[0], y[0], z[0]))
+        super().setData(x=x, y=y, z=z, *args, **kwargs)
 
     def updatePlottable(self, *args, **kwargs):
         pass

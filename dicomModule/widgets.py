@@ -3,7 +3,8 @@ from PyQt4 import QtCore
 from PyQt4.QtGui import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
                          QSlider, QLabel, QPushButton, QFileDialog,
                          QDialogButtonBox, QMessageBox, QIcon, QDialog)
-from pyqtgraph import PlotWidget, ImageItem, mkPen, LegendItem, ImageItem
+from pyqtgraph import (ImageItem, mkPen, LegendItem, ImageItem,
+                       GraphicsLayoutWidget, PlotItem)
 import numpy as np
 
 from dicomModule.dataModels import *
@@ -24,6 +25,7 @@ class dicomViewWidget(QWidget):
         self.parent = parent
         self.showingImage = False
         self.new_slice_to_show = True
+        self.legend = None
         self.startingDirectory = "C:\\"  # Where to begin dicom im search
 
         self.createControls()
@@ -36,23 +38,27 @@ class dicomViewWidget(QWidget):
         self.setLayout(centralLayout)
 
     def createAxes(self):
+
         PlotWidge = self.PlotWidge = self.getPlotWidgeObject()
-        myPlot = self.myPlot = PlotWidge.getPlotItem()
-        # myPlot.showAxis('bottom', False)
-        # myPlot.showAxis('left', False)
-        myView = myPlot.getViewBox()
-        myView.setAspectLocked(True)
-        myView.invertY(True)
-        PlotWidge.setRange(xRange=(-200, 200))
-        PlotWidge.setBackground('#C0C0C0')
-        PlotWidge.hideButtons()
-        legend = self.legend = LegendItem()
-        legend.setParentItem(myPlot)
+        PlotWidge.setBackground(None)
+
+        self.myPlot = {'z': PlotWidge.addPlot()}
+
+        for ax in self.myPlot:
+            plot = self.myPlot[ax]
+            myView = plot.getViewBox()
+            myView.setAspectLocked(True)
+            myView.invertY(True)
+            myView.setBackgroundColor('#C0C0C0')
+            plot.setRange(xRange=(-200, 200))
+            plot.hideButtons()
+            # legend = self.legend = LegendItem()
+            # legend.setParentItem(myPlot)
 
     def getPlotWidgeObject(self):
         # For Default DicomViewWidget: use Default pyqtgraph Plot Widget
         # Can be overrode using this function in subclasses of DicomViewWidget
-        return PlotWidget()
+        return GraphicsLayoutWidget()
 
     def createControls(self):
         self.viewToolsLayout = depthLayout = QVBoxLayout()
@@ -104,10 +110,6 @@ class dicomViewWidget(QWidget):
             return
         # try:
         self.ImVolume = DicomDataModel(diDir=dicomDir)
-        # except Exception as e:
-            # print(e)
-            # print("error in making IMVolume")
-            # return
 
         self.addImages(imageModel=self.ImVolume)
 
@@ -121,7 +123,7 @@ class dicomViewWidget(QWidget):
 
         # Add Image Object (for DICOM pixel array)
         self.PlottableImage = DicomImagePlotItem(dicomModel=imageModel)
-        self.myPlot.addItem(self.PlottableImage)
+        self.myPlot['z'].addItem(self.PlottableImage)
 
         # Add Contour Object (if there are any!)
         if bool(imageModel.contourObjs):
@@ -131,7 +133,8 @@ class dicomViewWidget(QWidget):
 
         # Tidy Up
         self.showingImage = True
-        self.PlotWidge.autoRange()
+        for plot in self.myPlot.values():
+            plot.autoRange()
         self.configureSliceSlider()
         self.setupClearDataModel()
 
@@ -143,10 +146,11 @@ class dicomViewWidget(QWidget):
         for ROI in contourDict['ROI']:
             contourP = self.getContourPlottable(ROIDict=ROI, *args, **kwargs)
             self.PlottableContours[ROI['ROIName']] = contourP
-            self.myPlot.addItem(contourP)
+            self.myPlot['z'].addItem(contourP)
 
-        self.populateLegend(legend=self.legend,
-                            contourDict=self.PlottableContours)
+        if bool(self.legend):
+            self.populateLegend(legend=self.legend,
+                                contourDict=self.PlottableContours)
 
     def getContourPlottable(self, *args, **kwargs):
         return DicomContourPlotItem(*args, **kwargs)
@@ -178,11 +182,12 @@ class dicomViewWidget(QWidget):
 
     def clearImages(self):
         """ Reset and Clear Axes """
-        self.myPlot.clear()
+        self.myPlot['z'].clear()
         # for item in [self.PlottableImage]:
         # del item
         self.showingImage = False
-        self.clearLegend(self.legend)
+        if bool(self.legend):
+            self.clearLegend(self.legend)
         self.initializeModel()
         self.setupAddDataModel()
 
@@ -236,6 +241,14 @@ class dicomViewWidget(QWidget):
     def closeEvent(self, event):
         print("Closing the app")
         self.deleteLater()
+
+
+
+class ViewerPlotItem(PlotItem):
+    pass
+
+
+
 
 
 if __name__ == "__main__":
