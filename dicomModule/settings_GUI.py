@@ -40,7 +40,7 @@ class JSONSettingsInterface(QDialog):
         """ create core functional widgets (save, cancel, etc) """
         super().__init__(parent=parent)
 
-        if userSettings is None:
+        if not bool(userSettings):
             userSettings = self.InitializeSettings()
 
         self.rootFile = r'./config.json'
@@ -62,7 +62,7 @@ class JSONSettingsInterface(QDialog):
         self.TabFrame = QTabWidget()
         self.CreateSettingsTab(self.TabFrame)
 
-        self.dict2field(userSettings)
+        self.dict2field(userSettings=userSettings)
 
         layout.addWidget(self.TabFrame)
         layout.addLayout(bttnLayout)

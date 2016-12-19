@@ -66,13 +66,14 @@ QPushButton, QComboBox {
     border-width: 1px;
     border-radius: 4px;
     padding: 5px;
-    min-width: 100px;
-    font-size: 9pt}
+    min-width: 100px;}
 
 /* To Format: add Symbol for "Checked" */
+/*
 QCheckBox {
     font-size: 10pt
 }
+*/
 
 QCheckBox::indicator {
         width: 12px;
@@ -152,9 +153,10 @@ QTabBar::tab {
     border-bottom-color: white; /* same as the pane color */
     border-top-left-radius: 4px;
     border-top-right-radius: 4px;
-    min-width: 80px;
+    /* min-width: 80px; */
     padding: 5px;
-    font-size: 9pt}
+    /*    font-size: 9pt */
+    }
 QTabBar::tab:selected{
     background: white;
     border-color: accentCol;
