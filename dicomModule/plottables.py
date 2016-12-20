@@ -29,6 +29,8 @@ class DicomImagePlotItem(pg.ImageItem):
             self.UID2IndDict = dicomModel.UID2Ind
             self.updatePlottable(dicomModel.UID_zero)
 
+        self.viewTForm = np.eye(4)
+
         self.setZValue(-1)
 
     def setImage(self, sliceIndex=0):
@@ -41,6 +43,9 @@ class DicomImagePlotItem(pg.ImageItem):
     def updatePlottable(self, UID):
         sliceIndex = self.UID2IndDict[UID]
         self.setImage(sliceIndex)
+
+    def setViewTForm(self, tForm):
+        self.viewTForm = tForm
 
 
 class DicomContourPlotItem(pg.PlotDataItem):
@@ -62,6 +67,7 @@ class DicomContourPlotItem(pg.PlotDataItem):
         # self.name = ROIDict['ROIName']
         self.UID2IndDict = UID2IndDict
         self.populateSliceDict(list(UID2IndDict.keys()))
+        self.viewTForm = np.eye(4)
         super().__init__(pen=pen, *args, **kwargs)
 
     def populateSliceDict(self, sliceList):
@@ -109,6 +115,9 @@ class DicomContourPlotItem(pg.PlotDataItem):
             z = temp2[2, :]
         super().setData(x=x, y=y, *args, **kwargs)
 
+    def setViewTForm(self, tForm):
+        self.viewTForm = tForm
+
 
 class DicomDataPlotItem(pg.PlotDataItem):
     """ Abstract ScatterPlotItem that shows same regardless of slice
@@ -123,22 +132,13 @@ class DicomDataPlotItem(pg.PlotDataItem):
 
     def __init__(self, symbolDict={},
                  Pat2PixTForm=np.eye(4),
-                 viewAxis='XY',
                  *args, **kwargs):
 
-        temp = np.eye(4)
-        if viewAxis == 'ZX':
-            temp[0:3, 0:3] = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
-        elif viewAxis == 'YZ':
-            temp[0:3, 0:3] = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
-        else:
-            pass
-        self.viewAxis = temp
-
         self.setPat2PixTForm(Pat2PixTForm)
-        super().__init__(pxMode=False,
-                         antialias=True,
-                         *args, **kwargs)
+        self.viewTForm = np.eye(4)
+
+        super().__init__(pxMode=False, antialias=True, *args, **kwargs)
+
         self.setSymbolDict(symbolDict)
 
     def setSymbolDict(self, symbolDict={}):
@@ -165,19 +165,20 @@ class DicomDataPlotItem(pg.PlotDataItem):
     def setData(self, x=[], y=[], z=[], tForm=True, *args, **kwargs):
         """ Overwrites ScatterPlotItem setData() method to
             apply transformation before setting data """
-
         try:
             nPts = len(x)
         except TypeError:
             nPts = 1
 
+        # print(self.viewTForm)
+
         if tForm:
             temp = np.zeros((4, nPts))
             temp[0, :] = x
             temp[1, :] = y
-            temp[2, :] = np.zeros((1, nPts))
+            temp[2, :] = z
             temp[3, :] = np.ones((1, nPts))
-            temp2 = self.viewAxis.dot(self.Pat2PixTForm).dot(temp)
+            temp2 = self.viewTForm.dot(self.Pat2PixTForm).dot(temp)
             x = temp2[0, :]
             y = temp2[1, :]
             z = temp2[2, :]
@@ -190,6 +191,9 @@ class DicomDataPlotItem(pg.PlotDataItem):
     def hide(self):
         super().setData(x=[], y=[])
         pass
+
+    def setViewTForm(self, tForm):
+        self.viewTForm = tForm
 
 
 class SliceDataPlotItem(DicomDataPlotItem):
