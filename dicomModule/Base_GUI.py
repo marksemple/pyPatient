@@ -65,18 +65,18 @@ class DicomGUI(QtGui.QMainWindow):
                                      shortcut='Ctrl+M',
                                      slot=self.onStart,
                                      tip='Start')
-        stop_action = self.mkAction('&Stop',
-                                    shortcut='Ctrl+T',
-                                    slot=self.onStop,
-                                    tip='Stop')
+        # stop_action = self.mkAction('&Stop',
+        #                             shortcut='Ctrl+T',
+        #                             slot=self.onStop,
+        #                             tip='Stop')
         exit_action = self.mkAction('E&xit',
                                     slot=self.close,
                                     shortcut='Ctrl+X',
                                     tip='Exit')
-        for action in [start_action,
-                       stop_action,
-                       init_action]:
-            action.setEnabled(False)
+        # for action in [start_action,
+                       # stop_action,
+                       # init_action]:
+            # action.setEnabled(False)
 
         """ SETTINGS ACTIONS """
         settings_action = self.mkAction('User Settings',
@@ -100,7 +100,7 @@ class DicomGUI(QtGui.QMainWindow):
                      init_action,
                      None,
                      start_action,
-                     stop_action,
+                     # stop_action,
                      None,
                      exit_action))
         add_actions(settings_menu,
@@ -112,13 +112,13 @@ class DicomGUI(QtGui.QMainWindow):
         """ ADD TO TOOLBAR """
         add_actions(self.toolbar,
                     (start_action,
-                     stop_action,
+                     # stop_action,
                      None))
 
         self.connect_action = connect_action
         self.init_action = init_action
         self.start_action = start_action
-        self.stop_action = stop_action
+        # self.stop_action = stop_action
         self.settings_action = settings_action
         self.about_action = about_action
         self.exit_action = exit_action

@@ -291,10 +291,10 @@ def getTPat2Pix(pixSpacing=[1, 1],
 
     # SCALING
     temp = np.eye(4)
-    scaleMat = np.array([[1 / pixSpacing[0], 0, 0],
-                         [0, 1 / pixSpacing[1], 0],
-                         [0, 0, 1 / sliceSpacing]])
-    temp[0:3, 0:3] = scaleMat
+    # scaleMat = np.array([[1 / pixSpacing[0], 0, 0],
+    #                      [0, 1 / pixSpacing[1], 0],
+    #                      [0, 0, 1 / sliceSpacing]])
+    # temp[0:3, 0:3] = scaleMat
     Scaling = temp
 
     # return Scaling.dot(Translation)
@@ -321,10 +321,10 @@ def getTPix2Pat(pixSpacing=[1, 1],
 
     # SCALING
     temp = np.eye(4)
-    scaleMat = np.array([[pixSpacing[0], 0, 0],
-                         [0, pixSpacing[1], 0],
-                         [0, 0, sliceSpacing]])
-    temp[0:3, 0:3] = scaleMat
+    # scaleMat = np.array([[pixSpacing[0], 0, 0],
+    #                      [0, pixSpacing[1], 0],
+    #                      [0, 0, sliceSpacing]])
+    # temp[0:3, 0:3] = scaleMat
     Scaling = temp
 
     return Translation.dot(Rotation).dot(Scaling)
