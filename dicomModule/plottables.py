@@ -31,13 +31,6 @@ class DicomImagePlotItem(pg.ImageItem):
 
         self.viewTForm = np.eye(4)
 
-        # print("Image can do:")
-        # print(dir(self))
-        self.scale(dicomModel.staticProperties['PixelSpacing'][0],
-                   dicomModel.staticProperties['PixelSpacing'][1])
-        # self.setScale()
-        # Scale!
-
         self.setZValue(-1)
 
     def setImage(self, sliceIndex=0):
@@ -199,7 +192,7 @@ class DicomDataPlotItem(pg.PlotDataItem):
         super().setData(x=[], y=[])
         pass
 
-    def setViewTForm(self, tForm):
+    def setWorldTForm(self, tForm):
         self.viewTForm = tForm
 
 

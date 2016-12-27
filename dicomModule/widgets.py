@@ -136,6 +136,7 @@ class dicomViewWidget(QWidget):
         # Add Image Object (for DICOM pixel array)
         self.PlottableImage = DicomImagePlotItem(dicomModel=imageModel)
         self.myPlot['z'].addItem(self.PlottableImage)
+        self.PlottableImage.rotate(45)
 
         # Add Contour Object (if there are any!)
         if bool(imageModel.contourObjs):
@@ -309,7 +310,7 @@ class AxisViewerPlotItem(PlotItem):
         super().addItem(item, *args, **kwargs)
 
     def addCustomItem(self, item, *args, **kwargs):
-        item.setViewTForm(self.viewTForm)
+        item.setWorldTForm(self.viewTForm)
         self.addItem(item)
         self.customItems.append(item)
 
