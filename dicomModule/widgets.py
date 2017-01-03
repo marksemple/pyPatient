@@ -6,8 +6,9 @@ General Widgets for Dicom-related Programs
 """
 
 # Third-party Modules
-from PyQt4 import QtCore
-from PyQt4.QtGui import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
+from PyQt5 import QtCore
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import (QWidget, QHBoxLayout, QVBoxLayout,
                          QSlider, QLabel, QPushButton, QFileDialog,
                          QDialog)
 from pyqtgraph import (ImageItem, GraphicsLayoutWidget, PlotItem)
