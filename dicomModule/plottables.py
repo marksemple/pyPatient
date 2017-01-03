@@ -134,7 +134,7 @@ class DicomDataPlotItem(pg.PlotDataItem):
                  Pat2PixTForm=np.eye(4),
                  *args, **kwargs):
 
-        self.setPat2PixTForm(Pat2PixTForm)
+        self.setTForm(Pat2PixTForm)
         self.viewTForm = np.eye(4)
 
         super().__init__(pxMode=False, antialias=True, *args, **kwargs)
@@ -159,9 +159,6 @@ class DicomDataPlotItem(pg.PlotDataItem):
     def populateSliceDict(self, *args, **kwargs):
         pass
 
-    def setPat2PixTForm(self, tform):
-        self.Pat2PixTForm = tform
-
     def setData(self, x=[], y=[], z=[], tForm=True, *args, **kwargs):
         """ Overwrites ScatterPlotItem setData() method to
             apply transformation before setting data """
@@ -170,27 +167,24 @@ class DicomDataPlotItem(pg.PlotDataItem):
         except TypeError:
             nPts = 1
 
-        # print(self.viewTForm)
-
         if tForm:
             temp = np.zeros((4, nPts))
             temp[0, :] = x
             temp[1, :] = y
             temp[2, :] = z
             temp[3, :] = np.ones((1, nPts))
-            temp2 = self.viewTForm.dot(self.Pat2PixTForm).dot(temp)
+            temp2 = self.viewTForm.dot(temp)
             x = temp2[0, :]
             y = temp2[1, :]
             z = temp2[2, :]
-            # print('<x = %d, y = %d, z = %d>' % (x[0], y[0], z[0]))
         super().setData(x=x, y=y, z=z, *args, **kwargs)
-
-    def updatePlottable(self, *args, **kwargs):
-        pass
 
     def hide(self):
         super().setData(x=[], y=[])
         pass
+
+    def setTForm(self, tform):
+        self.Pat2PixTForm = tform
 
     def setWorldTForm(self, tForm):
         self.viewTForm = tForm

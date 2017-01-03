@@ -307,7 +307,7 @@ class AxisViewerPlotItem(PlotItem):
         PlotItem.
         """
         # self.addCustomItem(item)
-        super().addItem(item, *args, **kwargs)
+        super().addItem(item) # , *args, **kwargs)
 
     def addCustomItem(self, item, *args, **kwargs):
         item.setWorldTForm(self.viewTForm)
