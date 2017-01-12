@@ -58,12 +58,12 @@ class dicomViewWidget(QWidget):
             plot = self.myPlot[ax]
             myView = plot.getViewBox()
             myView.setAspectLocked(True)
-            myView.invertY(True)
+            # myView.invertY(True)
             myView.setBackgroundColor('#CCCCCC')
             # myView.setBackgroundColor('#000000')
 
-            plot.showAxis('left', False)
-            plot.showAxis('bottom', False)
+            # plot.showAxis('left', False)
+            # plot.showAxis('bottom', False)
             plot.setRange(xRange=(-200, 200))
             plot.hideButtons()
             # legend = self.legend = LegendItem()
@@ -286,7 +286,7 @@ class AxisViewerPlotItem(PlotItem):
 
         T = np.eye(4)
         if viewAxis == 'YX':  # AXIAL, LOOKING TO INFERIOR
-            R = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, -1]])
+            R = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
         elif viewAxis == 'ZX':  # CORONAL, LOOKING TO POSTERIOR
             R = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
         elif viewAxis == 'XZ':  # CORONAL, LOOKING TO ANTERIOR
@@ -296,11 +296,18 @@ class AxisViewerPlotItem(PlotItem):
         elif viewAxis == 'ZY':  # SAGGITAL, LOOKING DOWN minus X-AX
             R = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
         elif viewAxis == 'side':
-            R = np.array([[0, -1, 0], [0, 0, 1], [-1, 0, 0]])
+            R = np.array([[0, -1, 0], [0, 0, -1], [1, 0, 0]])
         else:
             R = np.eye(3)  # AXIAL, LOOKING TO SUPERIOR
 
+        print(viewAxis)
+        print(np.linalg.det(R))
+
         T[0:3, 0:3] = R
+        # T[2, 3] = 10
+        # T[3, 2] = 1
+        # T[3, 3] = 0
+
         self.viewTForm = T
         self.customItems = []
         # self.children = []
