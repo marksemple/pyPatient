@@ -44,8 +44,11 @@ class dicomViewWidget(QWidget):
         centralLayout.addLayout(self.viewToolsLayout)
         self.setLayout(centralLayout)
 
-    def createAxes(self):
+    # def autoscale(self):
+    #     for ax in self.myPlot:
+    #         ax.
 
+    def createAxes(self):
         PlotWidge = self.PlotWidge = self.getPlotWidgeObject()
         PlotWidge.setBackground(None)
 
@@ -57,6 +60,8 @@ class dicomViewWidget(QWidget):
             myView.setAspectLocked(True)
             myView.invertY(True)
             myView.setBackgroundColor('#CCCCCC')
+            # myView.setBackgroundColor('#000000')
+
             plot.showAxis('left', False)
             plot.showAxis('bottom', False)
             plot.setRange(xRange=(-200, 200))
@@ -137,7 +142,7 @@ class dicomViewWidget(QWidget):
         # Add Image Object (for DICOM pixel array)
         self.PlottableImage = DicomImagePlotItem(dicomModel=imageModel)
         self.myPlot['z'].addItem(self.PlottableImage)
-        self.PlottableImage.rotate(45)
+        # self.PlottableImage.rotate(45)
 
         # Add Contour Object (if there are any!)
         if bool(imageModel.contourObjs):
@@ -264,11 +269,10 @@ class AxisGraphicsLayoutWidget(GraphicsLayoutWidget):
     # overwrite addPlot to include my custom plot item
     def addViewPlot(self, view='XY', row=None,
                     col=None, rowspan=1, colspan=1, **kwargs):
-        """
-        Create a PlotItem and place it in the next available cell (or in the
+        """Create a PlotItem and place it in the next available cell (or in the
         cell specified)
-        All extra keyword arguments are passed to :func:`PlotItem.__init__ <
-        pyqtgraph.PlotItem.__init__>`
+        All extra keyword arguments are passed to :
+            func:`PlotItem.__init__ <pyqtgraph.PlotItem.__init__>`
         Returns the created item.
         """
         plot = AxisViewerPlotItem(viewAxis=view, **kwargs)
@@ -282,7 +286,7 @@ class AxisViewerPlotItem(PlotItem):
 
         T = np.eye(4)
         if viewAxis == 'YX':  # AXIAL, LOOKING TO INFERIOR
-            R = np.array([[-1, 0, 0], [0, 1, 0], [0 , 0, -1]])
+            R = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, -1]])
         elif viewAxis == 'ZX':  # CORONAL, LOOKING TO POSTERIOR
             R = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
         elif viewAxis == 'XZ':  # CORONAL, LOOKING TO ANTERIOR
@@ -299,20 +303,15 @@ class AxisViewerPlotItem(PlotItem):
         T[0:3, 0:3] = R
         self.viewTForm = T
         self.customItems = []
-
-    def addItem(self, item, *args, **kwargs):
-        """
-        Add a graphics item to the view box.
-        If the item has plot data (PlotDataItem, PlotCurveItem,
-        ScatterPlotItem), it may be included in analysis performed by the
-        PlotItem.
-        """
-        # self.addCustomItem(item)
-        super().addItem(item) # , *args, **kwargs)
+        # self.children = []
+        # self.setBackground
+        # self.worldTForm = T
 
     def addCustomItem(self, item, *args, **kwargs):
-        item.setWorldTForm(self.viewTForm)
+        # item.setParent(self)
         self.addItem(item)
+        item.setViewTForm(self.viewTForm)
+        item.updateWorldTForm()
         self.customItems.append(item)
 
     def clear(self):
@@ -329,4 +328,4 @@ if __name__ == "__main__":
     form.show()
 
     sys.exit(app.exec_())
-R = np.array([[1, 0, 0], [0, 0, -1], [0, 0, 1]])
+    # R = np.array([[1, 0, 0], [0, 0, -1], [0, 0, 1]])
