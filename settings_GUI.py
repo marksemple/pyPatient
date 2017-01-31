@@ -11,8 +11,13 @@ import sys
 import json
 # import queue
 # THIRD-PARTY MODULES
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PyQt5.QtCore import (Qt, )
+# from PyQt5.QtGui import *
+from PyQt5.QtWidgets import (QApplication, QWidget, QDialog,
+                             QPushButton, QLineEdit,
+                             QVBoxLayout, QHBoxLayout, QFormLayout,
+                             QTabWidget, )
+
 
 # LOCAL OR CUSTOM MODULES
 # from EMNav_GUI import *

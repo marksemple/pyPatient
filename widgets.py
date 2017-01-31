@@ -5,19 +5,28 @@ General Widgets for Dicom-related Programs
 
 """
 
+# Built-In
+import sys
+
 # Third-party Modules
 from PyQt5 import QtCore
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import (QWidget, QHBoxLayout, QVBoxLayout,
-                         QSlider, QLabel, QPushButton, QFileDialog,
-                         QDialog)
+from PyQt5.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
+                             QSlider, QLabel, QPushButton, QFileDialog,
+                             QDialog)
+# from PyQt5.QtGui import
 from pyqtgraph import (ImageItem, GraphicsLayoutWidget, PlotItem)
 import numpy as np
 
-from dicomModule.dataModels import *
-from dicomModule.plottables import DicomImagePlotItem, DicomContourPlotItem
-# from dicomModule.ContourDataItem import contourPlotModel
-import sys
+# Local Modules
+if __name__ == "__main__":
+    from dataModels import *
+    from plottables import DicomImagePlotItem, DicomContourPlotItem
+    # from ContourDataItem import contourPlotModel
+
+else:
+    from dicommodule.dataModels import *
+    from dicommodule.plottables import DicomImagePlotItem, DicomContourPlotItem
+    # from dicommodule.ContourDataItem import contourPlotModel
 
 
 class dicomViewWidget(QWidget):
