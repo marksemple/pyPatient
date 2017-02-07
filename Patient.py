@@ -20,8 +20,11 @@ class Patient(object):
         for key in myFiles.keys():
             print('Patient has %s' % key)
 
+        print(len(myFiles['MR']))
+
         if makeImage and 'MR' in myFiles.keys():
-            self.Image = Image(myFiles[])
+            # self.Image = Image(myFiles[])
+            pass
 
 
 def find_DCM_files_parallel(rootpath=None):
