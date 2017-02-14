@@ -49,6 +49,7 @@ class QVolumeViewerWidget(QWidget):
         plotWidge.showAxis('left', False)
         plotWidge.showAxis('bottom', False)
         viewBox = plotWidge.getViewBox()
+        viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)
         viewBox.setBackgroundColor(backgroundCol)
         return plotWidge
