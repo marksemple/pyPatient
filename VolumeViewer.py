@@ -10,6 +10,8 @@ from PyQt5.QtCore import (Qt,)
 import pyqtgraph as pg
 import numpy as np
 
+import cv2
+
 
 class QVolumeViewerWidget(QWidget):
     """ Used to Display A Slice of 3D Image Data
@@ -19,8 +21,7 @@ class QVolumeViewerWidget(QWidget):
                  imageData=None,
                  TForm=np.eye(4),
                  backgroundColor="#CCCCCC",
-                 *args,
-                 **kwargs):
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         assert(type(imageData) == np.ndarray)
@@ -51,8 +52,13 @@ class QVolumeViewerWidget(QWidget):
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)
-        viewBox.setBackgroundColor(backgroundCol)
+        viewBox.setBackgroundColor("#FFFFFF")
+        # viewBox.setXRange(0, 500)
         return plotWidge
+
+    # def createViewPortal(self, backgroundCol='#FFFFFF'):
+        # plotWidge = QLabel()
+
 
     def createControls(self):
         # ~ Create controls
@@ -79,15 +85,42 @@ class QVolumeViewerWidget(QWidget):
         self.setLayout(layout)
 
     def sliderChanged(self, newValue):
-        self.imageItem.setImage(self.imageData[:, :, newValue])
+        self.updateImageShown(newValue)
+        # self.imageItem.setImage(self.imageData[:, :, newValue])
         self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
+
+
+    def updateImageShown(self, newValue):
+        self.imageItem.setImage(self.imageData[:, :, newValue])
 
 
 if __name__ == "__main__":
 
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    myImage = np.random.random((500, 500, 20)) * 255
+    myImage = np.random.random((500, 500, 3)) * 255
+    # myImage = np.zeros((500, 500, 20))
+
+
+    myContVol = np.zeros((500, 500, 3), dtype=np.uint8)
+    # print(myContVol)
+    # print(myContVol.shape)
+
+    outIm = cv2.circle(img=myContVol,
+                       center=(250, 250),
+                       radius=25,
+                       color=(255, 255, 255),
+                       thickness=-1)
+
+    cv2.imshow('name', outIm)
+
+    imgray = cv2.cvtColor(outIm, cv2.COLOR_BGR2GRAY)
+    im2, contours, hierarchy = cv2.findContours(imgray.copy(),
+                                                cv2.RETR_TREE,
+                                                cv2.CHAIN_APPROX_SIMPLE)
+
+    cv2.drawContours(myImage, [contours[0]], -1, (255, 0, 0), 2)
+
     form = QVolumeViewerWidget(imageData=myImage,
                                backgroundColor="#ABCDEF")
     form.show()
