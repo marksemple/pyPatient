@@ -44,7 +44,6 @@ class QVolumeViewerWidget(QWidget):
         self.nRows, self.nCols, self.nSlices = imageData.shape
         # transform stuff here
 
-
     def createViewPortal(self, backgroundCol='#FFFFFF'):
         plotWidge = pg.PlotWidget()
         plotWidge.showAxis('left', False)
