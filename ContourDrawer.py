@@ -1,19 +1,19 @@
 # ContourDrawer.py
-
-
 # -*- coding: utf-8 -*-
 """
-General Widgets for Dicom-related Programs
+    Tool to View and Add Regions of Interest to an Image Volume
 """
 
 import sys
-import time
+# import time
+# import itertools
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QGridLayout,
-                             QLabel, QSlider)
+                             QLabel, QSlider, QPushButton, QLineEdit,
+                             QDialog, QColorDialog, QFormLayout,)
 from PyQt5.QtCore import (Qt, )
 import pyqtgraph as pg
 import numpy as np
-
+import uuid
 import cv2
 
 
@@ -23,6 +23,7 @@ class QContourDrawerWidget(QWidget):
 
     def __init__(self,
                  imageData=None,
+                 ROIs=[],
                  *args, **kwargs):
 
         super().__init__(*args, **kwargs)
@@ -34,26 +35,26 @@ class QContourDrawerWidget(QWidget):
         self.nRows, self.nCols, self.nSlices = imageData.shape
 
         self.radius = 40
+        # self.draggingRect = False
         self.showCircle = True
         self.ctrlModifier = False
         self.shiftModifier = False
         self.thisSlice = 0
-        self.ROIs = []
+        self.ROIs = ROIs
 
-        self.addROI(name='fourth', color=(255, 48, 48))
-        self.addROI(name='third', color=(255, 165, 0))
-        self.addROI(name='fifth', color=(255, 215, 0))
-        self.addROI(name='second', color=(0, 238, 0))
-        self.addROI(name='first', color=(0, 238, 238))
-
-        self.thisROI = self.ROIs[0]
+        if bool(self.ROIs):
+            self.enablePaintingControls()
 
         self.circle = pg.QtGui.QGraphicsEllipseItem(-self.radius,
                                                     -self.radius,
                                                     self.radius * 2,
                                                     self.radius * 2)
-        additiveCircleStyle(self.circle, brushCol=self.thisROI['color'])
         self.circle.hide()
+        self.shape = self.circle
+
+        # self.rect = pg.QtGui.QGraphicsRectItem()
+        # self.rect.hide()
+        # origin[0], origin[1], dx, dy)
 
         # ~ Add Image Item to Plot Widget
         self.plotWidge = self.createViewPortal()
@@ -62,12 +63,15 @@ class QContourDrawerWidget(QWidget):
                                 autoLevels=False)
         self.plotWidge.addItem(self.imageItem)
         self.plotWidge.addItem(self.circle)
+        # self.plotWidge.addItem(self.rect)
 
         # ~ Create Widget parts
         self.createControls()
         self.applyLayout()
         self.connectSignals()
         self.resize(700, 700)
+
+        # self.enableRectControls()
 
     def createViewPortal(self, backgroundCol='#FFFFFF'):
         plotWidge = pg.PlotWidget()
@@ -88,15 +92,20 @@ class QContourDrawerWidget(QWidget):
         self.slider.setPageStep(1)
         self.slider.setMaximum(self.nSlices - 1)
         self.slider.setMinimumWidth(MW)
+
+        self.addROIbttn = QPushButton("+ ROI")
+        self.addROIbttn.clicked.connect(self.addROI)
+
         self.sliceNumLabel = QLabel("1 / %d" % (self.nSlices))
         self.sliceDistLabel = QLabel("0.00")
 
     def applyLayout(self):
         # ~ Create "Controls" Panel Layout for Slider
         sliderLayout = QVBoxLayout()
+        sliderLayout.addWidget(self.addROIbttn)
+        sliderLayout.addWidget(self.slider)
         sliderLayout.addWidget(self.sliceNumLabel, 0, Qt.AlignCenter)
         sliderLayout.addWidget(self.sliceDistLabel, 0, Qt.AlignCenter)
-        sliderLayout.addWidget(self.slider)
         # ~ Create widget-wide grid layout
         layout = QGridLayout()
         layout.addWidget(self.plotWidge, 1, 1)
@@ -108,28 +117,52 @@ class QContourDrawerWidget(QWidget):
         self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
         self.updateContours()
 
-    def addROI(self, name='contour', color=(240, 240, 240)):
-        self.ROIs.append({'color': color,
+    def addROI(self, name='contour', color=(240, 240, 240), *args):
+        roiDialog = newROIDialog()
+        roiDialog.exec_()
+        if not roiDialog.makeStatus:
+            print("cancelled")
+            return
+
+        name, color = roiDialog.getProperties()
+        self.ROIs.append({'color': color[0:3],
                           'name': name,
+                          'id': uuid.uuid4(),
                           'raster': np.zeros((self.nRows, self.nCols,
                                               self.nSlices), dtype=np.uint8)})
+        self.enablePaintingControls()
+        self.changeROI(self.ROIs[-1])
+        self.plotWidge.setFocus()
+
+    def changeROI(self, ROI):
+        self.thisROI = ROI
+        additiveShapeStyle(self.circle, brushCol=ROI['color'])
+        self.updateContours()
 
     def connectSignals(self):
         # save ORIGINAL mouse events in placeholders for later
         self.oldImageHover = self.imageItem.hoverEvent
         self.oldImageMousePress = self.imageItem.mousePressEvent
         self.oldImageWheel = self.imageItem.wheelEvent
-
-        self.enablePaintingControls()
-
         self.plotWidge.keyPressEvent = lambda x: self.PlotKeyPress(x)
         self.plotWidge.keyReleaseEvent = lambda x: self.PlotKeyRelease(x)
 
     def enablePaintingControls(self):
+        self.shape = self.circle
+        self.circle.show()
         self.plotWidge.setCursor(Qt.CrossCursor)
         self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)
         self.imageItem.mousePressEvent = lambda x: self.PaintClickEvent(x)
         self.imageItem.wheelEvent = lambda x: self.PaintWheelEvent(x)
+
+    # def enableRectControls(self):
+    #     self.shape = self.rect
+    #     self.rect.show()
+    #     self.RectOrigin = (0, 0)
+    #     self.plotWidge.setCursor(Qt.CrossCursor)
+    #     # self.imageItem.hoverEvent = lambda x: self.RectHoverEvent(x)
+    #     self.imageItem.mousePressEvent = lambda x: self.RectClickEvent(x)
+    #     self.imageItem.mouseDragEvent = lambda x: self.RectHoverEvent(x)
 
     def enableMotionControls(self):
         self.plotWidge.setCursor(Qt.OpenHandCursor)
@@ -140,27 +173,21 @@ class QContourDrawerWidget(QWidget):
     def PaintClickEvent(self, event):
         """ When mouse clicks on IMAGE ITEM """
         x, y = (int(event.pos().x()), int(event.pos().y()))
-        # print('Click at:', x, ', ', y)
         fill = paintFillCheck(event, self.ctrlModifier)
         self.paintHere(x, y, fill)
 
     def PaintHoverEvent(self, event):
         """ When cursor is over IMAGE ITEM """
         try:
-
             x, y = (int(event.pos().x()), int(event.pos().y()))
-
             if event.isEnter():
                 self.circle.show()
             elif event.isExit():
                 self.circle.hide()
-
-            # check to see if we need to paint
             fill = paintFillCheck(event, self.ctrlModifier)
             if fill is not False:
                 self.paintHere(x, y, fill)
-
-            repositionCircle(self.circle, x, y, self.radius)
+            repositionShape(self.circle, x, y, self.radius)
 
         except AttributeError as ae:
             self.circle.hide()
@@ -174,7 +201,7 @@ class QContourDrawerWidget(QWidget):
             angle = event.angleDelta().y()
         if (self.radius + np.sign(angle)) > 0:
             self.radius += 2 * np.sign(angle)
-        repositionCircle(self.circle, x, y, self.radius)
+        repositionShape(self.circle, x, y, self.radius)
 
     def paintHere(self, x, y, fill=255):
         # draw circle on (hidden) Binary ROI Image
@@ -190,8 +217,10 @@ class QContourDrawerWidget(QWidget):
 
         for ROI in self.ROIs:
 
-            if ROI['name'] == self.thisROI['name']:
+            if ROI['id'] == self.thisROI['id']:
                 doFill = True
+            else:
+                doFill = False
 
             contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
             contours = getContours(inputImage=contBinaryIm)
@@ -220,69 +249,80 @@ class QContourDrawerWidget(QWidget):
                 alph = 0.3
                 cv2.addWeighted(overlayIm, alph, dataImage, 1 - alph,
                                 0, dataImage)
-                doFill = False
 
         dataImage = np.swapaxes(dataImage, 0, 1)
         self.imageItem.setImage(dataImage, autoLevels=False)
 
     def PlotKeyPress(self, event):
-        # print(event.key())
-        keylist = [49, 50, 51, 52, 53]
-        if event.key() in keylist:
-            ind = keylist.index(event.key())
-            self.thisROI = self.ROIs[ind]
-            additiveCircleStyle(self.circle, brushCol=self.thisROI['color'])
-            self.updateContours()
+        """ Filter key presses while plot object is active """
 
-        if event.key() == 16777249:  # CTRL
-            # print("CTRL DOWN")
-            self.ctrlModifier = True
-            subtractiveCircleStyle(self.circle, penCol=self.thisROI['color'])
+        if event.key() == 65:  # 'A' -- advance one slice
+            self.slider.setSliderPosition(self.thisSlice + 1)
 
-        if event.key() == 16777248:  # SHIFT
-            # print("SHIFT DOWN")
-            self.shiftModifier = True
-            self.circle.hide()
-            self.enableMotionControls()
+        if event.key() == 90:  # 'Z' -- reverse one slice
+            self.slider.setSliderPosition(self.thisSlice - 1)
+
+        if bool(self.ROIs):
+
+            keyList = [49 + i[0] for i in enumerate(self.ROIs)]
+            if event.key() in keyList:  # 1-9 ROI HotKeys
+                ind = keyList.index(event.key())
+                self.changeROI(ROI=self.ROIs[ind])
+
+            if event.key() == 32:  # SPACE -- Rotate through ROIs
+                indList = [ROI['id'] for ROI in self.ROIs]
+                ind = indList.index(self.thisROI['id'])
+                newInd = (ind + 1) % len(self.ROIs)
+                self.changeROI(ROI=self.ROIs[newInd])
+
+            if event.key() == 16777249:  # CTRL -- Invert Painters
+                self.ctrlModifier = True
+                subtractiveShapeStyle(self.circle,
+                                      penCol=self.thisROI['color'])
+
+            if event.key() == 16777248:  # SHIFT -- Motion Mode
+                self.shiftModifier = True
+                self.circle.hide()
+                self.enableMotionControls()
 
     def PlotKeyRelease(self, event):
-        if event.key() == 16777249:  # CTRL
-            # print("CTRL UP")
-            self.ctrlModifier = False
-            additiveCircleStyle(self.circle, brushCol=self.thisROI['color'])
 
-        if event.key() == 16777248:  # SHIFT
-            # print("SHIFT UP")
-            self.shiftModifier = True
-            self.circle.show()
-            self.enablePaintingControls()
+        if bool(self.ROIs):
+            if event.key() == 16777249:  # CTRL
+                self.ctrlModifier = False
+                additiveShapeStyle(self.circle,
+                                   brushCol=self.thisROI['color'])
 
-
-def repositionCircle(circle, x, y, radius):
-    circle.setRect(x - radius,
-                   y - radius,
-                   2 * radius,
-                   2 * radius)
+            if event.key() == 16777248:  # SHIFT
+                self.shiftModifier = True
+                self.circle.show()
+                self.enablePaintingControls()
 
 
-def additiveCircleStyle(circle, penCol='w',
-                        brushCol=(255, 100, 100), penWid=2):
+def repositionShape(shape, x, y, radius):
+    shape.setRect(x - radius,
+                  y - radius,
+                  2 * radius,
+                  2 * radius)
+
+
+def additiveShapeStyle(shape, penCol='w',
+                       brushCol=(255, 100, 100), penWid=2):
     pen = pg.mkPen(color=penCol, width=penWid)
     brush = pg.mkBrush(color=brushCol + (100,))
-    circle.setPen(pen)
-    circle.setBrush(brush)
+    shape.setPen(pen)
+    shape.setBrush(brush)
 
 
-def subtractiveCircleStyle(circle, penCol=(255, 100, 100),
-                           brushCol=(0, 0, 0, 0), penWid=3):
+def subtractiveShapeStyle(shape, penCol=(255, 100, 100),
+                          brushCol=(0, 0, 0, 0), penWid=3):
     pen = pg.mkPen(color=penCol, width=penWid)
     brush = pg.mkBrush(color=brushCol)
-    circle.setPen(pen)
-    circle.setBrush(brush)
+    shape.setPen(pen)
+    shape.setBrush(brush)
 
 
 def paintCircle(image, fill, x, y, radius):
-
     # Make 3-Channel
     if len(image.shape) == 2:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
@@ -295,8 +335,6 @@ def paintCircle(image, fill, x, y, radius):
                        thickness=-1,
                        lineType=cv2.LINE_AA)
 
-    # cv2.imshow('name', outIm)
-
     # Make Greyscale
     imgray = cv2.cvtColor(outIm, cv2.COLOR_BGR2GRAY)
 
@@ -305,7 +343,6 @@ def paintCircle(image, fill, x, y, radius):
 
 def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
 
-    # print("get contours input image:", inputImage.shape)
     # if we have a color-channel, convert to grayscale
     if len(inputImage.shape) == 3:
         inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2GRAY)
@@ -335,6 +372,85 @@ def paintFillCheck(event, modifier):
         return fill
 
     return False
+
+
+class newROIDialog(QDialog):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.color = (238, 108, 108)
+        self.name = 'contour'
+        self.makeStatus = False
+
+        okBttn = QPushButton("Create")
+        okBttn.clicked.connect(self.onAccept)
+        cancelBttn = QPushButton("Cancel")
+        cancelBttn.clicked.connect(self.close)
+
+        self.nameEdit = QLineEdit()
+        self.colorPick = QPushButton()
+        self.colorPick.clicked.connect(self.onChooseColor)
+        self.styleColorBttn(self.color)
+
+        layout = QGridLayout()
+        layout.addWidget(QLabel("ROI Name"), 0, 0)
+        layout.addWidget(self.nameEdit, 0, 1, 1, 2)
+        layout.addWidget(QLabel("ROI Color"), 1, 0)
+        layout.addWidget(self.colorPick, 1, 1, 1, 2)
+        layout.addWidget(QLabel(''), 2, 0, 1, 3)
+        layout.addWidget(okBttn, 3, 1)
+        layout.addWidget(cancelBttn, 3, 2)
+
+        self.setLayout(layout)
+        self.setWindowTitle("Create ROI")
+        self.setWindowFlags(Qt.FramelessWindowHint)
+
+    def onChooseColor(self):
+        colorDiag = QColorDialog()
+        colorDiag.exec_()
+        color = colorDiag.selectedColor()
+        self.color = color.getRgb()
+        self.styleColorBttn(self.color)
+
+    def styleColorBttn(self, color):
+        self.colorPick.setStyleSheet("background-color: rgb(%i, %i, %i);" %
+                                     (self.color[0],
+                                      self.color[1],
+                                      self.color[2]))
+
+    def getProperties(self):
+        return (self.nameEdit.text(), self.color)
+
+    def onAccept(self):
+        self.makeStatus = True
+        self.close()
+
+
+# def RectClickEvent(self, event):
+#     print("rect click!")
+#     self.RectOrigin = (int(event.pos().x()), int(event.pos().y()))
+#     self.draggingRect = True
+#     # self.RectOrigin = (x, y)
+# def RectHoverEvent(self, event):
+#     if not self.draggingRect:
+#         return
+#     print("rect hver")
+#     x0, y0 = self.RectOrigin
+#     x1, y1 = (int(event.pos().x()), int(event.pos().y()))
+#     dx, dy = (x1 - x0, y1 - y0)
+#     origin = [0, 0]
+#     if dx > 0:
+#         origin[0] = x0
+#     else:
+#         origin[0] = x1
+#     if dy > 0:
+#         origin[1] = y0
+#     else:
+#         origin[1] = y1
+#     dx = abs(dx)
+#     dy = abs(dy)
+#     self.rect.setRect(origin[0], origin[1], dx, dy)
+#     # self.rect = pg.QtGui.QGraphicsRectItem(origin[0], origin[1], dx, dy)
 
 
 if __name__ == "__main__":

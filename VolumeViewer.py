@@ -22,6 +22,7 @@ class QVolumeViewerWidget(QWidget):
                  TForm=np.eye(4),
                  backgroundColor="#CCCCCC",
                  *args, **kwargs):
+
         super().__init__(*args, **kwargs)
 
         assert(type(imageData) == np.ndarray)
@@ -57,7 +58,6 @@ class QVolumeViewerWidget(QWidget):
 
     # def createViewPortal(self, backgroundCol='#FFFFFF'):
         # plotWidge = QLabel()
-
 
     def createControls(self):
         # ~ Create controls
