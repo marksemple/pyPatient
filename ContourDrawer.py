@@ -149,7 +149,7 @@ class QContourDrawerWidget(QWidget):
 
     def enablePaintingControls(self):
         self.shape = self.circle
-        self.circle.show()
+        # self.circle.show()
         self.plotWidge.setCursor(Qt.CrossCursor)
         self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)
         self.imageItem.mousePressEvent = lambda x: self.PaintClickEvent(x)
@@ -256,6 +256,8 @@ class QContourDrawerWidget(QWidget):
     def PlotKeyPress(self, event):
         """ Filter key presses while plot object is active """
 
+        print(event.key())
+
         if event.key() == 65:  # 'A' -- advance one slice
             self.slider.setSliderPosition(self.thisSlice + 1)
 
@@ -268,6 +270,16 @@ class QContourDrawerWidget(QWidget):
             if event.key() in keyList:  # 1-9 ROI HotKeys
                 ind = keyList.index(event.key())
                 self.changeROI(ROI=self.ROIs[ind])
+
+            # s, x, d, c
+            if event.key() == 83:  # s -- copy superior slice ROI
+                pass
+            if event.key() == 88:  # x -- copy inferior slice ROI
+                pass
+            if event.key() == 68:  # d -- dilate ROI
+                self.dilate_erode_ROI(self.thisROI, 1)
+            if event.key() == 69:  # e -- erode ROI
+                self.dilate_erode_ROI(self.thisROI, -1)
 
             if event.key() == 32:  # SPACE -- Rotate through ROIs
                 indList = [ROI['id'] for ROI in self.ROIs]
@@ -298,6 +310,20 @@ class QContourDrawerWidget(QWidget):
                 self.circle.show()
                 self.enablePaintingControls()
 
+    def dilate_erode_ROI(self, roi, direction):
+        slice0 = self.thisSlice
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+
+        im = roi['raster'][:, :, slice0 ].copy()
+
+        if direction > 0:
+            roi['raster'][:, :, slice0 ] = cv2.dilate(im, kernel)
+
+        elif direction < 0:
+            roi['raster'][:, :, slice0 ] = cv2.erode(im, kernel)
+
+        self.updateContours()
 
 def repositionShape(shape, x, y, radius):
     shape.setRect(x - radius,
