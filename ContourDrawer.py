@@ -43,6 +43,7 @@ class QContourDrawerWidget(QWidget):
         self.ctrlModifier = False
         self.shiftModifier = False
         self.thisSlice = 0
+        self.hoverCount = 0
         self.ROIs = ROIs
 
         if bool(self.ROIs):
@@ -78,7 +79,7 @@ class QContourDrawerWidget(QWidget):
         plotWidge = pg.PlotWidget()
         plotWidge.showAxis('left', False)
         plotWidge.showAxis('bottom', False)
-        # plotWidge.setAntialiasing(True)
+        plotWidge.setAntialiasing(True)
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)
@@ -181,15 +182,21 @@ class QContourDrawerWidget(QWidget):
     def PaintHoverEvent(self, event):
         """ When cursor is over IMAGE ITEM """
         try:
-            x, y = (int(event.pos().x()), int(event.pos().y()))
             if event.isEnter():
                 self.circle.show()
             elif event.isExit():
                 self.circle.hide()
+
+            # if not self.hoverCount % 2:
+            x, y = (int(event.pos().x()), int(event.pos().y()))
             fill = paintFillCheck(event, self.ctrlModifier)
-            if fill is not False:
-                self.paintHere(x, y, fill)
             repositionShape(self.circle, x, y, self.radius)
+            
+            # On Every THIRD Hover-Event:
+            if not self.hoverCount % 3 and fill is not False:
+                self.paintHere(x, y, fill)
+            
+            self.hoverCount += 1
 
         except AttributeError as ae:
             self.circle.hide()
@@ -239,7 +246,7 @@ class QContourDrawerWidget(QWidget):
                                                 contourIdx=-1,
                                                 color=ROI['color'],
                                                 thickness=2,
-                                                lineType=8)  #cv2.LINE_AA)  # 8
+                                                lineType=cv2.LINE_AA)  # 8
 
             self.backgroundIm = backgroundIm
 
@@ -259,7 +266,7 @@ class QContourDrawerWidget(QWidget):
                                      contourIdx=-1,
                                      color=self.thisROI['color'],
                                      thickness=-1,
-                                     lineType=8)  #cv2.LINE_AA)  # 8
+                                     lineType=cv2.LINE_AA)  # 8
 
         alph = 0.3
         cv2.addWeighted(overlayIm, alph, newContourIm, 1 - alph, 0, imageData)
@@ -393,7 +400,7 @@ def paintCircle(image, fill, x, y, radius):
                        radius=radius,
                        color=(fill, fill, fill),
                        thickness=-1,
-                       lineType=8) #cv2.LINE_AA)
+                       lineType=cv2.LINE_AA)  # 8
 
     # Make Greyscale
     imgray = cv2.cvtColor(outIm, cv2.COLOR_BGR2GRAY)
@@ -405,9 +412,6 @@ def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
     # if we have a color-channel, convert to grayscale
     if len(inputImage.shape) == 3:
         inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2GRAY)
-
-    # inputImage = np.swapaxes(inputImage, 0, 1)
-    # inputImage = inputImage.transpose().astype(np.uint8).copy() 
 
     im, contours, hierarchy = cv2.findContours(inputImage, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
@@ -518,7 +522,7 @@ if __name__ == "__main__":
 
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    myImage = np.random.randint(128, 200, (768, 768, 20), dtype=np.uint8)
+    myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
     form = QContourDrawerWidget(imageData=myImage)
     form.show()
