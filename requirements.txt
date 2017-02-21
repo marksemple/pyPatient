@@ -1,4 +1,0 @@
-numpy
-pydicom
-PyQt4
-pyqtgraph
