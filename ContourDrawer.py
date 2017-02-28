@@ -11,11 +11,12 @@ import uuid
 # import threading
 # import itertools
 
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QGridLayout,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QGridLayout, QHBoxLayout,
                              QLabel, QSlider, QPushButton,
-                             QTableWidget, QTableWidgetItem, QSplitter,)
+                             QTableWidget, QTableWidgetItem, QSplitter,
+                             QSizePolicy,)
 from PyQt5.QtGui import (QBrush, QColor, )
-from PyQt5.QtCore import (Qt,)
+from PyQt5.QtCore import (Qt, QSize,)
 import pyqtgraph as pg
 import numpy as np
 import cv2
@@ -27,6 +28,7 @@ class QContourDrawerWidget(QWidget):
     """ Used to Display A Slice of 3D Image Data
     """
 
+    painting = False
     imageItem = pg.ImageItem()
     radius = 40
     showCircle = True
@@ -54,7 +56,7 @@ class QContourDrawerWidget(QWidget):
             self.enablePaintingControls()
 
         # ~ Add Image Item to Plot Widget
-        self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=False)
+        self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=True)
 
         self.circle = pg.QtGui.QGraphicsEllipseItem(-self.radius,
                                                     -self.radius,
@@ -62,6 +64,7 @@ class QContourDrawerWidget(QWidget):
                                                     self.radius * 2)
         self.circle.hide()
         self.shape = self.circle
+
         # self.plotWidge.addItem(self.rect)
 
         # ~ Create Widget parts
@@ -69,7 +72,6 @@ class QContourDrawerWidget(QWidget):
         self.connectSignals()
         self.resize(700, 700)
         self.enableMotionControls()
-
 
     def applyLayout(self):
         # ~ Create "Controls" Panel Layout for Slider
@@ -103,6 +105,8 @@ class QContourDrawerWidget(QWidget):
 
         # ~~~~~~~~~~~~~~~ TABLE Section
         table = self.tablePicker = QTableWidget()
+        # table.sizeHint() #QSize(20, 20))
+        table.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         table.setColumnCount(len(self.tableHeaders))
         table.setHorizontalHeaderLabels(self.tableHeaders)
         table.verticalHeader().setVisible(False)
@@ -112,21 +116,27 @@ class QContourDrawerWidget(QWidget):
         # table.setStyleSheet("QTableView {selection-color: black;}")
         bttn = QPushButton("Add ROI")
         bttn.clicked.connect(self.addROI)
+
         tablelayout = QGridLayout()
-        tablelayout.addWidget(bttn, 0, 0)
-        tablelayout.addWidget(table, 1, 0)
+        tablelayout.addWidget(bttn, 0, 0, 1, 1)
+        tablelayout.addWidget(table, 1, 0, 1, 2)
         tableWidge = QWidget()
         tableWidge.setLayout(tablelayout)  # self.setLayout(layout)
 
         # ~~~~~~~~~~~~ PUT it all together
 
-        splitter1 = QSplitter(Qt.Vertical)
-        splitter1.addWidget(self.plotWidge)
-        splitter1.addWidget(tableWidge)
+        vlayout = QVBoxLayout()
+        vlayout.addWidget(self.plotWidge)
+        vlayout.addWidget(tableWidge)
+        # splitter1 = QSplitter(Qt.Vertical)
+        # splitter1.setHorizontalStretch()
+        # splitter1.addWidget(self.plotWidge)
+        # splitter1.addWidget(tableWidge)
 
-        layout = QGridLayout()
-        layout.addLayout(sliderLayout, 0, 1, 2, 1)
-        layout.addWidget(splitter1, 0, 0)
+        layout = QHBoxLayout()
+        # layout.addWidget(splitter1)
+        layout.addLayout(vlayout)
+        layout.addLayout(sliderLayout)
         # layout.addWidget(self.plotWidge, 0, 0)
         # layout.addLayout(tablelayout, 1, 0)
         self.setLayout(layout)
@@ -144,15 +154,20 @@ class QContourDrawerWidget(QWidget):
         self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
         self.updateContours(isNewSlice=True)
 
-    def addROI(self, name='contour', color=(240, 240, 240), *args):
-
+    def addROI(self, ev=None, name=None, color=None, *args):
         # First, name and choose color for ROI
-        roiDialog = newROIDialog()
-        roiDialog.exec_()
-        if not roiDialog.makeStatus:
-            print("cancelled")
-            return
-        name, color = roiDialog.getProperties()
+        print('name', name)
+        print('color', color)
+        if name is None and color is None:
+            roiDialog = newROIDialog()
+            roiDialog.exec_()
+            if not roiDialog.makeStatus:
+                print("cancelled")
+                return
+            name, color = roiDialog.getProperties()
+        else:
+            name = name
+            color = color
 
         self.ROIs.append({'color': color[0:3],
                           'name': name,
@@ -196,12 +211,12 @@ class QContourDrawerWidget(QWidget):
 
         # tableitem = self.tablePicker.item(ROI_ind, 0)
         # print(dir(self.tablePicker))
-        styl = """QTableView
-                  {selection-background-color: rgb%s;}""" % (ROI['color'],)
-        self.tablePicker.setStyleSheet(styl)
+        # styl = """QTableView
+        #           {selection-background-color: rgb%s;}""" % (ROI['color'],)
+        # self.tablePicker.setStyleSheet(styl)
 
         self.thisROI = ROI
-        additiveShapeStyle(self.circle, brushCol=ROI['color'])
+        modifyBrushStyle(self.circle, ROI['color'], 2, 'additive')
         self.updateContours(isNewSlice=True)
         # self.tablePicker.setItemSelected()
 
@@ -211,16 +226,8 @@ class QContourDrawerWidget(QWidget):
         self.plotWidge.setCursor(Qt.CrossCursor)
         self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)
         self.imageItem.mousePressEvent = lambda x: self.PaintClickEvent(x)
+        self.imageItem.mouseReleaseEvent = lambda x: self.PaintReleaseEvent(x)
         self.imageItem.wheelEvent = lambda x: self.PaintWheelEvent(x)
-
-    # def enableRectControls(self):
-    #     self.shape = self.rect
-    #     self.rect.show()
-    #     self.RectOrigin = (0, 0)
-    #     self.plotWidge.setCursor(Qt.CrossCursor)
-    #     # self.imageItem.hoverEvent = lambda x: self.RectHoverEvent(x)
-    #     self.imageItem.mousePressEvent = lambda x: self.RectClickEvent(x)
-    #     self.imageItem.mouseDragEvent = lambda x: self.RectHoverEvent(x)
 
     def enableMotionControls(self):
         self.plotWidge.setCursor(Qt.OpenHandCursor)
@@ -230,9 +237,24 @@ class QContourDrawerWidget(QWidget):
 
     def PaintClickEvent(self, event):
         """ When mouse clicks on IMAGE ITEM """
-        x, y = (int(event.pos().x()), int(event.pos().y()))
-        fill = paintFillCheck(event, self.ctrlModifier)
-        self.paintHere(x, y, fill)
+        # x, y = (int(event.pos().x()), int(event.pos().y()))
+        # fill = paintFillCheck(event, self.ctrlModifier)
+        # self.paintHere(x, y, fill)
+        # Flag ON]
+        self.paintCount = 0
+        self.painting = True
+        self.paintingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                           (2*self.radius, 2*self.radius))
+
+        self.tempCoordList = []
+        self.tempCanvas = np.zeros((self.nRows, self.nCols), dtype=np.uint8)
+
+
+    def PaintReleaseEvent(self, event):
+        # x, y = (int(event.pos().x()), int(event.pos().y()))
+        # print('relase')
+        # Flag OFF
+        self.painting = False
 
     def PaintHoverEvent(self, event):
         """ When cursor is over IMAGE ITEM """
@@ -252,6 +274,7 @@ class QContourDrawerWidget(QWidget):
                 self.paintHere(x, y, fill)
 
             self.hoverCount += 1
+            # print(self.hoverCount)
 
         except AttributeError as ae:
             self.circle.hide()
@@ -267,13 +290,56 @@ class QContourDrawerWidget(QWidget):
             self.radius += 2 * np.sign(angle)
         repositionShape(self.circle, x, y, self.radius)
 
-    def paintHere(self, x, y, fill=255):
-        # draw circle on (hidden) Binary ROI Image
-        thisVol = self.thisROI['raster']
-        image = paintCircle(image=thisVol[:, :, self.thisSlice],
-                            fill=fill, x=y, y=x, radius=self.radius)
-        thisVol[:, :, self.thisSlice] = image
-        self.updateContours()
+
+
+
+
+    # def paintHere(self, x, y, fill=255):
+    #     # draw circle on (hidden) Binary ROI Image
+    #     thisVol = self.thisROI['raster']
+    #     image = paintCircle(image=thisVol[:, :, self.thisSlice],
+    #                         fill=fill, x=y, y=x, radius=self.radius)
+    #     thisVol[:, :, self.thisSlice] = image
+    #     self.updateContours()
+
+
+
+
+
+    def paintHere(self, x, y, fill):
+        self.tempCoordList.append([[y, x]])
+        self.paintCount += 1
+        # self.tempCanvas.
+        if len(self.tempCoordList) > 1:
+            # print(self.tempCoordList)
+            contArray = [np.array(self.tempCoordList).astype(np.int32)]
+
+            # for index, contour in enumerate(contArray):
+                # contArray[index] = cv2.approxPolyDP(contour, 1, False)
+
+            # print(contArray[0].shape)
+                             # lineType=cv2.LINE_AA)  # 8
+            # im = roi['raster'][:, :, slice0].copy()
+            # if direction > 0:
+                # roi['raster'][:, :, slice0] = cv2.dilate(im, kernel)
+            # self.thisROI['raster'] = cv2.bitwise_and(out, )
+
+            # self.updateContours()
+            if not self.paintCount % 1:
+
+                # bgIm = self.tempCanvas.copy()
+                out = cv2.polylines(img=self.tempCanvas,
+                                    pts=contArray,
+                                    isClosed=False,
+                                    color=(255, 255, 255))
+
+
+                out = cv2.dilate(out, self.paintingKernel)
+                print(self.paintCount)
+                self.imageItem.setImage(out)
+
+
+
 
     def updateContours(self, isNewSlice=False):
 
@@ -293,8 +359,8 @@ class QContourDrawerWidget(QWidget):
                     continue
 
                 contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
-                contours = getContours(inputImage=contBinaryIm)
 
+                contours = getContours(inputImage=contBinaryIm)
                 # show contours on empty image
                 backgroundIm = cv2.drawContours(image=backgroundIm,
                                                 contours=contours,
@@ -306,7 +372,15 @@ class QContourDrawerWidget(QWidget):
             self.backgroundIm = backgroundIm
 
         contBinaryIm = self.thisROI['raster'][:, :, self.thisSlice].copy()
+
         contours = getContours(inputImage=contBinaryIm)
+        try:
+            print(contours[0].shape)
+            print(type(contours[0]))
+        except IndexError:
+            pass
+        # print(len(contours))
+        # contours = getContours(inputImage=contBinaryIm)
 
         bgIm = self.backgroundIm.copy()
 
@@ -361,8 +435,8 @@ class QContourDrawerWidget(QWidget):
 
             if event.key() == 16777249:  # CTRL -- Invert Painters
                 self.ctrlModifier = True
-                subtractiveShapeStyle(self.circle,
-                                      penCol=self.thisROI['color'])
+                modifyBrushStyle(self.circle, self.thisROI['color'],
+                                 2, 'subtractive')
 
             if event.key() == 16777248:  # SHIFT -- Motion Mode
                 self.shiftModifier = True
@@ -374,8 +448,8 @@ class QContourDrawerWidget(QWidget):
         if bool(self.ROIs):
             if event.key() == 16777249:  # CTRL
                 self.ctrlModifier = False
-                additiveShapeStyle(self.circle,
-                                   brushCol=self.thisROI['color'])
+                modifyBrushStyle(self.circle, self.thisROI['color'],
+                                 2, 'additive')
 
             if event.key() == 16777248:  # SHIFT
                 self.shiftModifier = True
@@ -404,18 +478,15 @@ class QContourDrawerWidget(QWidget):
 
     def dilate_erode_ROI(self, roi, direction):
         slice0 = self.thisSlice
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-
-        im = roi['raster'][:, :, slice0 ].copy()
-
+        # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
+        im = roi['raster'][:, :, slice0].copy()
         if direction > 0:
-            roi['raster'][:, :, slice0 ] = cv2.dilate(im, kernel)
-
+            roi['raster'][:, :, slice0] = cv2.dilate(im, kernel)
         elif direction < 0:
-            roi['raster'][:, :, slice0 ] = cv2.erode(im, kernel)
-
+            roi['raster'][:, :, slice0] = cv2.erode(im, kernel)
         self.updateContours()
+
 
 def repositionShape(shape, x, y, radius):
     shape.setRect(x - radius,
@@ -424,18 +495,16 @@ def repositionShape(shape, x, y, radius):
                   2 * radius)
 
 
-def additiveShapeStyle(shape, penCol='w',
-                       brushCol=(255, 100, 100), penWid=2):
-    pen = pg.mkPen(color=penCol, width=penWid)
-    brush = pg.mkBrush(color=brushCol + (100,))
-    shape.setPen(pen)
-    shape.setBrush(brush)
+def modifyBrushStyle(shape, color=(255, 100, 100), penWidth=2,
+                     mode='additive'):
 
+    if mode == 'subtractive':
+        pen = pg.mkPen(color=color, width=penWidth)
+        brush = pg.mkBrush(color=(0, 0, 0, 0))
+    else:
+        pen = pg.mkPen(color='w', width=penWidth)
+        brush = pg.mkBrush(color=color + (100,))
 
-def subtractiveShapeStyle(shape, penCol=(255, 100, 100),
-                          brushCol=(0, 0, 0, 0), penWid=3):
-    pen = pg.mkPen(color=penCol, width=penWid)
-    brush = pg.mkBrush(color=brushCol)
     shape.setPen(pen)
     shape.setBrush(brush)
 
@@ -461,13 +530,40 @@ def paintCircle(image, fill, x, y, radius):
 
 def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
     # if we have a color-channel, convert to grayscale
+
     if len(inputImage.shape) == 3:
         inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2GRAY)
 
+    # Chain Approx Simple
     im, contours, hierarchy = cv2.findContours(inputImage, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
 
+    for ind, contour in enumerate(contours):
+        contours[ind] = cv2.approxPolyDP(contour, 0.1, True)
+
     return contours
+
+
+# def getContours2(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
+#     # if we have a color-channel, convert to grayscale
+
+#     print("alt")
+
+#     if len(inputImage.shape) == 3:
+#         inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2GRAY)
+
+#     # Chain Approx Simple
+#     # im, contours, hierarchy = cv2.findContours(inputImage, cv2.RETR_TREE,
+#     #                                            cv2.CHAIN_APPROX_SIMPLE)
+
+#     im, contours, hierarchy = cv2.findContours(inputImage, cv2.RETR_TREE,
+#                                                cv2.CHAIN_APPROX_TC89_L1)
+
+#     for contour in contours:
+#         contour = cv2.approxPolyDP(contour, 1, True)
+
+#     return contours
+
 
 
 def paintFillCheck(event, modifier):
@@ -490,65 +586,15 @@ def paintFillCheck(event, modifier):
     return False
 
 
-# class ContourTable(QWidget):
-
-#     headers = ['ROI', 'Slices', 'Contours', 'Holes']
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.createLayout()
-
-#     def createLayout(self):
-#         table = self.table = QTableWidget()
-#         table.setColumnCount(len(self.headers))
-#         table.setHorizontalHeaderLabels(self.headers)
-#         table.verticalHeader().setVisible(False)
-#         table.cellClicked.connect(self.onCellClick)
-
-#         bttn = QPushButton("Add ROI")
-#         bttn.clicked.connect(self.onNewROIBttnClick)
-
-#         layout = QGridLayout()
-#         layout.addWidget(bttn, 0, 0)
-#         layout.addWidget(table, 1, 0)
-#         self.setLayout(layout)
-
-
-
-
-# def RectClickEvent(self, event):
-#     print("rect click!")
-#     self.RectOrigin = (int(event.pos().x()), int(event.pos().y()))
-#     self.draggingRect = True
-#     # self.RectOrigin = (x, y)
-# def RectHoverEvent(self, event):
-#     if not self.draggingRect:
-#         return
-#     print("rect hver")
-#     x0, y0 = self.RectOrigin
-#     x1, y1 = (int(event.pos().x()), int(event.pos().y()))
-#     dx, dy = (x1 - x0, y1 - y0)
-#     origin = [0, 0]
-#     if dx > 0:
-#         origin[0] = x0
-#     else:
-#         origin[0] = x1
-#     if dy > 0:
-#         origin[1] = y0
-#     else:
-#         origin[1] = y1
-#     dx = abs(dx)
-#     dy = abs(dy)
-#     self.rect.setRect(origin[0], origin[1], dx, dy)
-#     # self.rect = pg.QtGui.QGraphicsRectItem(origin[0], origin[1], dx, dy)
-
-
 if __name__ == "__main__":
 
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
+    # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint16)
+    myImage = np.zeros((600, 600, 20), dtype=np.uint16)
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
     form = QContourDrawerWidget(imageData=myImage)
+    form.addROI(name='test1', color=(240, 20, 20))
+    form.addROI(name='test2', color=(20, 240, 20))
     form.show()
     sys.exit(app.exec_())
