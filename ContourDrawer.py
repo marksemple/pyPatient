@@ -5,22 +5,36 @@
 """
 
 import sys
+import uuid
+
 # import time
-import threading
+# import threading
 # import itertools
+
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QGridLayout,
-                             QLabel, QSlider, QPushButton, QLineEdit,
-                             QDialog, QColorDialog, QFormLayout,)
-from PyQt5.QtCore import (Qt, )
+                             QLabel, QSlider, QPushButton,
+                             QTableWidget, QTableWidgetItem, QSplitter,)
+from PyQt5.QtGui import (QBrush, QColor, )
+from PyQt5.QtCore import (Qt,)
 import pyqtgraph as pg
 import numpy as np
-import uuid
 import cv2
+# from sandbox import ContourTable
+from new_ROI_dialog import newROIDialog
 
 
 class QContourDrawerWidget(QWidget):
     """ Used to Display A Slice of 3D Image Data
     """
+
+    imageItem = pg.ImageItem()
+    radius = 40
+    showCircle = True
+    ctrlModifier = False
+    shiftModifier = False
+    thisSlice = 0
+    hoverCount = 0
+    tableHeaders = ['ROI', 'Slices', 'Contours', 'Holes']
 
     def __init__(self,
                  imageData=None,
@@ -30,64 +44,50 @@ class QContourDrawerWidget(QWidget):
         super().__init__(*args, **kwargs)
 
         assert(type(imageData) == np.ndarray)
-
         self.imageData = imageData
-        print(imageData.shape)
         self.contourImg = np.zeros(imageData.shape)
         self.nRows, self.nCols, self.nSlices = imageData.shape
-
         self.backgroundIm = np.array((self.nRows, self.nCols))
-        self.radius = 40
-        # self.draggingRect = False
-        self.showCircle = True
-        self.ctrlModifier = False
-        self.shiftModifier = False
-        self.thisSlice = 0
-        self.hoverCount = 0
-        self.ROIs = ROIs
 
+        self.ROIs = ROIs
         if bool(self.ROIs):
             self.enablePaintingControls()
 
         # ~ Add Image Item to Plot Widget
-        self.plotWidge = self.createViewPortal()
-
-        self.imageItem = pg.ImageItem()
         self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=False)
-        self.plotWidge.addItem(self.imageItem)
 
         self.circle = pg.QtGui.QGraphicsEllipseItem(-self.radius,
                                                     -self.radius,
                                                     self.radius * 2,
                                                     self.radius * 2)
         self.circle.hide()
-        self.plotWidge.addItem(self.circle)
         self.shape = self.circle
         # self.plotWidge.addItem(self.rect)
 
         # ~ Create Widget parts
-        self.createControls()
         self.applyLayout()
         self.connectSignals()
         self.resize(700, 700)
-
         self.enableMotionControls()
 
-        # self.enableRectControls()
 
-    def createViewPortal(self, backgroundCol='#FFFFFF'):
-        plotWidge = pg.PlotWidget()
+    def applyLayout(self):
+        # ~ Create "Controls" Panel Layout for Slider
+
+        # ~~~~~~~~~~~~~ VIEWER SECTION
+        self.plotWidge = plotWidge = pg.PlotWidget()
         plotWidge.showAxis('left', False)
         plotWidge.showAxis('bottom', False)
         plotWidge.setAntialiasing(True)
+        plotWidge.addItem(self.imageItem)
+        plotWidge.addItem(self.circle)
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)
-        viewBox.setBackgroundColor(backgroundCol)
-        return plotWidge
+        viewBox.setBackgroundColor('#FFFFFF')
 
-    def createControls(self):
-        # ~ Create controls
+        # ~~~~~~~~~~~~~~~ SLIDER SECTION
+        sliderLayout = QVBoxLayout()
         MW = 40  # minimumWidth
         self.slider = QSlider()
         self.slider.valueChanged.connect(self.sliderChanged)
@@ -95,52 +95,41 @@ class QContourDrawerWidget(QWidget):
         self.slider.setPageStep(1)
         self.slider.setMaximum(self.nSlices - 1)
         self.slider.setMinimumWidth(MW)
-
-        self.addROIbttn = QPushButton("+ ROI")
-        self.addROIbttn.clicked.connect(self.addROI)
-
         self.sliceNumLabel = QLabel("1 / %d" % (self.nSlices))
         self.sliceDistLabel = QLabel("0.00")
-
-    def applyLayout(self):
-        # ~ Create "Controls" Panel Layout for Slider
-        sliderLayout = QVBoxLayout()
-        sliderLayout.addWidget(self.addROIbttn)
         sliderLayout.addWidget(self.slider)
         sliderLayout.addWidget(self.sliceNumLabel, 0, Qt.AlignCenter)
         sliderLayout.addWidget(self.sliceDistLabel, 0, Qt.AlignCenter)
-        # ~ Create widget-wide grid layout
+
+        # ~~~~~~~~~~~~~~~ TABLE Section
+        table = self.tablePicker = QTableWidget()
+        table.setColumnCount(len(self.tableHeaders))
+        table.setHorizontalHeaderLabels(self.tableHeaders)
+        table.verticalHeader().setVisible(False)
+        table.cellClicked.connect(self.onCellClick)
+        table.setSelectionBehavior(table.SelectRows)
+        table.setSelectionMode(table.SingleSelection)
+        # table.setStyleSheet("QTableView {selection-color: black;}")
+        bttn = QPushButton("Add ROI")
+        bttn.clicked.connect(self.addROI)
+        tablelayout = QGridLayout()
+        tablelayout.addWidget(bttn, 0, 0)
+        tablelayout.addWidget(table, 1, 0)
+        tableWidge = QWidget()
+        tableWidge.setLayout(tablelayout)  # self.setLayout(layout)
+
+        # ~~~~~~~~~~~~ PUT it all together
+
+        splitter1 = QSplitter(Qt.Vertical)
+        splitter1.addWidget(self.plotWidge)
+        splitter1.addWidget(tableWidge)
+
         layout = QGridLayout()
-        layout.addWidget(self.plotWidge, 1, 1)
-        layout.addLayout(sliderLayout, 1, 2)
+        layout.addLayout(sliderLayout, 0, 1, 2, 1)
+        layout.addWidget(splitter1, 0, 0)
+        # layout.addWidget(self.plotWidge, 0, 0)
+        # layout.addLayout(tablelayout, 1, 0)
         self.setLayout(layout)
-
-    def sliderChanged(self, newValue):
-        self.thisSlice = int(newValue)
-        self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
-        self.updateContours(isNewSlice=True)
-
-    def addROI(self, name='contour', color=(240, 240, 240), *args):
-        roiDialog = newROIDialog()
-        roiDialog.exec_()
-        if not roiDialog.makeStatus:
-            print("cancelled")
-            return
-
-        name, color = roiDialog.getProperties()
-        self.ROIs.append({'color': color[0:3],
-                          'name': name,
-                          'id': uuid.uuid4(),
-                          'raster': np.zeros((self.nRows, self.nCols,
-                                              self.nSlices), dtype=np.uint8)})
-        self.enablePaintingControls()
-        self.changeROI(self.ROIs[-1])
-        self.plotWidge.setFocus()
-
-    def changeROI(self, ROI):
-        self.thisROI = ROI
-        additiveShapeStyle(self.circle, brushCol=ROI['color'])
-        self.updateContours(isNewSlice=True)
 
     def connectSignals(self):
         # save ORIGINAL mouse events in placeholders for later
@@ -149,6 +138,72 @@ class QContourDrawerWidget(QWidget):
         self.oldImageWheel = self.imageItem.wheelEvent
         self.plotWidge.keyPressEvent = lambda x: self.PlotKeyPress(x)
         self.plotWidge.keyReleaseEvent = lambda x: self.PlotKeyRelease(x)
+
+    def sliderChanged(self, newValue):
+        self.thisSlice = int(newValue)
+        self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
+        self.updateContours(isNewSlice=True)
+
+    def addROI(self, name='contour', color=(240, 240, 240), *args):
+
+        # First, name and choose color for ROI
+        roiDialog = newROIDialog()
+        roiDialog.exec_()
+        if not roiDialog.makeStatus:
+            print("cancelled")
+            return
+        name, color = roiDialog.getProperties()
+
+        self.ROIs.append({'color': color[0:3],
+                          'name': name,
+                          'id': uuid.uuid4(),
+                          'raster': np.zeros((self.nRows, self.nCols,
+                                              self.nSlices), dtype=np.uint8)})
+
+        self.add_ROI_to_Table(self.ROIs[-1])
+
+        self.enablePaintingControls()
+        # self.tablePicker.cellClicked.emit(len(self.ROIs) - 1, 0)
+        self.changeROI(ROI_ind=len(self.ROIs) - 1)
+        self.plotWidge.setFocus()
+
+    def add_ROI_to_Table(self, ROI):
+        row = self.tablePicker.rowCount()
+        self.tablePicker.insertRow(row)
+        item = QTableWidgetItem(ROI['name'])
+        self.tablePicker.setItem(row, 0, item)
+        item.setBackground(QBrush(QColor(*ROI['color'])))
+
+    def onCellClick(self, row, col):
+        # print(table)
+        print('ROI')
+        roi = self.ROIs[row]
+        self.changeROI(ROI_ind=row)
+
+        if col == 0:
+            pass
+        elif col == 1:
+            print(col)
+        elif col == 2:
+            print(col)
+        elif col == 3:
+            print(col)
+
+    def changeROI(self, ROI_ind):
+
+        ROI = self.ROIs[ROI_ind]
+        print(ROI_ind)
+
+        # tableitem = self.tablePicker.item(ROI_ind, 0)
+        # print(dir(self.tablePicker))
+        styl = """QTableView
+                  {selection-background-color: rgb%s;}""" % (ROI['color'],)
+        self.tablePicker.setStyleSheet(styl)
+
+        self.thisROI = ROI
+        additiveShapeStyle(self.circle, brushCol=ROI['color'])
+        self.updateContours(isNewSlice=True)
+        # self.tablePicker.setItemSelected()
 
     def enablePaintingControls(self):
         self.shape = self.circle
@@ -191,11 +246,11 @@ class QContourDrawerWidget(QWidget):
             x, y = (int(event.pos().x()), int(event.pos().y()))
             fill = paintFillCheck(event, self.ctrlModifier)
             repositionShape(self.circle, x, y, self.radius)
-            
+
             # On Every THIRD Hover-Event:
             if not self.hoverCount % 3 and fill is not False:
                 self.paintHere(x, y, fill)
-            
+
             self.hoverCount += 1
 
         except AttributeError as ae:
@@ -225,9 +280,9 @@ class QContourDrawerWidget(QWidget):
         if not bool(self.ROIs):
             return
 
-        imageData = self.imageData[:, :, self.thisSlice].copy() 
+        imageData = self.imageData[:, :, self.thisSlice].copy()
 
-        if len(imageData.shape) == 2: 
+        if len(imageData.shape) == 2:
             imageData = cv2.cvtColor(imageData, cv2.COLOR_GRAY2BGR)
 
         if isNewSlice:
@@ -272,11 +327,8 @@ class QContourDrawerWidget(QWidget):
         cv2.addWeighted(overlayIm, alph, newContourIm, 1 - alph, 0, imageData)
         self.imageItem.setImage(imageData, autoLevels=False)
 
-
-
     def PlotKeyPress(self, event):
         """ Filter key presses while plot object is active """
-
         # print(event.key())
 
         if event.key() == 65:  # 'A' -- advance one slice
@@ -290,7 +342,7 @@ class QContourDrawerWidget(QWidget):
             keyList = [49 + i[0] for i in enumerate(self.ROIs)]
             if event.key() in keyList:  # 1-9 ROI HotKeys
                 ind = keyList.index(event.key())
-                self.changeROI(ROI=self.ROIs[ind])
+                self.changeROI(ROI_ind=ind)
 
             # s, x, d, c
             if event.key() == 83:  # s -- copy superior slice ROI
@@ -301,12 +353,11 @@ class QContourDrawerWidget(QWidget):
                 self.dilate_erode_ROI(self.thisROI, 1)
             if event.key() == 69:  # e -- erode ROI
                 self.dilate_erode_ROI(self.thisROI, -1)
-
             if event.key() == 32:  # SPACE -- Rotate through ROIs
                 indList = [ROI['id'] for ROI in self.ROIs]
                 ind = indList.index(self.thisROI['id'])
                 newInd = (ind + 1) % len(self.ROIs)
-                self.changeROI(ROI=self.ROIs[newInd])
+                self.changeROI(ROI_ind=newInd)
 
             if event.key() == 16777249:  # CTRL -- Invert Painters
                 self.ctrlModifier = True
@@ -439,56 +490,30 @@ def paintFillCheck(event, modifier):
     return False
 
 
-class newROIDialog(QDialog):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# class ContourTable(QWidget):
 
-        self.color = (238, 108, 108)
-        self.name = 'contour'
-        self.makeStatus = False
+#     headers = ['ROI', 'Slices', 'Contours', 'Holes']
 
-        okBttn = QPushButton("Create")
-        okBttn.clicked.connect(self.onAccept)
-        cancelBttn = QPushButton("Cancel")
-        cancelBttn.clicked.connect(self.close)
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.createLayout()
 
-        self.nameEdit = QLineEdit()
-        self.colorPick = QPushButton()
-        self.colorPick.clicked.connect(self.onChooseColor)
-        self.styleColorBttn(self.color)
+#     def createLayout(self):
+#         table = self.table = QTableWidget()
+#         table.setColumnCount(len(self.headers))
+#         table.setHorizontalHeaderLabels(self.headers)
+#         table.verticalHeader().setVisible(False)
+#         table.cellClicked.connect(self.onCellClick)
 
-        layout = QGridLayout()
-        layout.addWidget(QLabel("ROI Name"), 0, 0)
-        layout.addWidget(self.nameEdit, 0, 1, 1, 2)
-        layout.addWidget(QLabel("ROI Color"), 1, 0)
-        layout.addWidget(self.colorPick, 1, 1, 1, 2)
-        layout.addWidget(QLabel(''), 2, 0, 1, 3)
-        layout.addWidget(okBttn, 3, 1)
-        layout.addWidget(cancelBttn, 3, 2)
+#         bttn = QPushButton("Add ROI")
+#         bttn.clicked.connect(self.onNewROIBttnClick)
 
-        self.setLayout(layout)
-        self.setWindowTitle("Create ROI")
-        self.setWindowFlags(Qt.FramelessWindowHint)
+#         layout = QGridLayout()
+#         layout.addWidget(bttn, 0, 0)
+#         layout.addWidget(table, 1, 0)
+#         self.setLayout(layout)
 
-    def onChooseColor(self):
-        colorDiag = QColorDialog()
-        colorDiag.exec_()
-        color = colorDiag.selectedColor()
-        self.color = color.getRgb()
-        self.styleColorBttn(self.color)
 
-    def styleColorBttn(self, color):
-        self.colorPick.setStyleSheet("background-color: rgb(%i, %i, %i);" %
-                                     (self.color[0],
-                                      self.color[1],
-                                      self.color[2]))
-
-    def getProperties(self):
-        return (self.nameEdit.text(), self.color)
-
-    def onAccept(self):
-        self.makeStatus = True
-        self.close()
 
 
 # def RectClickEvent(self, event):
