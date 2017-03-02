@@ -237,23 +237,23 @@ class QContourDrawerWidget(QWidget):
 
     def PaintClickEvent(self, event):
         """ When mouse clicks on IMAGE ITEM """
-        # x, y = (int(event.pos().x()), int(event.pos().y()))
-        # fill = paintFillCheck(event, self.ctrlModifier)
-        # self.paintHere(x, y, fill)
-        # Flag ON]
-        self.paintCount = 0
-        self.painting = True
-        self.paintingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
-                                           (2*self.radius, 2*self.radius))
 
         self.tempCoordList = []
-        self.tempCanvas = np.zeros((self.nRows, self.nCols), dtype=np.uint8)
+        ts = self.thisSlice
+        self.paintCount = 0
+        self.painting = True
 
+        x, y = (int(event.pos().x()), int(event.pos().y()))
+        self.tempCoordList.append([[y, x]])
+        fill = paintFillCheck(event, self.ctrlModifier)
+        oldIm = self.thisROI['raster'][:, :, ts]
+        self.thisROI['raster'][:, :, ts] = paintCircle(image=oldIm,
+                                                       fill=fill,
+                                                       x=y, y=x,
+                                                       radius=self.radius)
+        self.updateContours()
 
     def PaintReleaseEvent(self, event):
-        # x, y = (int(event.pos().x()), int(event.pos().y()))
-        # print('relase')
-        # Flag OFF
         self.painting = False
 
     def PaintHoverEvent(self, event):
@@ -264,20 +264,32 @@ class QContourDrawerWidget(QWidget):
             elif event.isExit():
                 self.circle.hide()
 
-            # if not self.hoverCount % 2:
             x, y = (int(event.pos().x()), int(event.pos().y()))
-            fill = paintFillCheck(event, self.ctrlModifier)
             repositionShape(self.circle, x, y, self.radius)
+            fill = paintFillCheck(event, self.ctrlModifier)
 
-            # On Every THIRD Hover-Event:
-            if not self.hoverCount % 3 and fill is not False:
-                self.paintHere(x, y, fill)
+            if fill is not False:
+                ts = self.thisSlice
+                self.tempCoordList.append([[y, x]])
+                pts = [np.array(self.tempCoordList).astype(np.int32)]
+                thisVol = self.thisROI['raster']
+                thisVol[:, :, ts] = cv2.polylines(img=thisVol[:, :, ts].copy(),
+                                                  pts=pts,
+                                                  isClosed=False,
+                                                  color=(fill, fill, fill),
+                                                  thickness=2 * self.radius)
 
-            self.hoverCount += 1
-            # print(self.hoverCount)
+                # self.imageItem.setImage(thisVol[:, :, ts])
+                # print('o')
+                self.updateContours()
+                # self.paintHere(x, y, fill)
+
+            # self.hoverCount += 1
 
         except AttributeError as ae:
             self.circle.hide()
+
+
 
     def PaintWheelEvent(self, event):
         """  """
@@ -290,55 +302,20 @@ class QContourDrawerWidget(QWidget):
             self.radius += 2 * np.sign(angle)
         repositionShape(self.circle, x, y, self.radius)
 
-
-
-
-
-    # def paintHere(self, x, y, fill=255):
-    #     # draw circle on (hidden) Binary ROI Image
-    #     thisVol = self.thisROI['raster']
-    #     image = paintCircle(image=thisVol[:, :, self.thisSlice],
-    #                         fill=fill, x=y, y=x, radius=self.radius)
-    #     thisVol[:, :, self.thisSlice] = image
-    #     self.updateContours()
-
-
-
-
-
     def paintHere(self, x, y, fill):
+        ts = self.thisSlice
+        self.tempCoordList.pop(0)
         self.tempCoordList.append([[y, x]])
-        self.paintCount += 1
-        # self.tempCanvas.
-        if len(self.tempCoordList) > 1:
-            # print(self.tempCoordList)
-            contArray = [np.array(self.tempCoordList).astype(np.int32)]
-
-            # for index, contour in enumerate(contArray):
-                # contArray[index] = cv2.approxPolyDP(contour, 1, False)
-
-            # print(contArray[0].shape)
-                             # lineType=cv2.LINE_AA)  # 8
-            # im = roi['raster'][:, :, slice0].copy()
-            # if direction > 0:
-                # roi['raster'][:, :, slice0] = cv2.dilate(im, kernel)
-            # self.thisROI['raster'] = cv2.bitwise_and(out, )
-
-            # self.updateContours()
-            if not self.paintCount % 1:
-
-                # bgIm = self.tempCanvas.copy()
-                out = cv2.polylines(img=self.tempCanvas,
-                                    pts=contArray,
-                                    isClosed=False,
-                                    color=(255, 255, 255))
-
-
-                out = cv2.dilate(out, self.paintingKernel)
-                print(self.paintCount)
-                self.imageItem.setImage(out)
-
-
+        contArray = [np.array(self.tempCoordList).astype(np.int32)]
+        thisVol = self.thisROI['raster']
+        oldIm = thisVol[:, :, ts]
+        thisVol[:, :, ts] = cv2.polylines(img=oldIm.copy(),
+                                          pts=contArray,
+                                          isClosed=False,
+                                          color=(fill, fill, fill),
+                                          thickness=2 * self.radius)
+        self.imageItem.setImage(thisVol[:, :, ts])
+        self.updateContours()
 
 
     def updateContours(self, isNewSlice=False):
@@ -374,13 +351,6 @@ class QContourDrawerWidget(QWidget):
         contBinaryIm = self.thisROI['raster'][:, :, self.thisSlice].copy()
 
         contours = getContours(inputImage=contBinaryIm)
-        try:
-            print(contours[0].shape)
-            print(type(contours[0]))
-        except IndexError:
-            pass
-        # print(len(contours))
-        # contours = getContours(inputImage=contBinaryIm)
 
         bgIm = self.backgroundIm.copy()
 
@@ -510,22 +480,14 @@ def modifyBrushStyle(shape, color=(255, 100, 100), penWidth=2,
 
 
 def paintCircle(image, fill, x, y, radius):
-    # Make 3-Channel
-    if len(image.shape) == 2:
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    return cv2.circle(img=image.copy(),
+                      center=(x, y),
+                      radius=radius,
+                      color=(fill, fill, fill),
+                      thickness=-1,
+                      lineType=cv2.LINE_AA)  # 8
 
-    # Draw Circle
-    outIm = cv2.circle(img=image,
-                       center=(x, y),
-                       radius=radius,
-                       color=(fill, fill, fill),
-                       thickness=-1,
-                       lineType=cv2.LINE_AA)  # 8
 
-    # Make Greyscale
-    imgray = cv2.cvtColor(outIm, cv2.COLOR_BGR2GRAY)
-
-    return imgray
 
 
 def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
@@ -572,7 +534,7 @@ def paintFillCheck(event, modifier):
 
     if event.buttons() == Qt.LeftButton:
         doPaint = True
-        fill = 1
+        fill = 255
 
     if event.buttons() == Qt.RightButton:
         doPaint = True
