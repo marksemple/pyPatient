@@ -12,7 +12,7 @@ except:
     import pydicom as dicom
 
 # Locals
-from Patient_ROI import Patient_ROI
+from Patient_ROI import Patient_ROI_Set
 from Patient_Image import Patient_Image
 # from Image import Image
 # from Contour import contour
@@ -34,11 +34,9 @@ class Patient(object):
             self.Image = Patient_Image(myFiles['MR'])
             # print(self.Image)
 
-
         # Initialize ROI/Contour Object
         if 'RTSTRUCT' in myFiles.keys():
-            pass
-        #     RTStruct = PatientROI(file=myFiles['RTSTRUCT'][0])
+            self.StructureSet = Patient_ROI_Set(file=myFiles['RTSTRUCT'][0])
 
 
 def find_DCM_files_parallel(rootpath=None):
@@ -110,6 +108,3 @@ if __name__ == "__main__":
     form = QContourDrawerWidget(imageData=myPatient.Image.data)
     form.show()
     sys.exit(app.exec_())
-
-
-

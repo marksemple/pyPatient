@@ -1,3 +1,7 @@
+"""
+    Dialog for creating new ROI
+"""
+
 from PyQt5.QtWidgets import (QDialog, QLineEdit, QPushButton,
                              QGridLayout, QLabel, QColorDialog)
 from PyQt5.QtCore import (Qt,)

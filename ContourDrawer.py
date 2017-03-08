@@ -7,20 +7,15 @@
 import sys
 import uuid
 
-# import time
-# import threading
-# import itertools
-
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QGridLayout, QHBoxLayout,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QSlider, QPushButton,
-                             QTableWidget, QTableWidgetItem, QSplitter,
+                             QTableWidget, QTableWidgetItem,
                              QSizePolicy,)
-from PyQt5.QtGui import (QBrush, QColor, )
-from PyQt5.QtCore import (Qt, QSize,)
+from PyQt5.QtGui import (QBrush, QColor,)
+from PyQt5.QtCore import (Qt,)
 import pyqtgraph as pg
 import numpy as np
 import cv2
-# from sandbox import ContourTable
 from new_ROI_dialog import newROIDialog
 
 
@@ -36,7 +31,7 @@ class QContourDrawerWidget(QWidget):
     shiftModifier = False
     thisSlice = 0
     hoverCount = 0
-    tableHeaders = ['ROI', 'Slices', 'Contours', 'Holes']
+    tableHeaders = ['ROI', 'Type', 'Slices', 'Contours', 'Holes']
 
     def __init__(self,
                  imageData=None,
@@ -46,7 +41,7 @@ class QContourDrawerWidget(QWidget):
         super().__init__(*args, **kwargs)
 
         assert(type(imageData) == np.ndarray)
-        self.imageData = imageData
+        self.imageData = np.swapaxes(imageData, 0, 1)
         self.contourImg = np.zeros(imageData.shape)
         self.nRows, self.nCols, self.nSlices = imageData.shape
         self.backgroundIm = np.array((self.nRows, self.nCols))
@@ -65,18 +60,18 @@ class QContourDrawerWidget(QWidget):
         self.circle.hide()
         self.shape = self.circle
 
-        # self.plotWidge.addItem(self.rect)
-
         # ~ Create Widget parts
         self.applyLayout()
         self.connectSignals()
-        self.resize(700, 700)
+        self.resize(1200, 700)
         self.enableMotionControls()
 
     def applyLayout(self):
         # ~ Create "Controls" Panel Layout for Slider
 
         # ~~~~~~~~~~~~~ VIEWER SECTION
+        # Canvas for viewing and interacting with patient image data
+        # self.plotWidge = plotWidge = pg.PlotWidget()
         self.plotWidge = plotWidge = pg.PlotWidget()
         plotWidge.showAxis('left', False)
         plotWidge.showAxis('bottom', False)
@@ -89,6 +84,7 @@ class QContourDrawerWidget(QWidget):
         viewBox.setBackgroundColor('#FFFFFF')
 
         # ~~~~~~~~~~~~~~~ SLIDER SECTION
+        # Controls for scanning through slices, and some labels
         sliderLayout = QVBoxLayout()
         MW = 40  # minimumWidth
         self.slider = QSlider()
@@ -99,46 +95,37 @@ class QContourDrawerWidget(QWidget):
         self.slider.setMinimumWidth(MW)
         self.sliceNumLabel = QLabel("1 / %d" % (self.nSlices))
         self.sliceDistLabel = QLabel("0.00")
+
         sliderLayout.addWidget(self.slider)
         sliderLayout.addWidget(self.sliceNumLabel, 0, Qt.AlignCenter)
         sliderLayout.addWidget(self.sliceDistLabel, 0, Qt.AlignCenter)
 
         # ~~~~~~~~~~~~~~~ TABLE Section
+        # interactive summary of ROIs in this image/ patient
+        tableWidge = QWidget()
+        tableWidgeLayout = QVBoxLayout()
+        tableWidge.setLayout(tableWidgeLayout)
+
         table = self.tablePicker = QTableWidget()
-        # table.sizeHint() #QSize(20, 20))
-        table.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         table.setColumnCount(len(self.tableHeaders))
         table.setHorizontalHeaderLabels(self.tableHeaders)
         table.verticalHeader().setVisible(False)
         table.cellClicked.connect(self.onCellClick)
         table.setSelectionBehavior(table.SelectRows)
         table.setSelectionMode(table.SingleSelection)
-        # table.setStyleSheet("QTableView {selection-color: black;}")
-        bttn = QPushButton("Add ROI")
+        table.setSizePolicy(QSizePolicy.Preferred,
+                            QSizePolicy.Preferred)
+        bttn = QPushButton(" + New ROI")
         bttn.clicked.connect(self.addROI)
 
-        tablelayout = QGridLayout()
-        tablelayout.addWidget(bttn, 0, 0, 1, 1)
-        tablelayout.addWidget(table, 1, 0, 1, 2)
-        tableWidge = QWidget()
-        tableWidge.setLayout(tablelayout)  # self.setLayout(layout)
-
-        # ~~~~~~~~~~~~ PUT it all together
-
-        vlayout = QVBoxLayout()
-        vlayout.addWidget(self.plotWidge)
-        vlayout.addWidget(tableWidge)
-        # splitter1 = QSplitter(Qt.Vertical)
-        # splitter1.setHorizontalStretch()
-        # splitter1.addWidget(self.plotWidge)
-        # splitter1.addWidget(tableWidge)
+        tableWidgeLayout.addWidget(bttn)
+        tableWidgeLayout.addWidget(table)
+        tableWidgeLayout.addStretch()
 
         layout = QHBoxLayout()
-        # layout.addWidget(splitter1)
-        layout.addLayout(vlayout)
         layout.addLayout(sliderLayout)
-        # layout.addWidget(self.plotWidge, 0, 0)
-        # layout.addLayout(tablelayout, 1, 0)
+        layout.addWidget(plotWidge, 16)
+        layout.addWidget(tableWidge, 9)
         self.setLayout(layout)
 
     def connectSignals(self):
@@ -156,8 +143,8 @@ class QContourDrawerWidget(QWidget):
 
     def addROI(self, ev=None, name=None, color=None, *args):
         # First, name and choose color for ROI
-        print('name', name)
-        print('color', color)
+        # print('name', name)
+        # print('color', color)
         if name is None and color is None:
             roiDialog = newROIDialog()
             roiDialog.exec_()
@@ -169,6 +156,7 @@ class QContourDrawerWidget(QWidget):
             name = name
             color = color
 
+        # add make ROI object
         self.ROIs.append({'color': color[0:3],
                           'name': name,
                           'id': uuid.uuid4(),
@@ -192,9 +180,8 @@ class QContourDrawerWidget(QWidget):
     def onCellClick(self, row, col):
         # print(table)
         print('ROI')
-        roi = self.ROIs[row]
+        # roi = self.ROIs[row]
         self.changeROI(ROI_ind=row)
-
         if col == 0:
             pass
         elif col == 1:
@@ -205,7 +192,6 @@ class QContourDrawerWidget(QWidget):
             print(col)
 
     def changeROI(self, ROI_ind):
-
         ROI = self.ROIs[ROI_ind]
         print(ROI_ind)
 
@@ -289,8 +275,6 @@ class QContourDrawerWidget(QWidget):
         except AttributeError as ae:
             self.circle.hide()
 
-
-
     def PaintWheelEvent(self, event):
         """  """
         x, y = (int(event.pos().x()), int(event.pos().y()))
@@ -316,7 +300,6 @@ class QContourDrawerWidget(QWidget):
                                           thickness=2 * self.radius)
         self.imageItem.setImage(thisVol[:, :, ts])
         self.updateContours()
-
 
     def updateContours(self, isNewSlice=False):
 
@@ -449,7 +432,7 @@ class QContourDrawerWidget(QWidget):
     def dilate_erode_ROI(self, roi, direction):
         slice0 = self.thisSlice
         # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
         im = roi['raster'][:, :, slice0].copy()
         if direction > 0:
             roi['raster'][:, :, slice0] = cv2.dilate(im, kernel)
@@ -486,8 +469,6 @@ def paintCircle(image, fill, x, y, radius):
                       color=(fill, fill, fill),
                       thickness=-1,
                       lineType=cv2.LINE_AA)  # 8
-
-
 
 
 def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
@@ -527,7 +508,6 @@ def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
 #     return contours
 
 
-
 def paintFillCheck(event, modifier):
     # probes button clicks to see if we should be painting, erasing, or not
     doPaint = False
@@ -553,7 +533,9 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
     # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint16)
-    myImage = np.zeros((600, 600, 20), dtype=np.uint16)
+    myImage = 55 * np.ones((700, 700, 20), dtype=np.uint16)
+    # for index, thisSlice in enumerate(myImage):
+        # myImage[:, :, index - 1] = myImage[:, :, index - 1] * index * 10
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
     form = QContourDrawerWidget(imageData=myImage)
     form.addROI(name='test1', color=(240, 20, 20))

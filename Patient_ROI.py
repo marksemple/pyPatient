@@ -1,5 +1,5 @@
-# RegionOfInterest.py
 """
+    RegionOfInterest
 
 """
 
@@ -16,33 +16,42 @@ except:
     import pydicom as dicom
 
 
-class Patient_ROI(object):
+class Patient_ROI_Set(object):
 
-    name = 'ROI'
-    color = (255, 255, 255)
+    ROI_Name = 'ROI'
+    ROI_Display_Color = (255, 255, 255)
+    Contour_Sequences = []
 
     def __init__(self, file=None, dcm=None, *args, **kwargs):
 
         if file is not None:
-            self.read_file(file)
+            if self.read_file(file):
+                print('got data from file!')
+                return
+            else:
+                print("something went wrong reading file")
+                return
 
         # Has:
+        # ROI OBJECTS
         # filePath
         # modality - RTSTRUCT
         # ROI Color
         # ROI Number
         # ROI Name
+        # Frame of Reference
         # contour data
         # referenced frame of reference
         # contour image sequence
-        #
         pass
 
     def read_file(self, filepath):
         print(filepath)
         di = dicom.read_file(filepath)
-        print(di)
-        pass
+
+        for ContourSeq in di.ROIContourSequence:
+            self.add_ROI(ContourSeq)
+        return True
 
     def write_file(self, filepath):
         pass
@@ -53,8 +62,21 @@ class Patient_ROI(object):
     def raster2vector(self):
         pass
 
+    def add_ROI(self, ContourSequence, *args, **kwargs):
+        pass
+        # self.Contour_Sequences.append(ROI_Object(*args, **kwargs))
+
+
+
+# class ROI_Object(object):
+#     """ per structure_set_ROI_sequence """
+#     def __init__(self, ContourSequence=None, *args, **kwargs):
+#         pass
+
+#         # GET Polygon / Raster data
+#         # Transform to Mask!
 
 
 if __name__ == "__main__":
-    pass
-    # myROI = PatientROI(file=)
+    # pass
+    myROI = Patient_ROI_Set(file=r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)\YU, YAN_3138146_RTst_2016-07-14_121417_mrgb1F_EMTEST_n1__00000\2.16.840.1.114362.1.6.5.4.15706.9994565197.426983378.1037.53.dcm')

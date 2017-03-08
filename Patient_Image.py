@@ -35,11 +35,11 @@ class Patient_Image(object):
         # self.
         self.info = getStaticDicomSizeProps(fileList[0])
         self.NSlices = len(fileList)
-        self.assembleVaryingDicomSizeProps(fileList)
-        self.data = self.assemblePixelData()
+        self.get_sliceVariable_Properties(fileList)
+        self.data = self.get_pixel_data()
         print(self.data.shape)
 
-    def assembleVaryingDicomSizeProps(self, imFileList):
+    def get_sliceVariable_Properties(self, imFileList):
         """ a dictionary to map UID to property dictionary"""
         # sp = self.staticProperties
         self.dataDict = {}
@@ -55,7 +55,8 @@ class Patient_Image(object):
             tempIndList.append(ind)
             self.Loc2UID[entry['SliceLocation']] = entry['UID']
             self.UID2Loc[entry['UID']] = entry['SliceLocation']
-        UnsortedSliceLoc2Ind = dict(zip(tempLocList, tempIndList))
+
+        # UnsortedSliceLoc2Ind = dict(zip(tempLocList, tempIndList))
         self.sliceLocationList = sorted(tempLocList)
         self.Loc2Ind = dict(zip(self.sliceLocationList, tempIndList))
         self.Ind2Loc = dict(zip(tempIndList, self.sliceLocationList))
@@ -70,7 +71,7 @@ class Patient_Image(object):
         self.UID_zero = self.Ind2UID[0]
         # ippo = self.dataDict[UID_zero]['ImagePositionPatient']
 
-    def assemblePixelData(self):
+    def get_pixel_data(self):
         pixelData = np.zeros([self.info['Rows'],
                               self.info['Cols'],
                               self.NSlices], dtype=np.uint16)
@@ -84,7 +85,7 @@ def getStaticDicomSizeProps(imFile):
     # set the DICOM properties that remain constant for all image files
     di = dicom.read_file(imFile)
     staticProps = {}
-    staticProps['ImageOrientationPatient'] = getImOrientation(di)
+    staticProps['ImageOrientationPatient'] = getImOrientationMatrix(di)
     # print("IOP: ", staticProps['ImageOrientationPatient'])
     staticProps['Rows'] = di.Rows
     staticProps['Cols'] = di.Columns
@@ -98,7 +99,7 @@ def getStaticDicomSizeProps(imFile):
 
 def getDicomPixelData(filePath):
     di = dicom.read_file(filePath)
-    imageOrientation = getImOrientation(di)
+    imageOrientation = getImOrientationMatrix(di)
     imPos = np.array([float(x) for x in di.ImagePositionPatient])
     sliceLoc = float(imageOrientation.dot(imPos)[2])
     pixelData = np.asarray(di.pixel_array)
@@ -111,7 +112,7 @@ def getDicomPixelData(filePath):
     # return imPos, pixelData
 
 
-def getImOrientation(di):
+def getImOrientationMatrix(di):
     # get the Volume Rotation from file (remains const)
     if isinstance(di, str):
         di = dicom.read_file(di)
