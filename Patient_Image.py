@@ -32,12 +32,15 @@ class Patient_Image(object):
         # There are properties that describe the entire VOLUME,
         # and there are properties that describe an individual slice
 
-        # self.
         self.info = getStaticDicomSizeProps(fileList[0])
         self.NSlices = len(fileList)
         self.get_sliceVariable_Properties(fileList)
         self.data = self.get_pixel_data()
         print(self.data.shape)
+
+    def __str__(self):
+        strang = "Image Object: {} slices".format(self.NSlices)
+        return strang
 
     def get_sliceVariable_Properties(self, imFileList):
         """ a dictionary to map UID to property dictionary"""

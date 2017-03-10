@@ -18,8 +18,8 @@ except:
 
 class Patient_ROI_Set(object):
 
-    ROI_Name = 'ROI'
-    ROI_Display_Color = (255, 255, 255)
+    Name = 'ROI'
+    Color = (230, 230, 20)
     Contour_Sequences = []
 
     def __init__(self, file=None, dcm=None, *args, **kwargs):
@@ -45,8 +45,14 @@ class Patient_ROI_Set(object):
         # contour image sequence
         pass
 
+
+    def __str__(self):
+        return "Contour Object"
+
+
     def read_file(self, filepath):
-        print(filepath)
+        """ """
+        # print(filepath)
         di = dicom.read_file(filepath)
 
         for ContourSeq in di.ROIContourSequence:
@@ -54,12 +60,15 @@ class Patient_ROI_Set(object):
         return True
 
     def write_file(self, filepath):
+        """ """
         pass
 
     def vector2raster(self):
+        """ """
         pass
 
     def raster2vector(self):
+        """ """
         pass
 
     def add_ROI(self, ContourSequence, *args, **kwargs):

@@ -16,27 +16,68 @@ from Patient_ROI import Patient_ROI_Set
 from Patient_Image import Patient_Image
 # from Image import Image
 # from Contour import contour
-
+from VolumeViewer import QVolumeViewerWidget
 
 class Patient(object):
-    """ container responsible for reading and writing DCM to file"""
+    """ container class responsible for reading and writing DCM to file """
+
+    Name = None
+    DOB = None
+    Position = None
 
     def __init__(self, patientPath=None, makeImage=False, makeContour=False):
+        """ if patient initialized with """
         super().__init__()
 
-        myFiles = find_DCM_files_parallel(patientPath)
-        # myFiles = find_DCM_files_serial(patientPath)
+        """ Scan given patient folder for dicom image files,
+            return dict by modality """
+        if patientPath is not None:
+            dcmFiles = self.scanPatientFolder(patientPath)
+
+        """ Load medical data from found dicom files """
+        if bool(dcmFiles):
+
+            # Verify these are all same series!
+            # pass
+
+            # interpret !
+            self.loadPatientData(dcmFiles)
+
+    def scanPatientFolder(self, patient_directory=None):
+        """ Scan directory for dicom files """
+        myFiles = find_DCM_files_parallel(patient_directory)
         for key in myFiles.keys():
             print('Patient has %s' % key)
+        return myFiles
 
-        # Initialize Image Object
-        if 'MR' in myFiles.keys():
-            self.Image = Patient_Image(myFiles['MR'])
-            # print(self.Image)
+    def loadPatientData(self, dcmFiles={}):
+        if 'MR' in dcmFiles.keys():
+            self.Image = Patient_Image(dcmFiles['MR'])
 
-        # Initialize ROI/Contour Object
-        if 'RTSTRUCT' in myFiles.keys():
-            self.StructureSet = Patient_ROI_Set(file=myFiles['RTSTRUCT'][0])
+        if 'RTSTRUCT' in dcmFiles.keys():
+            self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0])
+
+
+    def getPatient_specific_data(self):
+
+        # di = dicom.read_file(self.)
+
+        pass
+
+        # Name
+        # Study date
+        # series date
+        # acquisition date
+        # etc etc
+        # self.Position =
+
+
+    def savePatientData(self, patient_directory=None):
+        pass
+
+
+    def setPatientName(self, name):
+        pass
 
 
 def find_DCM_files_parallel(rootpath=None):
@@ -87,16 +128,36 @@ def find_DCM_files_serial(rootpath=None):
     return(dcmDict)
 
 
+
 if __name__ == "__main__":
 
-    rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
 
-    # dcmFiles = find_DCM_files_serial(rootTest)
+    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MR'
+
+    patient = Patient(patientPath=rootTest)
+
+    print(patient.Image)
+    print(patient.StructureSet)
+
     # dcmFiles = find_DCM_files_parallel(rootTest)
 
-    myPatient = Patient(patientPath=rootTest)
+    # di = []
+    # i = 0
 
-    print(myPatient.Image.data)
+    # for value in dcmFiles['MR']:
+    #     di.append(dicom.read_file(value))
+
+    # import sys
+    # for obj in di:
+    #     print(i, obj.ImagePositionPatient, obj.PatientPosition, sys.getsizeof(obj))
+    #     i += 1
+
+    # dcmFiles = find_DCM_files_serial(rootTest)
+
+    # myPatient = Patient(patientPath=rootTest)
+
+    # print(myPatient.Image.data)
 
     from PyQt5.QtWidgets import QApplication
     from ContourDrawer import QContourDrawerWidget
@@ -105,6 +166,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
-    form = QContourDrawerWidget(imageData=myPatient.Image.data)
+    form = QContourDrawerWidget(imageData=patient.Image.data)
+
     form.show()
     sys.exit(app.exec_())

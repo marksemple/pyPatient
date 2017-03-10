@@ -19,6 +19,10 @@ import cv2
 from new_ROI_dialog import newROIDialog
 
 
+contThickness = 1
+contOpacity = 0.2
+
+
 class QContourDrawerWidget(QWidget):
     """ Used to Display A Slice of 3D Image Data
     """
@@ -49,6 +53,9 @@ class QContourDrawerWidget(QWidget):
         self.ROIs = ROIs
         if bool(self.ROIs):
             self.enablePaintingControls()
+
+        for ROI in ROIs:
+            self.addROI(name=ROI.name, color=ROI.color)
 
         # ~ Add Image Item to Plot Widget
         self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=True)
@@ -321,12 +328,13 @@ class QContourDrawerWidget(QWidget):
                 contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
 
                 contours = getContours(inputImage=contBinaryIm)
+                color = scaleColor(ROI['color'], self.imageItem.levels)
                 # show contours on empty image
                 backgroundIm = cv2.drawContours(image=backgroundIm,
                                                 contours=contours,
                                                 contourIdx=-1,
-                                                color=ROI['color'],
-                                                thickness=2,
+                                                color=color,
+                                                thickness=contThickness,
                                                 lineType=cv2.LINE_AA)  # 8
 
             self.backgroundIm = backgroundIm
@@ -336,21 +344,22 @@ class QContourDrawerWidget(QWidget):
         contours = getContours(inputImage=contBinaryIm)
 
         bgIm = self.backgroundIm.copy()
+        color = scaleColor(self.thisROI['color'], self.imageItem.levels)
 
         newContourIm = cv2.drawContours(image=bgIm,
                                         contours=contours,
                                         contourIdx=-1,
-                                        color=self.thisROI['color'],
-                                        thickness=2,
+                                        color=color,
+                                        thickness=contThickness,
                                         lineType=cv2.LINE_AA)  # 8
         overlayIm = cv2.drawContours(image=imageData,
                                      contours=contours,
                                      contourIdx=-1,
-                                     color=self.thisROI['color'],
+                                     color=color,
                                      thickness=-1,
                                      lineType=cv2.LINE_AA)  # 8
 
-        alph = 0.3
+        alph = contOpacity
         cv2.addWeighted(overlayIm, alph, newContourIm, 1 - alph, 0, imageData)
         self.imageItem.setImage(imageData, autoLevels=False)
 
@@ -439,6 +448,12 @@ class QContourDrawerWidget(QWidget):
         elif direction < 0:
             roi['raster'][:, :, slice0] = cv2.erode(im, kernel)
         self.updateContours()
+
+
+def scaleColor(color, levels):
+    scale = (levels[1] - levels[0]) / 255
+    newColor = tuple([(scale * x + levels[0]) for x in color])
+    return newColor
 
 
 def repositionShape(shape, x, y, radius):
