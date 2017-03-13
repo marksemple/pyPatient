@@ -19,11 +19,13 @@ class Patient_Image(object):
 
     info = {}
     UID2Loc = {}
-    Loc2UID = {}
     UID2Ind = {}
-    Ind2UID = {}
+    UID2IPP = {}
+    Loc2UID = {}
     Loc2Ind = {}
+    Ind2UID = {}
     Ind2Loc = {}
+
 
     def __init__(self, fileList):
 
@@ -36,11 +38,15 @@ class Patient_Image(object):
         self.NSlices = len(fileList)
         self.get_sliceVariable_Properties(fileList)
         self.data = self.get_pixel_data()
-        print(self.data.shape)
+
+        self.info['Patient2Pixels'] = self.GetPatient2Pixels()
+        self.info['Pixels2Patient'] = self.GetPixels2Patient()
 
     def __str__(self):
         strang = "Image Object: {} slices".format(self.NSlices)
         return strang
+
+
 
     def get_sliceVariable_Properties(self, imFileList):
         """ a dictionary to map UID to property dictionary"""
@@ -48,19 +54,26 @@ class Patient_Image(object):
         self.dataDict = {}
         tempIndList = []
         tempLocList = []
+        tempPosList = []
         pool = ThreadPool(self.NSlices)
         results = pool.map(func=getDicomPixelData, iterable=imFileList)
         for ind, entry in enumerate(results):  # each dicom's data
             # imPos, pix = entry
-            UID = entry['UID']
-            self.dataDict[UID] = entry
-            tempLocList.append(entry['SliceLocation'])
+            thisUID = entry['UID']
+
+            self.dataDict[thisUID] = entry
+
             tempIndList.append(ind)
-            self.Loc2UID[entry['SliceLocation']] = entry['UID']
-            self.UID2Loc[entry['UID']] = entry['SliceLocation']
+            tempLocList.append(entry['SliceLocation'])
+
+            self.Loc2UID[entry['SliceLocation']] = thisUID
+            self.UID2Loc[thisUID] = entry['SliceLocation']
+            self.UID2IPP[thisUID] = entry['ImagePositionPatient']
+
 
         # UnsortedSliceLoc2Ind = dict(zip(tempLocList, tempIndList))
         self.sliceLocationList = sorted(tempLocList)
+
         self.Loc2Ind = dict(zip(self.sliceLocationList, tempIndList))
         self.Ind2Loc = dict(zip(tempIndList, self.sliceLocationList))
         self.UID2Ind = deepcopy(self.UID2Loc)
@@ -82,6 +95,60 @@ class Patient_Image(object):
             ind = self.UID2Ind[uid]
             pixelData[:, :, ind] = self.dataDict[uid]['PixelData']
         return pixelData
+
+    def GetPatient2Pixels(self):
+        """ Transformaton of Patient Coordinate to Pixel Indices
+            """
+        sliceLoc0 = self.UID2IPP[self.UID_zero]
+
+        # ROTATION
+        temp = np.eye(4)
+        R = self.info['ImageOrientationPatient']
+        temp[0:3, 0:3] = R.T
+        Rotation = temp
+
+        # TRANSLATION
+        temp = np.eye(4)
+        # offset = self.sliceLoc2PositionPatient[sliceLoc0]
+        offset = sliceLoc0
+        temp[0:3, -1] = - offset[0:3]
+        Translation = temp
+
+        # SCALING
+        scales = self.info['PixelSpacing']
+        Scaling = np.array([[1 / scales[1], 0, 0, 0],
+                            [0, 1 / scales[0], 0, 0],
+                            [0, 0, 1, 0],
+                            [0, 0, 0, 1]])
+
+        return Scaling.dot(Rotation).dot(Translation)
+
+    def GetPixels2Patient(self):
+        """ Transformation of Pixel Indices to Patient Coordinates """
+        sliceLoc0 = self.UID2IPP[self.UID_zero]
+
+        # ROTATION
+        temp = np.eye(4)
+        R = self.info['ImageOrientationPatient']
+        temp[0:3, 0:3] = R
+        Rotation = temp
+
+        # TRANSLATION
+        temp = np.eye(4)
+        # offset = self.sliceLoc2PositionPatient[sliceLoc0]
+        offset = sliceLoc0
+        temp[0:3, -1] = offset[0:3]
+        Translation = temp
+
+        # SCALING
+        # temp = np.eye(4)
+        scales = self.info['PixelSpacing']
+        Scaling = np.array([[scales[1], 0, 0, 0],
+                             [0, scales[0], 0, 0],
+                             [0, 0, scales[2], 0],
+                             [0, 0, 0, 1]])
+
+        return Translation.dot(Rotation).dot(Scaling)
 
 
 def getStaticDicomSizeProps(imFile):

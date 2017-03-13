@@ -22,7 +22,10 @@ class Patient_ROI_Set(object):
     Color = (230, 230, 20)
     Contour_Sequences = []
 
-    def __init__(self, file=None, dcm=None, *args, **kwargs):
+    def __init__(self, file=None, dcm=None, imageInfo=None,
+                 *args, **kwargs):
+
+        self.imageInfo = imageInfo
 
         if file is not None:
             if self.read_file(file):
@@ -32,32 +35,50 @@ class Patient_ROI_Set(object):
                 print("something went wrong reading file")
                 return
 
-        # Has:
-        # ROI OBJECTS
-        # filePath
-        # modality - RTSTRUCT
-        # ROI Color
-        # ROI Number
-        # ROI Name
-        # Frame of Reference
-        # contour data
-        # referenced frame of reference
-        # contour image sequence
+        # how many Regions of Interest are there?
+
         pass
 
-
     def __str__(self):
-        return "Contour Object"
-
+        return "Contour Structure Set"
 
     def read_file(self, filepath):
         """ """
         # print(filepath)
         di = dicom.read_file(filepath)
 
-        for ContourSeq in di.ROIContourSequence:
-            self.add_ROI(ContourSeq)
+        # for sequence in di.StructureSetROISequence:
+        #     print("Sequence: ", sequence.ROIName)
+        # print("there are:", len(di.StructureSetROISequence), " ROIs")
+
+        for index, structure in enumerate(di.StructureSetROISequence):
+            # self.Contours
+            aa = self.add_ROI(structure, di.ROIContourSequence[index])
+        print(aa)
         return True
+
+    def add_ROI(self, structure, contour):
+
+        new_ROI = {'ROINumber': int(structure.ROINumber),
+                   'ROIName': structure.ROIName,
+                   'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
+                   'ROIColor': [int(x) for x in contour.ROIDisplayColor],
+                   'UID2Data': {}}
+
+        for contourSequence in contour.ContourSequence:
+            cis = contourSequence.ContourImageSequence[0]
+            associatedImageUID = cis.ReferencedSOPInstanceUID
+            contData = ContourList2Array(contourSequence.ContourData)
+            new_ROI['UID2Data'][associatedImageUID] = contData
+
+            ones = np.ones((contData.shape[0], 1))
+            padded_contData = np.hstack((contData, ones))
+            # contData2 = padded_contData.dot(self.imageInfo['Patient2Pixels'])
+            contData2 = self.imageInfo['Patient2Pixels'].dot(padded_contData.T)
+            print(contData2.astype(int))
+
+
+        return new_ROI
 
     def write_file(self, filepath):
         """ """
@@ -67,25 +88,35 @@ class Patient_ROI_Set(object):
         """ """
         pass
 
-    def raster2vector(self):
-        """ """
+    def Contours_as_Raster(self):
         pass
 
-    def add_ROI(self, ContourSequence, *args, **kwargs):
-        pass
-        # self.Contour_Sequences.append(ROI_Object(*args, **kwargs))
 
 
+def ContourList2Array(strList):
+    """ Turn DICOM's list of contour pts to useful numpy array """
+    floatArray = np.asarray([float(x) for x in strList])
+    nPts = int(len(floatArray) / 3)
+    return np.reshape(floatArray, (nPts, 3))
 
-# class ROI_Object(object):
-#     """ per structure_set_ROI_sequence """
-#     def __init__(self, ContourSequence=None, *args, **kwargs):
-#         pass
+def ContourArray2List(npArray):
+    """ Turn contours from numpy array to DICOM list format """
+    rows, cols = npArray.shape
+    flatArray = npArray.flatten()
+    return [str(x) for x in flatArray]
 
-#         # GET Polygon / Raster data
-#         # Transform to Mask!
+
 
 
 if __name__ == "__main__":
-    # pass
-    myROI = Patient_ROI_Set(file=r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)\YU, YAN_3138146_RTst_2016-07-14_121417_mrgb1F_EMTEST_n1__00000\2.16.840.1.114362.1.6.5.4.15706.9994565197.426983378.1037.53.dcm')
+
+    testList = ['1','3','4','5','1','2', '4', '2', '7']
+    print(testList)
+
+    aa = ContourList2Array(testList)
+    print(aa)
+
+    bb = ContourArray2List(aa)
+    print(bb)
+
+    # myROI = Patient_ROI_Set(file=r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)\YU, YAN_3138146_RTst_2016-07-14_121417_mrgb1F_EMTEST_n1__00000\2.16.840.1.114362.1.6.5.4.15706.9994565197.426983378.1037.53.dcm')

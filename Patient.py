@@ -18,6 +18,7 @@ from Patient_Image import Patient_Image
 # from Contour import contour
 from VolumeViewer import QVolumeViewerWidget
 
+
 class Patient(object):
     """ container class responsible for reading and writing DCM to file """
 
@@ -36,11 +37,8 @@ class Patient(object):
 
         """ Load medical data from found dicom files """
         if bool(dcmFiles):
-
             # Verify these are all same series!
             # pass
-
-            # interpret !
             self.loadPatientData(dcmFiles)
 
     def scanPatientFolder(self, patient_directory=None):
@@ -55,26 +53,14 @@ class Patient(object):
             self.Image = Patient_Image(dcmFiles['MR'])
 
         if 'RTSTRUCT' in dcmFiles.keys():
-            self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0])
-
+            self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0],
+                                                imageInfo=self.Image.info)
 
     def getPatient_specific_data(self):
-
-        # di = dicom.read_file(self.)
-
         pass
-
-        # Name
-        # Study date
-        # series date
-        # acquisition date
-        # etc etc
-        # self.Position =
-
 
     def savePatientData(self, patient_directory=None):
         pass
-
 
     def setPatientName(self, name):
         pass
@@ -132,8 +118,9 @@ def find_DCM_files_serial(rootpath=None):
 if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MR'
 
-    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MR'
+    rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\CLEAN - Sample Data 10-02-2016 - backup\MRtemp'
 
     patient = Patient(patientPath=rootTest)
 
@@ -141,10 +128,8 @@ if __name__ == "__main__":
     print(patient.StructureSet)
 
     # dcmFiles = find_DCM_files_parallel(rootTest)
-
     # di = []
     # i = 0
-
     # for value in dcmFiles['MR']:
     #     di.append(dicom.read_file(value))
 
