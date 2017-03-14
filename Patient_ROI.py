@@ -67,7 +67,9 @@ class Patient_ROI_Set(object):
         print("NEW ROI: {}".format(structure.ROIName))
 
         for contourSequence in contour.ContourSequence:
-            VA = self.ContourSequence2VectorArray(contourSequence)
+            PA = ContourData2PatientArray(contourSequence)
+            VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
+
             print(VA)
         return VA
 
@@ -75,8 +77,8 @@ class Patient_ROI_Set(object):
         """ """
         pass
 
-
 """ Helper functions to transform between contour representations """
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 def ContourData2PatientArray(contourData):
@@ -88,33 +90,48 @@ def ContourData2PatientArray(contourData):
     nPts = int(len(floatArray) / 3)
     contData = np.reshape(floatArray, (3, nPts), order='F')
     ones = np.ones((1, nPts))
-
-    print("cont:", contData.shape)
-    print("ones:", ones.shape)
-
     patientArray = np.vstack((contData, ones))
     return patientArray
 
 
 def PatientArray2ContourData(VectorArray):
-    """ Turn contours from numpy array to DICOM list format """
+    """ Turn contours from numpy array to DICOM list format (for saving!)
+            Remove the bottom row of ONES (needed for transform), ...
+            Save as list of strings
+    input: 4xN 2-D numpy array <X..; Y..; Z..; 1..>
+    output: 1-D list of strings ['x','y','z','x','y','z'...]
+    """
     rows, cols = VectorArray.shape
-    flatArray = VectorArray.flatten()
+    flatArray = VectorArray[0:3, :].flatten(order='F')
     return [str(x) for x in flatArray]
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 def Patient2VectorArray(PatientArray, transform):
+    """ Transform contours from Patient-Space to Pixel-Space
+            Rounds to nearest single-decimal place
+    input: 4xN 2-D numpy array (in patient space),  4x4 linear transformation
+    output: 4xN 2-D numpy array (in pixel space)
+    """
     vectorArray = transform.dot(PatientArray)
     vectorArray = np.around(vectorArray, decimals=1)
     return vectorArray
 
 
 def Vector2PatientArray(vectorArray, transform):
+    """ Transform contours from Pixel-Space to Patient-Space
+    input: 4xN 2-D numpy array (in pixel space), 4x4 linear transformation
+    output: 4xN 2-D numpy array (in patient space)
+    """
     patientArray = transform.dot(vectorArray)
     return patientArray
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 def VectorArray2CVContour(VectorArray):
+    """ """
     inputShape = VectorArray.shape
     nPts = inputShape[1]
 
@@ -123,8 +140,9 @@ def VectorArray2CVContour(VectorArray):
     elif inputShape[0] == 3:
         VectorArray = VectorArray[0:2, :]
 
-    FlatArray = VectorArray.flatten()
-    CVContour = FlatArray.reshape((nPts, 1, 2), order='F')
+    FlatArray = VectorArray.flatten(order='C')
+    CVContour = FlatArray.reshape((nPts, 1, 2), order='F').astype(np.int32)
+
     return CVContour
 
 
@@ -133,12 +151,14 @@ def CVContour2VectorArray(CVContour, sliceZ):
     input: (N x 1 x 2) numpy array of Xs and Ys for OpenCV Contours
     output: transformable vector array
     """
-    flatArray = CVContour.flatten()
-    nPts = len(flatArray) / 2
+    flatArray = CVContour.flatten(order='F')
+    nPts = int(len(flatArray) / 2)
     vectArray = flatArray.reshape((2, nPts), order='F')
     ones = np.ones((1, nPts))
     paddedVectArray = np.vstack((vectArray, ones * sliceZ, ones))
     return paddedVectArray
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 def CVContour2ImageArray(CVContour, rows, cols):
@@ -146,14 +166,17 @@ def CVContour2ImageArray(CVContour, rows, cols):
     input: List of contours points (as opencv likes them)
     output: binary image
     """
-    contourImage = np.zeros((rows, cols), dtype=np.uint8)
-    contourImage = cv2.drawContours(image=contourImage.copy(),
-                                    contours=CVContour,
-                                    contourIdx=-1,
-                                    color=[255, 255, 255],
-                                    thickness=-1,
-                                    lineType=cv2.LINE_AA)
-    return contourImage
+    contourImage = np.zeros((rows, cols)) #, dtype=np.uint8)
+
+    cont = CVContour[0]
+
+    contourImageOut = cv2.drawContours(image=contourImage.copy(),
+                                       contours=[cont],
+                                       contourIdx=0,
+                                       color=(1, 1, 1),
+                                       thickness=-1,
+                                       lineType=cv2.LINE_AA).astype(np.uint8)
+    return contourImageOut
 
 
 def ImageArray2CVContour(ImageArray, compression=None):
@@ -176,8 +199,8 @@ if __name__ == "__main__":
 
     testList = ['1', '1', '0',
                 '6', '1', '0',
-                '6', '6', '0',
-                '1', '6', '0']
+                '6', '7', '0',
+                '1', '7', '0']
 
     print('InputData\n', testList)
 
@@ -189,14 +212,22 @@ if __name__ == "__main__":
     VectorArray = Patient2VectorArray(PatientArray, TForm)
     print('VectorArray\n', VectorArray)
 
-    CVContour = VectorArray2CVContour(VectorArray)
+    CVContour = [VectorArray2CVContour(VectorArray)]
     print('CVContour\n', CVContour)
-
 
     ImgArray = CVContour2ImageArray(CVContour, 10, 10)
     print('ImgArray\n', ImgArray)
 
-    CS = PatientArray2ContourData(PatientArray)
+    CVContour2 = ImageArray2CVContour(ImgArray)
+    print('OutContour\n', CVContour2)
+
+    VectorArray2 = CVContour2VectorArray(CVContour2[0], 0)
+    print('OutVector\n', VectorArray2)
+
+    PatientArray2 = Vector2PatientArray(VectorArray2, TForm)
+    print('VectorArray2\n', PatientArray2)
+
+    CS = PatientArray2ContourData(PatientArray2)
     print('ContourData\n', CS)
 
     # myROI = Patient_ROI_Set(file=r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)\YU, YAN_3138146_RTst_2016-07-14_121417_mrgb1F_EMTEST_n1__00000\2.16.840.1.114362.1.6.5.4.15706.9994565197.426983378.1037.53.dcm')

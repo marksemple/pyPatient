@@ -343,6 +343,14 @@ class QContourDrawerWidget(QWidget):
 
         contours = getContours(inputImage=contBinaryIm)
 
+        # if bool(contours):
+        #     print(contours)
+        #     print(type(contours))
+        #     print(contours[0])
+        #     print(type(contours[0]))
+        #     print(contours[0].shape)
+
+
         bgIm = self.backgroundIm.copy()
         color = scaleColor(self.thisROI['color'], self.imageItem.levels)
 
@@ -498,18 +506,18 @@ def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
 
     # print(contours)
 
-    if bool(contours):
-        print("num hoops:", len(contours))
-        print("cont1 shape:", contours[0].shape)
+    # if bool(contours):
+    #     print("num hoops:", len(contours))
+    #     print("cont1 shape:", contours[0].shape)
         # print('hier:', hierarchy)
 
     for ind, contour in enumerate(contours):
         contours[ind] = cv2.approxPolyDP(contour, 0.75, True)
 
-    if bool(contours):
-        print("num hoops:", len(contours))
-        print("cont1 shape:", contours[0].shape)
-        print('hier:', hierarchy)
+    # if bool(contours):
+    #     print("num hoops:", len(contours))
+    #     print("cont1 shape:", contours[0].shape)
+    #     print('hier:', hierarchy)
 
     return contours
 
