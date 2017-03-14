@@ -496,8 +496,20 @@ def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
     im, contours, hierarchy = cv2.findContours(inputImage, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
 
+    # print(contours)
+
+    if bool(contours):
+        print("num hoops:", len(contours))
+        print("cont1 shape:", contours[0].shape)
+        # print('hier:', hierarchy)
+
     for ind, contour in enumerate(contours):
-        contours[ind] = cv2.approxPolyDP(contour, 0.1, True)
+        contours[ind] = cv2.approxPolyDP(contour, 0.75, True)
+
+    if bool(contours):
+        print("num hoops:", len(contours))
+        print("cont1 shape:", contours[0].shape)
+        print('hier:', hierarchy)
 
     return contours
 

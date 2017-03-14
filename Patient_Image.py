@@ -26,7 +26,6 @@ class Patient_Image(object):
     Ind2UID = {}
     Ind2Loc = {}
 
-
     def __init__(self, fileList):
 
         # must have fileList attribute
@@ -45,8 +44,6 @@ class Patient_Image(object):
     def __str__(self):
         strang = "Image Object: {} slices".format(self.NSlices)
         return strang
-
-
 
     def get_sliceVariable_Properties(self, imFileList):
         """ a dictionary to map UID to property dictionary"""
@@ -70,8 +67,6 @@ class Patient_Image(object):
             self.UID2Loc[thisUID] = entry['SliceLocation']
             self.UID2IPP[thisUID] = entry['ImagePositionPatient']
 
-
-        # UnsortedSliceLoc2Ind = dict(zip(tempLocList, tempIndList))
         self.sliceLocationList = sorted(tempLocList)
 
         self.Loc2Ind = dict(zip(self.sliceLocationList, tempIndList))
@@ -81,11 +76,12 @@ class Patient_Image(object):
             thisInd = self.Loc2Ind[self.UID2Loc[UID]]
             self.UID2Ind[UID] = thisInd
             self.Ind2UID[thisInd] = UID
-        start = self.sliceLocationList[0]
-        end = self.sliceLocationList[1]
-        self.info['SliceSpacing'] = end - start
+
+        ipp1 = self.UID2IPP[self.Ind2UID[1]]
+        ipp0 = self.UID2IPP[self.Ind2UID[0]]
+        self.info['SliceSpacing'] = np.linalg.norm(ipp1 - ipp0)
+
         self.UID_zero = self.Ind2UID[0]
-        # ippo = self.dataDict[UID_zero]['ImagePositionPatient']
 
     def get_pixel_data(self):
         pixelData = np.zeros([self.info['Rows'],
@@ -118,7 +114,7 @@ class Patient_Image(object):
         scales = self.info['PixelSpacing']
         Scaling = np.array([[1 / scales[1], 0, 0, 0],
                             [0, 1 / scales[0], 0, 0],
-                            [0, 0, 1, 0],
+                            [0, 0, 1 / self.info['SliceSpacing'], 0],
                             [0, 0, 0, 1]])
 
         return Scaling.dot(Rotation).dot(Translation)
@@ -144,9 +140,9 @@ class Patient_Image(object):
         # temp = np.eye(4)
         scales = self.info['PixelSpacing']
         Scaling = np.array([[scales[1], 0, 0, 0],
-                             [0, scales[0], 0, 0],
-                             [0, 0, scales[2], 0],
-                             [0, 0, 0, 1]])
+                            [0, scales[0], 0, 0],
+                            [0, 0, self.info['SliceSpacing'], 0],
+                            [0, 0, 0, 1]])
 
         return Translation.dot(Rotation).dot(Scaling)
 
@@ -206,7 +202,6 @@ def getImOrientationMatrix(di):
         # print("HFS")
         return R.T
     return R
-
 
 
 if __name__ == "__main__":

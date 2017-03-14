@@ -118,9 +118,10 @@ def find_DCM_files_serial(rootpath=None):
 if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MR'
 
-    rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\CLEAN - Sample Data 10-02-2016 - backup\MRtemp'
+    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
+
+    # rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\CLEAN - Sample Data 10-02-2016 - backup\MRtemp'
 
     patient = Patient(patientPath=rootTest)
 
