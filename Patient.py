@@ -128,23 +128,6 @@ if __name__ == "__main__":
     print(patient.Image)
     print(patient.StructureSet)
 
-    # dcmFiles = find_DCM_files_parallel(rootTest)
-    # di = []
-    # i = 0
-    # for value in dcmFiles['MR']:
-    #     di.append(dicom.read_file(value))
-
-    # import sys
-    # for obj in di:
-    #     print(i, obj.ImagePositionPatient, obj.PatientPosition, sys.getsizeof(obj))
-    #     i += 1
-
-    # dcmFiles = find_DCM_files_serial(rootTest)
-
-    # myPatient = Patient(patientPath=rootTest)
-
-    # print(myPatient.Image.data)
-
     from PyQt5.QtWidgets import QApplication
     from ContourDrawer import QContourDrawerWidget
     import sys
@@ -153,6 +136,9 @@ if __name__ == "__main__":
     # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
     form = QContourDrawerWidget(imageData=patient.Image.data)
+    form.addROI(name=patient.StructureSet.ROIs[0]['ROIName'],
+                color=patient.StructureSet.ROIs[0]['ROIColor'],
+                data=patient.StructureSet.ROIs[0]['DataVolume'])
 
     form.show()
     sys.exit(app.exec_())

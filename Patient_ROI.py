@@ -45,33 +45,50 @@ class Patient_ROI_Set(object):
     def read_file(self, filepath):
         """ """
         # print(filepath)
-        di = dicom.read_file(filepath)
+        self.di = di = dicom.read_file(filepath)
 
         # for sequence in di.StructureSetROISequence:
         #     print("Sequence: ", sequence.ROIName)
         # print("there are:", len(di.StructureSetROISequence), " ROIs")
 
+        self.ROIs = []
+
         for index, structure in enumerate(di.StructureSetROISequence):
             # self.Contours
-            aa = self.add_ROI(structure, di.ROIContourSequence[index])
-        print(aa)
+            newROI = self.add_ROI(structure, di.ROIContourSequence[index])
+            self.ROIs.append(newROI)
+
         return True
 
+    # def getROIVolume(self, ROI, UID2Index):
+        # for contourSequence in ROI:
+            # for index in
+        # for UID in self.
+        # UID2Index[UID]
+        # return ContourVolume
+
     def add_ROI(self, structure, contour):
+
+        volSize = (self.imageInfo['Rows'],
+                   self.imageInfo['Cols'], self.imageInfo['NSlices'])
+
         new_ROI = {'ROINumber': int(structure.ROINumber),
                    'ROIName': structure.ROIName,
                    'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
                    'ROIColor': [int(x) for x in contour.ROIDisplayColor],
-                   'UID2Data': {}}
-
-        print("NEW ROI: {}".format(structure.ROIName))
+                   'DataVolume': np.zeros(volSize)}
 
         for contourSequence in contour.ContourSequence:
-            PA = ContourData2PatientArray(contourSequence)
+            PA = ContourData2PatientArray(contourSequence.ContourData)
             VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
+            CA = VectorArray2CVContour(VA)
+            ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
+            ind = int(VA[2, 0])
+            print('index {} has {}'.format(ind, ImSlice.shape))
+            new_ROI['DataVolume'][:, :, ind] = ImSlice
 
-            print(VA)
-        return VA
+        print("NEW ROI: {}".format(structure.ROIName))
+        return new_ROI
 
     def write_file(self, filepath):
         """ """
@@ -86,7 +103,11 @@ def ContourData2PatientArray(contourData):
     input: a contour sequence right from a dicom file
     output: Numpy vector array in patient coordinates
     """
-    floatArray = np.asarray([float(x) for x in contourData])
+    try:
+        floatArray = np.asarray([float(x) for x in contourData])
+    except TypeError as te:
+        print(te)
+        print(contourData)
     nPts = int(len(floatArray) / 3)
     contData = np.reshape(floatArray, (3, nPts), order='F')
     ones = np.ones((1, nPts))
@@ -168,14 +189,17 @@ def CVContour2ImageArray(CVContour, rows, cols):
     """
     contourImage = np.zeros((rows, cols)) #, dtype=np.uint8)
 
-    cont = CVContour[0]
+    for cont in CVContour:
+    # cont = CVContour[0]
+        contourImageOut = cv2.drawContours(image=contourImage.copy(),
+                                           contours=[cont],
+                                           contourIdx=0,
+                                           color=(255, 255, 255),
+                                           thickness=-1,
+                                           lineType=cv2.LINE_AA).astype(np.uint8)
 
-    contourImageOut = cv2.drawContours(image=contourImage.copy(),
-                                       contours=[cont],
-                                       contourIdx=0,
-                                       color=(1, 1, 1),
-                                       thickness=-1,
-                                       lineType=cv2.LINE_AA).astype(np.uint8)
+    print(cont)
+
     return contourImageOut
 
 

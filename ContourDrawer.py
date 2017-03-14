@@ -19,8 +19,8 @@ import cv2
 from new_ROI_dialog import newROIDialog
 
 
-contThickness = 1
-contOpacity = 0.2
+contThickness = 2
+contOpacity = 0.3
 
 
 class QContourDrawerWidget(QWidget):
@@ -148,11 +148,11 @@ class QContourDrawerWidget(QWidget):
         self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
         self.updateContours(isNewSlice=True)
 
-    def addROI(self, ev=None, name=None, color=None, *args):
+    def addROI(self, ev=None, name=None, color=None, data=None, *args):
         # First, name and choose color for ROI
         # print('name', name)
         # print('color', color)
-        if name is None and color is None:
+        if name is None or color is None:
             roiDialog = newROIDialog()
             roiDialog.exec_()
             if not roiDialog.makeStatus:
@@ -163,12 +163,17 @@ class QContourDrawerWidget(QWidget):
             name = name
             color = color
 
+        if data is None:
+            data = np.zeros((self.nRows, self.nCols, self.nSlices),
+                            dtype=np.uint8)
+
+        # print(data)
+
         # add make ROI object
         self.ROIs.append({'color': color[0:3],
                           'name': name,
                           'id': uuid.uuid4(),
-                          'raster': np.zeros((self.nRows, self.nCols,
-                                              self.nSlices), dtype=np.uint8)})
+                          'raster': data})
 
         self.add_ROI_to_Table(self.ROIs[-1])
 
@@ -272,11 +277,8 @@ class QContourDrawerWidget(QWidget):
                                                   color=(fill, fill, fill),
                                                   thickness=2 * self.radius)
 
-                # self.imageItem.setImage(thisVol[:, :, ts])
-                # print('o')
                 self.updateContours()
                 # self.paintHere(x, y, fill)
-
             # self.hoverCount += 1
 
         except AttributeError as ae:
@@ -479,7 +481,7 @@ def modifyBrushStyle(shape, color=(255, 100, 100), penWidth=2,
         brush = pg.mkBrush(color=(0, 0, 0, 0))
     else:
         pen = pg.mkPen(color='w', width=penWidth)
-        brush = pg.mkBrush(color=color + (100,))
+        brush = pg.mkBrush(color=tuple(color) + (100,))
 
     shape.setPen(pen)
     shape.setBrush(brush)
@@ -499,6 +501,8 @@ def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
 
     if len(inputImage.shape) == 3:
         inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2GRAY)
+
+    inputImage = inputImage.astype(np.uint8)
 
     # Chain Approx Simple
     im, contours, hierarchy = cv2.findContours(inputImage, cv2.RETR_TREE,
@@ -573,6 +577,7 @@ if __name__ == "__main__":
         # myImage[:, :, index - 1] = myImage[:, :, index - 1] * index * 10
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
     form = QContourDrawerWidget(imageData=myImage)
+    # form.addROI
     form.addROI(name='test1', color=(240, 20, 20))
     form.addROI(name='test2', color=(20, 240, 20))
     form.show()

@@ -34,7 +34,7 @@ class Patient_Image(object):
         # and there are properties that describe an individual slice
 
         self.info = getStaticDicomSizeProps(fileList[0])
-        self.NSlices = len(fileList)
+        self.info['NSlices'] = len(fileList)
         self.get_sliceVariable_Properties(fileList)
         self.data = self.get_pixel_data()
 
@@ -42,7 +42,7 @@ class Patient_Image(object):
         self.info['Pixels2Patient'] = self.GetPixels2Patient()
 
     def __str__(self):
-        strang = "Image Object: {} slices".format(self.NSlices)
+        strang = "Image Object: {} slices".format(self.info['NSlices'])
         return strang
 
     def get_sliceVariable_Properties(self, imFileList):
@@ -51,8 +51,8 @@ class Patient_Image(object):
         self.dataDict = {}
         tempIndList = []
         tempLocList = []
-        tempPosList = []
-        pool = ThreadPool(self.NSlices)
+        # tempPosList = []
+        pool = ThreadPool(self.info['NSlices'])
         results = pool.map(func=getDicomPixelData, iterable=imFileList)
         for ind, entry in enumerate(results):  # each dicom's data
             # imPos, pix = entry
@@ -86,7 +86,7 @@ class Patient_Image(object):
     def get_pixel_data(self):
         pixelData = np.zeros([self.info['Rows'],
                               self.info['Cols'],
-                              self.NSlices], dtype=np.uint16)
+                              self.info['NSlices']], dtype=np.uint16)
         for uid in self.dataDict:
             ind = self.UID2Ind[uid]
             pixelData[:, :, ind] = self.dataDict[uid]['PixelData']
