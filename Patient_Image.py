@@ -13,8 +13,17 @@ except:
     import pydicom as dicom
 
 
+
 class Patient_Image(object):
     """
+    Properties:
+        Rows, Cols, Slices
+        Data (ND pixel array)
+        Pixel-Spacing, Slice-Spacing
+        ImageOrientationPatient
+        Patient2Pixels Transform
+        Pixels2Patient Transform
+        UID2IPP
     """
 
     info = {}
@@ -33,17 +42,26 @@ class Patient_Image(object):
         # There are properties that describe the entire VOLUME,
         # and there are properties that describe an individual slice
 
-        self.info = getStaticDicomSizeProps(fileList[0])
-        self.info['NSlices'] = len(fileList)
-        self.get_sliceVariable_Properties(fileList)
-        self.data = self.get_pixel_data()
+        if bool(fileList):
+            self.info = getStaticDicomSizeProps(fileList[0])
+            self.info['NSlices'] = len(fileList)
+            self.get_sliceVariable_Properties(fileList)
+            self.data = self.get_pixel_data()
+            self.info['Patient2Pixels'] = self.GetPatient2Pixels()
+            self.info['Pixels2Patient'] = self.GetPixels2Patient()
+            self.info['Pat2Pix_noRot'] = self.GetPatient2Pixels(do_rot=False)
+            self.info['Pix2Pat_noRot'] = self.GetPixels2Patient(do_rot=False)
 
-        self.info['Patient2Pixels'] = self.GetPatient2Pixels()
-        self.info['Pixels2Patient'] = self.GetPixels2Patient()
+        # else:
+        # self.createProps()
+
 
     def __str__(self):
         strang = "Image Object: {} slices".format(self.info['NSlices'])
         return strang
+
+    def createProps(self):
+        self.info = {Patie}
 
     def get_sliceVariable_Properties(self, imFileList):
         """ a dictionary to map UID to property dictionary"""
@@ -92,7 +110,7 @@ class Patient_Image(object):
             pixelData[:, :, ind] = self.dataDict[uid]['PixelData']
         return pixelData
 
-    def GetPatient2Pixels(self):
+    def GetPatient2Pixels(self, do_rot=True):
         """ Transformaton of Patient Coordinate to Pixel Indices
             """
         sliceLoc0 = self.UID2IPP[self.UID_zero]
@@ -100,6 +118,8 @@ class Patient_Image(object):
         # ROTATION
         temp = np.eye(4)
         R = self.info['ImageOrientationPatient']
+        if not do_rot:
+            R = R.T
         temp[0:3, 0:3] = R.T
         Rotation = temp
 
@@ -119,13 +139,16 @@ class Patient_Image(object):
 
         return Scaling.dot(Rotation).dot(Translation)
 
-    def GetPixels2Patient(self):
+    def GetPixels2Patient(self, do_rot=True):
         """ Transformation of Pixel Indices to Patient Coordinates """
         sliceLoc0 = self.UID2IPP[self.UID_zero]
 
         # ROTATION
+        # if Rotation:
         temp = np.eye(4)
         R = self.info['ImageOrientationPatient']
+        if not do_rot:
+            R = R.T
         temp[0:3, 0:3] = R
         Rotation = temp
 

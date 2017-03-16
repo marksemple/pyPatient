@@ -30,16 +30,18 @@ class Patient(object):
         """ if patient initialized with """
         super().__init__()
 
+        # if we're given path to existing DICOm stuff; go there to fill it out
         """ Scan given patient folder for dicom image files,
             return dict by modality """
         if patientPath is not None:
             dcmFiles = self.scanPatientFolder(patientPath)
-
+        else:
+            dcmFiles = []
         """ Load medical data from found dicom files """
         if bool(dcmFiles):
-            # Verify these are all same series!
-            # pass
             self.loadPatientData(dcmFiles)
+        else:
+            self.createPatientData()
 
     def scanPatientFolder(self, patient_directory=None):
         """ Scan directory for dicom files """
@@ -55,6 +57,10 @@ class Patient(object):
         if 'RTSTRUCT' in dcmFiles.keys():
             self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0],
                                                 imageInfo=self.Image.info)
+
+    def createPatientData(self):
+        self.Image = Patient_Image()
+        self.StructureSet = Patient_ROI_set()
 
     def getPatient_specific_data(self):
         pass
@@ -80,7 +86,7 @@ def find_DCM_files_parallel(rootpath=None):
 
     # ~~ Create Threadpool same size as dcm list, get modality for each file
     pool = ThreadPool(len(dcmFileList))
-    results = pool.map(func=lambda x: (dicom.read_file(x).Modality, x),
+    results = pool.map(func=lambda x: (dicom.read_file(x, force=True).Modality, x),
                        iterable=dcmFileList)
 
     # ~~ sort into a dictionary by modality type
@@ -114,14 +120,13 @@ def find_DCM_files_serial(rootpath=None):
     return(dcmDict)
 
 
-
 if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
 
-    rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\CLEAN - Sample Data 10-02-2016 - backup\MRtemp'
+    rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\clean sample data 10-19-2016\MRtemp'
 
     patient = Patient(patientPath=rootTest)
 
@@ -136,9 +141,11 @@ if __name__ == "__main__":
     # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
     form = QContourDrawerWidget(imageData=patient.Image.data)
-    form.addROI(name=patient.StructureSet.ROIs[0]['ROIName'],
-                color=patient.StructureSet.ROIs[0]['ROIColor'],
-                data=patient.StructureSet.ROIs[0]['DataVolume'])
+    for thisROI in patient.StructureSet.ROIs:
+        form.addROI(name=thisROI['ROIName'],
+                    color=thisROI['ROIColor'],
+                    data=thisROI['DataVolume'])
+
 
     form.show()
     sys.exit(app.exec_())

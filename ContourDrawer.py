@@ -18,9 +18,10 @@ import numpy as np
 import cv2
 from new_ROI_dialog import newROIDialog
 
+from Patient import Patient as PatientObj
 
-contThickness = 2
-contOpacity = 0.3
+contThickness = 1
+contOpacity = 0.25
 
 
 class QContourDrawerWidget(QWidget):
@@ -38,11 +39,17 @@ class QContourDrawerWidget(QWidget):
     tableHeaders = ['ROI', 'Type', 'Slices', 'Contours', 'Holes']
 
     def __init__(self,
+                 # Patient=None,
                  imageData=None,
                  ROIs=[],
                  *args, **kwargs):
 
         super().__init__(*args, **kwargs)
+
+        # if not type(Patient) == PatientObj:
+            # print("No Patient Given, creating new Patient")
+            # Patient = PatientObj()
+        # self.Patient = Patient
 
         assert(type(imageData) == np.ndarray)
         self.imageData = np.swapaxes(imageData, 0, 1)
@@ -147,11 +154,10 @@ class QContourDrawerWidget(QWidget):
         self.thisSlice = int(newValue)
         self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
         self.updateContours(isNewSlice=True)
+        self.plotWidge.setFocus()
 
     def addROI(self, ev=None, name=None, color=None, data=None, *args):
         # First, name and choose color for ROI
-        # print('name', name)
-        # print('color', color)
         if name is None or color is None:
             roiDialog = newROIDialog()
             roiDialog.exec_()
@@ -166,8 +172,6 @@ class QContourDrawerWidget(QWidget):
         if data is None:
             data = np.zeros((self.nRows, self.nCols, self.nSlices),
                             dtype=np.uint8)
-
-        # print(data)
 
         # add make ROI object
         self.ROIs.append({'color': color[0:3],
@@ -188,6 +192,7 @@ class QContourDrawerWidget(QWidget):
         item = QTableWidgetItem(ROI['name'])
         self.tablePicker.setItem(row, 0, item)
         item.setBackground(QBrush(QColor(*ROI['color'])))
+        self.plotWidge.setFocus()
 
     def onCellClick(self, row, col):
         # print(table)
@@ -202,17 +207,10 @@ class QContourDrawerWidget(QWidget):
             print(col)
         elif col == 3:
             print(col)
+        self.plotWidge.setFocus()
 
     def changeROI(self, ROI_ind):
         ROI = self.ROIs[ROI_ind]
-        print(ROI_ind)
-
-        # tableitem = self.tablePicker.item(ROI_ind, 0)
-        # print(dir(self.tablePicker))
-        # styl = """QTableView
-        #           {selection-background-color: rgb%s;}""" % (ROI['color'],)
-        # self.tablePicker.setStyleSheet(styl)
-
         self.thisROI = ROI
         modifyBrushStyle(self.circle, ROI['color'], 2, 'additive')
         self.updateContours(isNewSlice=True)

@@ -80,15 +80,62 @@ class Patient_ROI_Set(object):
 
         for contourSequence in contour.ContourSequence:
             PA = ContourData2PatientArray(contourSequence.ContourData)
-            VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
-            CA = VectorArray2CVContour(VA)
+            try:
+                VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
+                print(VA)
+            except:
+                VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix_noRot'])
+                print(VA)
+            CA = [VectorArray2CVContour(VA)]
             ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
             ind = int(VA[2, 0])
+            print('VA', VA)
             print('index {} has {}'.format(ind, ImSlice.shape))
             new_ROI['DataVolume'][:, :, ind] = ImSlice
 
         print("NEW ROI: {}".format(structure.ROIName))
         return new_ROI
+
+
+    # def ContourSequence2BinaryVolume(self, structure, contour):
+    #     """ Data from DICOM file into raster volume """
+
+    #     volSize = (self.imageInfo['Rows'],
+    #                self.imageInfo['Cols'], self.imageInfo['NSlices'])
+
+    #     new_ROI = {'ROINumber': int(structure.ROINumber),
+    #                'ROIName': structure.ROIName,
+    #                'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
+    #                'ROIColor': [int(x) for x in contour.ROIDisplayColor],
+    #                'DataVolume': np.zeros(volSize)}
+
+    #     for contourSequence in contour.ContourSequence:
+    #         PA = ContourData2PatientArray(contourSequence.ContourData)
+    #         try:
+    #             VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
+    #             print(VA)
+    #         except:
+    #             VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix_noRot'])
+    #             print(VA)
+    #         CA = [VectorArray2CVContour(VA)]
+    #         ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
+    #         ind = int(VA[2, 0])
+    #         # print('index {} has {}'.format(ind, ImSlice.shape))
+    #         new_ROI['DataVolume'][:, :, ind] = ImSlice
+
+    #     print("NEW ROI: {}".format(structure.ROIName))
+    #     return new_ROI
+
+
+    def BinaryVolume2ContourSequence(self, volume):
+        """ raster volume to contour sequence """
+
+        for thisSlice in volume:
+            pass
+
+        pass
+
+
 
     def write_file(self, filepath):
         """ """
@@ -135,8 +182,23 @@ def Patient2VectorArray(PatientArray, transform):
     input: 4xN 2-D numpy array (in patient space),  4x4 linear transformation
     output: 4xN 2-D numpy array (in pixel space)
     """
+
     vectorArray = transform.dot(PatientArray)
-    vectorArray = np.around(vectorArray, decimals=1)
+    vectorArray = np.around(vectorArray, decimals=2)
+
+    # print(vectorArray[2, 0])
+    # print(vectorArray[2, 1])
+    dummy = np.ones((1, vectorArray.shape[1])) * vectorArray[2, 0]
+    same = np.allclose(vectorArray[2, :], dummy)
+
+    print(transform)
+    print(vectorArray)
+
+    assert(same == True)
+    # if not same == True:
+    # assert(same == True)
+    # except
+
     return vectorArray
 
 
@@ -164,6 +226,9 @@ def VectorArray2CVContour(VectorArray):
     FlatArray = VectorArray.flatten(order='C')
     CVContour = FlatArray.reshape((nPts, 1, 2), order='F').astype(np.int32)
 
+    assert(type(CVContour) == np.ndarray)
+    assert(CVContour.dtype == np.int32)
+
     return CVContour
 
 
@@ -187,18 +252,19 @@ def CVContour2ImageArray(CVContour, rows, cols):
     input: List of contours points (as opencv likes them)
     output: binary image
     """
-    contourImage = np.zeros((rows, cols)) #, dtype=np.uint8)
 
-    for cont in CVContour:
-    # cont = CVContour[0]
-        contourImageOut = cv2.drawContours(image=contourImage.copy(),
-                                           contours=[cont],
-                                           contourIdx=0,
-                                           color=(255, 255, 255),
-                                           thickness=-1,
-                                           lineType=cv2.LINE_AA).astype(np.uint8)
+    assert(type(CVContour) == list)
+    assert(type(rows) == int)
+    assert(type(cols) == int)
 
-    print(cont)
+    contourImageOut = np.zeros((rows, cols)) #, dtype=np.uint8)
+
+    contourImageOut = cv2.drawContours(image=contourImageOut.copy(),
+                                       contours=CVContour,
+                                       contourIdx=-1,
+                                       color=(255, 255, 255),
+                                       thickness=-1,
+                                       lineType=cv2.LINE_AA).astype(np.uint8).T
 
     return contourImageOut
 
@@ -208,7 +274,7 @@ def ImageArray2CVContour(ImageArray, compression=None):
     input: ImageArray must be a binary image/raster of the contour object
     output: vector list of contours
     """
-    im, contours, hierarchy = cv2.findContours(ImageArray,
+    im, contours, hierarchy = cv2.findContours(ImageArray.copy(),
                                                cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
 
@@ -217,6 +283,7 @@ def ImageArray2CVContour(ImageArray, compression=None):
             contours[ind] = cv2.approxPolyDP(contour, compression, True)
 
     return contours
+
 
 
 if __name__ == "__main__":
