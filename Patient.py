@@ -16,7 +16,7 @@ from Patient_ROI import Patient_ROI_Set
 from Patient_Image import Patient_Image
 # from Image import Image
 # from Contour import contour
-from VolumeViewer import QVolumeViewerWidget
+# from VolumeViewer import QVolumeViewerWidget
 
 
 class Patient(object):
@@ -34,7 +34,11 @@ class Patient(object):
         """ Scan given patient folder for dicom image files,
             return dict by modality """
         if patientPath is not None:
+            # if self.validatePath(patientPath):
             dcmFiles = self.scanPatientFolder(patientPath)
+            # else:
+                # invalid path?/
+                # return
         else:
             dcmFiles = []
         """ Load medical data from found dicom files """
@@ -42,6 +46,9 @@ class Patient(object):
             self.loadPatientData(dcmFiles)
         else:
             self.createPatientData()
+
+    # def validatePath(self, path):
+
 
     def scanPatientFolder(self, patient_directory=None):
         """ Scan directory for dicom files """
@@ -54,13 +61,18 @@ class Patient(object):
         if 'MR' in dcmFiles.keys():
             self.Image = Patient_Image(dcmFiles['MR'])
 
+        if 'US' in dcmFiles.keys():
+            self.Image = Patient_Image(dcmFiles['US'])
+            print(self.Image.Ind2Loc)
+
         if 'RTSTRUCT' in dcmFiles.keys():
             self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0],
                                                 imageInfo=self.Image.info)
 
     def createPatientData(self):
-        self.Image = Patient_Image()
-        self.StructureSet = Patient_ROI_set()
+        # self.Image = Patient_Image()
+        # self.StructureSet = Patient_ROI_set()
+        pass
 
     def getPatient_specific_data(self):
         pass
@@ -85,8 +97,11 @@ def find_DCM_files_parallel(rootpath=None):
                 dcmFileList.append(fullpath)
 
     # ~~ Create Threadpool same size as dcm list, get modality for each file
+    if not bool(dcmFileList):
+        return {}
+
     pool = ThreadPool(len(dcmFileList))
-    results = pool.map(func=lambda x: (dicom.read_file(x, force=True).Modality, x),
+    results = pool.map(func=lambda x: (dicom.read_file(x).Modality, x),
                        iterable=dcmFileList)
 
     # ~~ sort into a dictionary by modality type
@@ -98,7 +113,7 @@ def find_DCM_files_parallel(rootpath=None):
         dcmDict[mode].append(filepath)
 
     print("parallel took %.2fs to sort DCMs" % (time.time() - time_zero))
-    return(dcmDict)
+    return dcmDict
 
 
 def find_DCM_files_serial(rootpath=None):
@@ -130,8 +145,8 @@ if __name__ == "__main__":
 
     patient = Patient(patientPath=rootTest)
 
-    print(patient.Image)
-    print(patient.StructureSet)
+    # print(patient.Image)
+    # print(patient.StructureSet)
 
     from PyQt5.QtWidgets import QApplication
     from ContourDrawer import QContourDrawerWidget

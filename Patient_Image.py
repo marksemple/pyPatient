@@ -52,9 +52,11 @@ class Patient_Image(object):
             self.info['Pat2Pix_noRot'] = self.GetPatient2Pixels(do_rot=False)
             self.info['Pix2Pat_noRot'] = self.GetPixels2Patient(do_rot=False)
 
+            print('Pat2Pix', self.info['Patient2Pixels'])
+            print('Pat2Pix2', self.info['Pat2Pix_noRot'])
+
         # else:
         # self.createProps()
-
 
     def __str__(self):
         strang = "Image Object: {} slices".format(self.info['NSlices'])
@@ -223,7 +225,7 @@ def getImOrientationMatrix(di):
         return R
     if patPos == "HFS":  # ims taken Backwards!
         # print("HFS")
-        return R.T
+        return R
     return R
 
 

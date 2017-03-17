@@ -54,18 +54,12 @@ class Patient_ROI_Set(object):
         self.ROIs = []
 
         for index, structure in enumerate(di.StructureSetROISequence):
-            # self.Contours
+
             newROI = self.add_ROI(structure, di.ROIContourSequence[index])
+
             self.ROIs.append(newROI)
 
         return True
-
-    # def getROIVolume(self, ROI, UID2Index):
-        # for contourSequence in ROI:
-            # for index in
-        # for UID in self.
-        # UID2Index[UID]
-        # return ContourVolume
 
     def add_ROI(self, structure, contour):
 
@@ -78,24 +72,27 @@ class Patient_ROI_Set(object):
                    'ROIColor': [int(x) for x in contour.ROIDisplayColor],
                    'DataVolume': np.zeros(volSize)}
 
-        for contourSequence in contour.ContourSequence:
-            PA = ContourData2PatientArray(contourSequence.ContourData)
-            try:
-                VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
-                print(VA)
-            except:
-                VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix_noRot'])
-                print(VA)
-            CA = [VectorArray2CVContour(VA)]
-            ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
-            ind = int(VA[2, 0])
-            print('VA', VA)
-            print('index {} has {}'.format(ind, ImSlice.shape))
-            new_ROI['DataVolume'][:, :, ind] = ImSlice
+        try:
+            cs = contour.ContourSequence
+            nContours = len(cs)
+            for contourSequence in cs:
+                PA = ContourData2PatientArray(contourSequence.ContourData)
+                try:
+                    VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
+                except:
+                    print("didn't fit! trying again")
+                    VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix_noRot'])
+                CA = [VectorArray2CVContour(VA)]
+                ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
+                ind = int(VA[2, 0])
+                new_ROI['DataVolume'][:, :, ind] = ImSlice
 
-        print("NEW ROI: {}".format(structure.ROIName))
+        except AttributeError as ae:
+            nContours = 0
+
+        print('{} has contours on {} slices'.format(structure.ROIName,
+                                                    nContours))
         return new_ROI
-
 
     # def ContourSequence2BinaryVolume(self, structure, contour):
     #     """ Data from DICOM file into raster volume """
@@ -112,7 +109,8 @@ class Patient_ROI_Set(object):
     #     for contourSequence in contour.ContourSequence:
     #         PA = ContourData2PatientArray(contourSequence.ContourData)
     #         try:
-    #             VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
+    #             VA = Patient2VectorArray(PA,
+    # self.imageInfo['Patient2Pixels'])
     #             print(VA)
     #         except:
     #             VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix_noRot'])
@@ -126,20 +124,10 @@ class Patient_ROI_Set(object):
     #     print("NEW ROI: {}".format(structure.ROIName))
     #     return new_ROI
 
-
-    def BinaryVolume2ContourSequence(self, volume):
-        """ raster volume to contour sequence """
-
-        for thisSlice in volume:
-            pass
-
-        pass
-
-
-
     def write_file(self, filepath):
         """ """
         pass
+
 
 """ Helper functions to transform between contour representations """
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -154,7 +142,7 @@ def ContourData2PatientArray(contourData):
         floatArray = np.asarray([float(x) for x in contourData])
     except TypeError as te:
         print(te)
-        print(contourData)
+        # print(contourData)
     nPts = int(len(floatArray) / 3)
     contData = np.reshape(floatArray, (3, nPts), order='F')
     ones = np.ones((1, nPts))
@@ -191,13 +179,12 @@ def Patient2VectorArray(PatientArray, transform):
     dummy = np.ones((1, vectorArray.shape[1])) * vectorArray[2, 0]
     same = np.allclose(vectorArray[2, :], dummy)
 
-    print(transform)
-    print(vectorArray)
+    # print("T", transform)
+    # print(vectorArray)
+    # print(dummy[0, :10])
 
-    assert(same == True)
-    # if not same == True:
-    # assert(same == True)
-    # except
+    if same is not True:
+        raise Exception
 
     return vectorArray
 
@@ -257,7 +244,7 @@ def CVContour2ImageArray(CVContour, rows, cols):
     assert(type(rows) == int)
     assert(type(cols) == int)
 
-    contourImageOut = np.zeros((rows, cols)) #, dtype=np.uint8)
+    contourImageOut = np.zeros((rows, cols))  # , dtype=np.uint8)
 
     contourImageOut = cv2.drawContours(image=contourImageOut.copy(),
                                        contours=CVContour,
@@ -283,7 +270,6 @@ def ImageArray2CVContour(ImageArray, compression=None):
             contours[ind] = cv2.approxPolyDP(contour, compression, True)
 
     return contours
-
 
 
 if __name__ == "__main__":
