@@ -30,15 +30,15 @@ class Patient(object):
         """ if patient initialized with """
         super().__init__()
 
-        # if we're given path to existing DICOm stuff; go there to fill it out
+        # if we're given path to existing DICOM stuff; go there to fill it out
         """ Scan given patient folder for dicom image files,
             return dict by modality """
         if patientPath is not None:
             # if self.validatePath(patientPath):
             dcmFiles = self.scanPatientFolder(patientPath)
             # else:
-                # invalid path?/
-                # return
+            # invalid path?/
+            # return
         else:
             dcmFiles = []
         """ Load medical data from found dicom files """
@@ -46,13 +46,13 @@ class Patient(object):
             self.loadPatientData(dcmFiles)
         else:
             self.createPatientData()
-
     # def validatePath(self, path):
-
 
     def scanPatientFolder(self, patient_directory=None):
         """ Scan directory for dicom files """
-        myFiles = find_DCM_files_parallel(patient_directory)
+        # myFiles = find_DCM_files_parallel(patient_directory)
+        myFiles = find_DCM_files_serial(patient_directory)
+
         for key in myFiles.keys():
             print('Patient has %s' % key)
         return myFiles
@@ -67,6 +67,10 @@ class Patient(object):
 
         if 'RTSTRUCT' in dcmFiles.keys():
             self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0],
+                                                imageInfo=self.Image.info)
+
+        if 'unknown' in dcmFiles.keys():
+            self.StructureSet = Patient_ROI_Set(file=dcmFiles['unknown'][0],
                                                 imageInfo=self.Image.info)
 
     def createPatientData(self):
@@ -101,7 +105,7 @@ def find_DCM_files_parallel(rootpath=None):
         return {}
 
     pool = ThreadPool(len(dcmFileList))
-    results = pool.map(func=lambda x: (dicom.read_file(x).Modality, x),
+    results = pool.map(func=lambda x: (dicom.read_file(x, force=True).Modality, x),
                        iterable=dcmFileList)
 
     # ~~ sort into a dictionary by modality type
@@ -126,9 +130,13 @@ def find_DCM_files_serial(rootpath=None):
         for file in files:
             if file.endswith('.dcm'):
                 fullpath = os.path.join(root, file)
-                modality = dicom.read_file(fullpath).Modality
+                try:
+                    modality = dicom.read_file(fullpath, force=True).Modality
+                except:
+                    modality = 'unknown'
                 if modality not in dcmDict:
                     dcmDict[modality] = []
+
                 dcmDict[modality].append(fullpath)
 
     print("serial took %.2fs to sort DCMS" % (time.time() - time_zero))
@@ -141,9 +149,16 @@ if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
 
-    rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\clean sample data 10-19-2016\MRtemp'
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
+
+    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\Jan 11 - bad data\Cutler_Douglas _ in python - Copy\MRtemp'
 
     patient = Patient(patientPath=rootTest)
+
+    print(patient.Image.info['UID2IPP'].values())
+    # ippVals = list(patient.Image.info['UID2IPP'].values())
+
+    print(patient.Image.info['ImageOrientationPatient'])
 
     # print(patient.Image)
     # print(patient.StructureSet)
@@ -151,6 +166,7 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     from ContourDrawer import QContourDrawerWidget
     import sys
+
 
     app = QApplication(sys.argv)
     # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)

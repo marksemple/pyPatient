@@ -13,7 +13,6 @@ except:
     import pydicom as dicom
 
 
-
 class Patient_Image(object):
     """
     Properties:
@@ -26,14 +25,13 @@ class Patient_Image(object):
         UID2IPP
     """
 
-    info = {}
-    UID2Loc = {}
-    UID2Ind = {}
-    UID2IPP = {}
-    Loc2UID = {}
-    Loc2Ind = {}
-    Ind2UID = {}
-    Ind2Loc = {}
+    info = {'UID2Loc': {},
+            'UID2Ind': {},
+            'UID2IPP': {},
+            'Loc2UID': {},
+            'Loc2Ind': {},
+            'Ind2UID': {},
+            'Ind2Loc': {}}
 
     def __init__(self, fileList):
 
@@ -42,8 +40,10 @@ class Patient_Image(object):
         # There are properties that describe the entire VOLUME,
         # and there are properties that describe an individual slice
 
+        print(self.info)
+
         if bool(fileList):
-            self.info = getStaticDicomSizeProps(fileList[0])
+            self.info = getStaticDicomSizeProps(fileList[0], self.info)
             self.info['NSlices'] = len(fileList)
             self.get_sliceVariable_Properties(fileList)
             self.data = self.get_pixel_data()
@@ -62,12 +62,13 @@ class Patient_Image(object):
         strang = "Image Object: {} slices".format(self.info['NSlices'])
         return strang
 
-    def createProps(self):
-        self.info = {Patie}
+    # def createProps(self):
+        # self.info = {Patie}
 
     def get_sliceVariable_Properties(self, imFileList):
         """ a dictionary to map UID to property dictionary"""
         # sp = self.staticProperties
+        info = self.info
         self.dataDict = {}
         tempIndList = []
         tempLocList = []
@@ -77,45 +78,45 @@ class Patient_Image(object):
         for ind, entry in enumerate(results):  # each dicom's data
             # imPos, pix = entry
             thisUID = entry['UID']
-
             self.dataDict[thisUID] = entry
 
             tempIndList.append(ind)
             tempLocList.append(entry['SliceLocation'])
 
-            self.Loc2UID[entry['SliceLocation']] = thisUID
-            self.UID2Loc[thisUID] = entry['SliceLocation']
-            self.UID2IPP[thisUID] = entry['ImagePositionPatient']
+            info['Loc2UID'][entry['SliceLocation']] = thisUID
+            info['UID2Loc'][thisUID] = entry['SliceLocation']
+            info['UID2IPP'][thisUID] = entry['ImagePositionPatient']
 
         self.sliceLocationList = sorted(tempLocList)
 
-        self.Loc2Ind = dict(zip(self.sliceLocationList, tempIndList))
-        self.Ind2Loc = dict(zip(tempIndList, self.sliceLocationList))
-        self.UID2Ind = deepcopy(self.UID2Loc)
-        for UID in self.UID2Ind:
-            thisInd = self.Loc2Ind[self.UID2Loc[UID]]
-            self.UID2Ind[UID] = thisInd
-            self.Ind2UID[thisInd] = UID
+        info['Loc2Ind'] = dict(zip(self.sliceLocationList, tempIndList))
+        info['Ind2Loc'] = dict(zip(tempIndList, self.sliceLocationList))
+        info['UID2Ind'] = deepcopy(info['UID2Loc'])
+        for UID in info['UID2Ind']:
+            thisInd = info['Loc2Ind'][info['UID2Loc'][UID]]
+            info['UID2Ind'][UID] = thisInd
+            info['Ind2UID'][thisInd] = UID
 
-        ipp1 = self.UID2IPP[self.Ind2UID[1]]
-        ipp0 = self.UID2IPP[self.Ind2UID[0]]
-        self.info['SliceSpacing'] = np.linalg.norm(ipp1 - ipp0)
-
-        self.UID_zero = self.Ind2UID[0]
+        self.UID_zero = info['Ind2UID'][0]
+        ipp0 = info['UID2IPP'][self.UID_zero]
+        uid1 = info['Ind2UID'][1]
+        ipp1 = info['UID2IPP'][uid1]
+        info['SliceSpacing'] = np.linalg.norm(ipp1 - ipp0)
+        # self.UID_zero = info['Ind2UID'][0]
 
     def get_pixel_data(self):
         pixelData = np.zeros([self.info['Rows'],
                               self.info['Cols'],
                               self.info['NSlices']], dtype=np.uint16)
         for uid in self.dataDict:
-            ind = self.UID2Ind[uid]
+            ind = self.info['UID2Ind'][uid]
             pixelData[:, :, ind] = self.dataDict[uid]['PixelData']
         return pixelData
 
     def GetPatient2Pixels(self, do_rot=True):
         """ Transformaton of Patient Coordinate to Pixel Indices
             """
-        sliceLoc0 = self.UID2IPP[self.UID_zero]
+        sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
 
         # ROTATION
         temp = np.eye(4)
@@ -143,7 +144,7 @@ class Patient_Image(object):
 
     def GetPixels2Patient(self, do_rot=True):
         """ Transformation of Pixel Indices to Patient Coordinates """
-        sliceLoc0 = self.UID2IPP[self.UID_zero]
+        sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
 
         # ROTATION
         # if Rotation:
@@ -172,10 +173,10 @@ class Patient_Image(object):
         return Translation.dot(Rotation).dot(Scaling)
 
 
-def getStaticDicomSizeProps(imFile):
+def getStaticDicomSizeProps(imFile, staticProps={}):
     # set the DICOM properties that remain constant for all image files
     di = dicom.read_file(imFile)
-    staticProps = {}
+    # staticProps = {}
     staticProps['ImageOrientationPatient'] = getImOrientationMatrix(di)
     # print("IOP: ", staticProps['ImageOrientationPatient'])
     staticProps['Rows'] = di.Rows

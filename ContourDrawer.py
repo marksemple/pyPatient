@@ -225,7 +225,9 @@ class QContourDrawerWidget(QContourViewerWidget):
         # roi['raster'][:, :, slice0] = cv2.bitwise_and(neighbIm, thisIm)
         roi['raster'][:, :, slice0] = neighbIm + thisIm
 
-        self.updateContours()
+
+
+        # ~~~~~~~~~~~~~~~ TABLE Section
 
     def dilate_erode_ROI(self, roi, direction):
         slice0 = self.thisSlice

@@ -21,9 +21,10 @@ class ContourDrawingController(QContourDrawerWidget):
 
         self.changeROI(0)
 
+
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)
-        newPosn = self.Patient.Image.Ind2Loc[newValue]
+        newPosn = self.Patient.Image.info['Ind2Loc'][newValue]
         self.sliceDistLabel.setText("%.1fmm" % newPosn)
 
 

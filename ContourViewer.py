@@ -11,7 +11,8 @@ import uuid
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QSlider, QPushButton,
                              QTableWidget, QTableWidgetItem,
-                             QSizePolicy, QStyle, QHeaderView)
+                             QSizePolicy, QStyle, QHeaderView,
+                             QGroupBox, QCheckBox, QFormLayout)
 from PyQt5.QtGui import (QBrush, QColor,)
 from PyQt5.QtCore import (Qt,)
 import pyqtgraph as pg
@@ -21,15 +22,16 @@ from new_ROI_dialog import newROIDialog
 
 # from Patient import Patient as PatientObj
 
-contThickness = 2
-contOpacity = 0.20
-contCompression = 0.70
 
 
 class QContourViewerWidget(QWidget):
     """ Used to Display A Slice of 3D Image Data
     """
 
+    contThickness = 2
+    contOpacity = 0.20
+    contCompression = 0.70
+    hideContours = False
     painting = False
     imageItem = pg.ImageItem()
     radius = 20
@@ -104,6 +106,28 @@ class QContourViewerWidget(QWidget):
         sliderLayout.addWidget(self.sliceNumLabel, 0, Qt.AlignCenter)
         sliderLayout.addWidget(self.sliceDistLabel, 0, Qt.AlignCenter)
 
+
+        # ~~~~~~~~~~~~~~~ CONTROLS Section
+        contourControls = QGroupBox()
+        self.contourHide = QCheckBox()
+        self.contourHide.stateChanged.connect(self.hideContoursFcn)
+
+        self.contourFillOpacity = QSlider(Qt.Horizontal)
+        self.contourFillOpacity.setRange(0, 10)
+        self.contourFillOpacity.valueChanged.connect(self.opacityChange)
+
+        self.contourEdgeThickness = QSlider(Qt.Horizontal)
+        self.contourEdgeThickness.setRange(0, 10)
+        self.contourEdgeThickness.valueChanged.connect(self.thicknessChange)
+        contourControlLayout = QFormLayout()
+        contourControlLayout.addRow(QLabel("Hide Contours"), self.contourHide)
+        contourControlLayout.addRow(QLabel("Fill Opacity"),
+                                    self.contourFillOpacity)
+        contourControlLayout.addRow(QLabel("Line Width"),
+                                    self.contourEdgeThickness)
+        contourControls.setLayout(contourControlLayout)
+
+
         # ~~~~~~~~~~~~~~~ TABLE Section
         # interactive summary of ROIs in this image/ patient
         tableWidge = QWidget()
@@ -142,6 +166,7 @@ class QContourViewerWidget(QWidget):
 
         tableWidgeLayout.addWidget(bttn)
         tableWidgeLayout.addWidget(table)
+        tableWidgeLayout.addWidget(contourControls)
         tableWidgeLayout.addStretch()
 
         layout = QHBoxLayout()
@@ -153,6 +178,24 @@ class QContourViewerWidget(QWidget):
     def connectSignals(self):
         # save ORIGINAL mouse events in placeholders for later
         pass
+
+    def hideContoursFcn(self, val):
+        if bool(val):
+            self.hideContours = True
+        else:
+            self.hideContours = False
+        self.updateContours()
+        self.plotWidge.setFocus()
+
+    def thicknessChange(self, val):
+        self.contThickness = val
+        self.updateContours()
+        self.plotWidge.setFocus()
+
+    def opacityChange(self, val):
+        self.contOpacity = float(val) / 10.0
+        self.updateContours()
+        self.plotWidge.setFocus()
 
     def sliderChanged(self, newValue):
         self.thisSlice = int(newValue)
@@ -245,6 +288,12 @@ class QContourViewerWidget(QWidget):
             return
         imageData = self.imageData[:, :, self.thisSlice].copy()
 
+        if self.hideContours:
+            self.imageItem.setImage(imageData, autoLevels=False)
+            return
+        else:
+            pass
+
         if len(imageData.shape) == 2:
             imageData = cv2.cvtColor(imageData, cv2.COLOR_GRAY2BGR)
         if isNewSlice:
@@ -255,33 +304,31 @@ class QContourViewerWidget(QWidget):
                     continue
 
                 contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
-                contours, hierarchy = getContours(inputImage=contBinaryIm)
+                contours, hi = getContours(inputImage=contBinaryIm,
+                                           compression=self.contCompression)
                 color = scaleColor(ROI['color'], self.imageItem.levels)
                 # show contours on empty image
                 backgroundIm = cv2.drawContours(image=backgroundIm,
                                                 contours=contours,
                                                 contourIdx=-1,
                                                 color=color,
-                                                thickness=contThickness,
+                                                thickness=0,
                                                 lineType=cv2.LINE_AA)  # 8
 
             self.backgroundIm = backgroundIm
 
         contBinaryIm = self.thisROI['raster'][:, :, self.thisSlice].copy()
-        contours, hierarchy = getContours(inputImage=contBinaryIm)
+        contours, hierarchy = getContours(inputImage=contBinaryIm,
+                                          compression=self.contCompression)
         bgIm = self.backgroundIm.copy()
         color = scaleColor(self.thisROI['color'], self.imageItem.levels)
 
-        newContourIm = cv2.drawContours(image=bgIm,
-                                        contours=contours,
-                                        contourIdx=-1,
-                                        color=color,
-                                        thickness=contThickness,
-                                        lineType=cv2.LINE_AA)  # 8
-
-        # newContourIm = cv2.GaussianBlur(src=newContourIm,
-        #                                 ksize=(9, 9),
-        #                                 sigmaX=0)
+        # activeContourIm = cv2.drawContours(image=bgIm,
+        #                                    contours=contours,
+        #                                    contourIdx=-1,
+        #                                    color=color,
+        #                                    thickness=self.contThickness,
+        #                                    lineType=cv2.LINE_AA)  # 8
 
         overlayIm = cv2.drawContours(image=imageData,
                                      contours=contours,
@@ -290,11 +337,15 @@ class QContourViewerWidget(QWidget):
                                      thickness=-1,
                                      lineType=cv2.LINE_AA)  # 8
 
-        alph = contOpacity
+        alph = self.contOpacity
 
-        cv2.addWeighted(overlayIm, alph, newContourIm, 1 - alph, 0, imageData)
+        cv2.addWeighted(overlayIm, alph,
+                        activeContourIm, 1 - alph,
+                        0, imageData)
 
         # imageData = cv2.GaussianBlur(imageData, (9, 9), 0)
+
+        cv2.drawContours
 
         self.imageItem.setImage(imageData, autoLevels=False)
         # self.imageItem.setImage(newContourIm, autoLevels=False)
@@ -308,7 +359,8 @@ def scaleColor(color, levels):
     return newColor
 
 
-def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
+def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8),
+                compression=0):
     # if we have a color-channel, convert to grayscale
 
     if len(inputImage.shape) == 3:
@@ -321,7 +373,7 @@ def getContours(inputImage=np.zeros([500, 500, 3], dtype=np.uint8)):
                                                cv2.CHAIN_APPROX_SIMPLE)
 
     for ind, contour in enumerate(contours):
-        contours[ind] = cv2.approxPolyDP(contour, contCompression, True)
+        contours[ind] = cv2.approxPolyDP(contour, compression, True)
 
     return contours, hierarchy  # ,nContours,
 

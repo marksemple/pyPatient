@@ -45,11 +45,14 @@ class Patient_ROI_Set(object):
     def read_file(self, filepath):
         """ """
         # print(filepath)
-        self.di = di = dicom.read_file(filepath)
+        self.di = di = dicom.read_file(filepath, force=True)
 
         # for sequence in di.StructureSetROISequence:
         #     print("Sequence: ", sequence.ROIName)
         # print("there are:", len(di.StructureSetROISequence), " ROIs")
+
+        # print(di)
+        # print(dir(di))
 
         self.ROIs = []
 
@@ -72,20 +75,43 @@ class Patient_ROI_Set(object):
                    'ROIColor': [int(x) for x in contour.ROIDisplayColor],
                    'DataVolume': np.zeros(volSize)}
 
+        info = self.imageInfo
+        # uid2data
+        # uiDict = {}
+
         try:
             cs = contour.ContourSequence
             nContours = len(cs)
             for contourSequence in cs:
+
+                # print(dir(contourSequence))
+                cis = contourSequence.ContourImageSequence[0]
+                uid = cis.ReferencedSOPInstanceUID
+                # print(uid)
+                # uiDict[uid]
+
                 PA = ContourData2PatientArray(contourSequence.ContourData)
-                try:
-                    VA = Patient2VectorArray(PA, self.imageInfo['Patient2Pixels'])
+                try:  # axial dimension should have all the same numbers
+                    VA = Patient2VectorArray(PA, info['Patient2Pixels'])
                 except:
-                    print("didn't fit! trying again")
-                    VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix_noRot'])
+                    VA = Patient2VectorArray(PA, info['Pat2Pix_noRot'])
+
+                # VA[2, :] = float(info['UID2Loc'][uid])
+                print('pre\n', VA[:, 1:10])
+
+                nPts = VA.shape[1]
+                VA[2, :] = np.ones((1, nPts)) * info['UID2Ind'][uid]
+
+                print(info['UID2Ind'][uid])
+                print(uid)
+                print('post\n', VA[:, 1:10])
+
                 CA = [VectorArray2CVContour(VA)]
                 ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
-                ind = int(VA[2, 0])
-                new_ROI['DataVolume'][:, :, ind] = ImSlice
+                ind = np.around(VA[2, 0])
+                new_ROI['DataVolume'][:, :, ind] += ImSlice
+
+
 
         except AttributeError as ae:
             nContours = 0
