@@ -67,6 +67,7 @@ class QContourViewerWidget(QWidget):
 
         # ~ Add Image Item to Plot Widget
         self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=True)
+        # self.backgroun
 
         # ~ Create Widget parts
         self.applyLayout()
@@ -157,8 +158,6 @@ class QContourViewerWidget(QWidget):
         table.setFixedHeight(hHeader.height() + vHeader.height())
 
         table.horizontalHeader().setResizeMode(QHeaderView.Stretch)
-        # table.verticalHeader().setResizeMode(QHeaderView.ResizeToContents)
-        # table.setFixedHeight(vwidth + hwidth + 0 + fwidth)
 
         bttn = QPushButton(" + New ROI")
         bttn.clicked.connect(self.addROI)
@@ -175,26 +174,25 @@ class QContourViewerWidget(QWidget):
         layout.addWidget(tableWidge, 1)
         self.setLayout(layout)
 
-    def connectSignals(self):
-        # save ORIGINAL mouse events in placeholders for later
-        pass
-
     def hideContoursFcn(self, val):
         if bool(val):
             self.hideContours = True
         else:
             self.hideContours = False
-        self.updateContours()
+        self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
     def thicknessChange(self, val):
         self.contThickness = val
-        self.updateContours()
+        self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
     def opacityChange(self, val):
+        if float(val) > 0.9 * self.contourFillOpacity.maximum():
+            self.contourEdgeThickness.setValue(0)
+
         self.contOpacity = float(val) / 10.0
-        self.updateContours()
+        self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
     def sliderChanged(self, newValue):
@@ -202,6 +200,33 @@ class QContourViewerWidget(QWidget):
         self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
+
+    def updateSliceCount(self, nContours):
+        self.thisROI['sliceCount'][self.thisSlice] = nContours
+        bools = sum([bool(entry) for entry in self.thisROI['sliceCount']])
+        # thisSlice = self.thisROI['sliceCount'][self.thisSlice]
+        self.TableSliceCount[self.thisROI['index']].setText(str(bools))
+        self.TableContCount[self.thisROI['index']].setText(str(nContours))
+
+    def onCellClick(self, row, col):
+        # print(table)
+        print('ROI')
+        # roi = self.ROIs[row]
+        self.changeROI(ROI_ind=row)
+        if col == 0:
+            pass
+        elif col == 1:
+            print(col)
+        elif col == 2:
+            print(col)
+        elif col == 3:
+            print(col)
+        self.plotWidge.setFocus()
+
+    def changeROI(self, ROI_ind):
+        ROI = self.ROIs[ROI_ind]
+        self.thisROI = ROI
+        self.updateContours(isNewSlice=True)
 
     def addROI(self, ev=None, name=None, color=None, data=None, *args):
         # First, name and choose color for ROI
@@ -250,107 +275,81 @@ class QContourViewerWidget(QWidget):
         self.tablePicker.setItem(row, 3, self.TableContCount[-1])
         self.plotWidge.setFocus()
 
-    def updateSliceCount(self, nContours):
-        # if np.any(self.thisROI['raster'][:, :, self.thisSlice]):
-        #     contBool = True
-        # else:
-        #     contBool = False
-
-        self.thisROI['sliceCount'][self.thisSlice] = nContours
-        # counter = sum(self.thisROI['sliceCount'])
-        bools = sum([bool(entry) for entry in self.thisROI['sliceCount']])
-        # thisSlice = self.thisROI['sliceCount'][self.thisSlice]
-        self.TableSliceCount[self.thisROI['index']].setText(str(bools))
-        self.TableContCount[self.thisROI['index']].setText(str(nContours))
-
-    def onCellClick(self, row, col):
-        # print(table)
-        print('ROI')
-        # roi = self.ROIs[row]
-        self.changeROI(ROI_ind=row)
-        if col == 0:
-            pass
-        elif col == 1:
-            print(col)
-        elif col == 2:
-            print(col)
-        elif col == 3:
-            print(col)
-        self.plotWidge.setFocus()
-
-    def changeROI(self, ROI_ind):
-        ROI = self.ROIs[ROI_ind]
-        self.thisROI = ROI
-        self.updateContours(isNewSlice=True)
-
     def updateContours(self, isNewSlice=False):
         if not bool(self.ROIs):
             return
-        imageData = self.imageData[:, :, self.thisSlice].copy()
+
+        # backgroundIm = self.backgroundIm
+        medicalIm = self.imageData[:, :, self.thisSlice].copy()
 
         if self.hideContours:
-            self.imageItem.setImage(imageData, autoLevels=False)
+            self.imageItem.setImage(medicalIm, autoLevels=False)
             return
-        else:
-            pass
 
-        if len(imageData.shape) == 2:
-            imageData = cv2.cvtColor(imageData, cv2.COLOR_GRAY2BGR)
-        if isNewSlice:
-            backgroundIm = imageData.copy()
+
+        if isNewSlice:  # create new Background Im
+
+            if len(medicalIm.shape) == 2:
+                medicalIm = cv2.cvtColor(medicalIm, cv2.COLOR_GRAY2BGR)
 
             for ROI in self.ROIs:
+
                 if ROI['id'] == self.thisROI['id']:
                     continue
 
                 contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
+
                 contours, hi = getContours(inputImage=contBinaryIm,
                                            compression=self.contCompression)
+
                 color = scaleColor(ROI['color'], self.imageItem.levels)
-                # show contours on empty image
-                backgroundIm = cv2.drawContours(image=backgroundIm,
-                                                contours=contours,
-                                                contourIdx=-1,
-                                                color=color,
-                                                thickness=0,
-                                                lineType=cv2.LINE_AA)  # 8
 
-            self.backgroundIm = backgroundIm
+                medicalIm = cv2.drawContours(image=medicalIm.copy(),
+                                             contours=contours,
+                                             contourIdx=-1,
+                                             color=color,
+                                             thickness=self.contThickness,
+                                             lineType=cv2.LINE_AA)  # 8
 
+            self.backgroundIm = medicalIm.copy()
+
+        backgroundIm = self.backgroundIm
+
+        if len(backgroundIm.shape) == 2:
+            backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
+
+
+        activeColor = scaleColor(self.thisROI['color'], self.imageItem.levels)
         contBinaryIm = self.thisROI['raster'][:, :, self.thisSlice].copy()
-        contours, hierarchy = getContours(inputImage=contBinaryIm,
-                                          compression=self.contCompression)
-        bgIm = self.backgroundIm.copy()
-        color = scaleColor(self.thisROI['color'], self.imageItem.levels)
+        activeCont, hierarchy = getContours(inputImage=contBinaryIm,
+                                            compression=self.contCompression)
 
-        # activeContourIm = cv2.drawContours(image=bgIm,
-        #                                    contours=contours,
-        #                                    contourIdx=-1,
-        #                                    color=color,
-        #                                    thickness=self.contThickness,
-        #                                    lineType=cv2.LINE_AA)  # 8
+        # bgIm = self.backgroundIm.copy()
 
-        overlayIm = cv2.drawContours(image=imageData,
-                                     contours=contours,
-                                     contourIdx=-1,
-                                     color=color,
-                                     thickness=-1,
-                                     lineType=cv2.LINE_AA)  # 8
+        activeContourIm = cv2.drawContours(image=backgroundIm.copy(),
+                                           contours=activeCont,
+                                           contourIdx=-1,
+                                           color=activeColor,
+                                           thickness=-1,
+                                           lineType=cv2.LINE_AA)  # 8
 
         alph = self.contOpacity
+        waterMarkedIm = backgroundIm.copy()
+        cv2.addWeighted(backgroundIm, 1 - alph,
+                        activeContourIm, alph,
+                        0, waterMarkedIm)
 
-        cv2.addWeighted(overlayIm, alph,
-                        activeContourIm, 1 - alph,
-                        0, imageData)
+        waterMarkedIm = cv2.drawContours(image=waterMarkedIm,
+                                         contours=activeCont,
+                                         contourIdx=-1,
+                                         color=activeColor,
+                                         thickness=self.contThickness,
+                                         lineType=cv2.LINE_AA)
 
-        # imageData = cv2.GaussianBlur(imageData, (9, 9), 0)
-
-        cv2.drawContours
-
-        self.imageItem.setImage(imageData, autoLevels=False)
+        self.imageItem.setImage(waterMarkedIm, autoLevels=False)
         # self.imageItem.setImage(newContourIm, autoLevels=False)
 
-        self.updateSliceCount(nContours=len(contours))
+        self.updateSliceCount(nContours=len(activeCont))
 
 
 def scaleColor(color, levels):

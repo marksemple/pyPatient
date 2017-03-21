@@ -88,7 +88,7 @@ class QContourDrawerWidget(QContourViewerWidget):
                                                        fill=fill,
                                                        x=y, y=x,
                                                        radius=self.radius)
-        self.updateContours()
+        self.updateContours(isNewSlice=True)
 
     def PaintReleaseEvent(self, event):
         self.painting = False

@@ -44,51 +44,30 @@ class Patient_ROI_Set(object):
 
     def read_file(self, filepath):
         """ """
-        # print(filepath)
         self.di = di = dicom.read_file(filepath, force=True)
-
-        # for sequence in di.StructureSetROISequence:
-        #     print("Sequence: ", sequence.ROIName)
-        # print("there are:", len(di.StructureSetROISequence), " ROIs")
-
-        # print(di)
-        # print(dir(di))
-
         self.ROIs = []
-
         for index, structure in enumerate(di.StructureSetROISequence):
-
             newROI = self.add_ROI(structure, di.ROIContourSequence[index])
-
             self.ROIs.append(newROI)
-
         return True
 
     def add_ROI(self, structure, contour):
-
         volSize = (self.imageInfo['Rows'],
                    self.imageInfo['Cols'], self.imageInfo['NSlices'])
-
         new_ROI = {'ROINumber': int(structure.ROINumber),
                    'ROIName': structure.ROIName,
                    'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
                    'ROIColor': [int(x) for x in contour.ROIDisplayColor],
                    'DataVolume': np.zeros(volSize)}
-
         info = self.imageInfo
-        # uid2data
-        # uiDict = {}
 
         try:
             cs = contour.ContourSequence
             nContours = len(cs)
             for contourSequence in cs:
 
-                # print(dir(contourSequence))
                 cis = contourSequence.ContourImageSequence[0]
                 uid = cis.ReferencedSOPInstanceUID
-                # print(uid)
-                # uiDict[uid]
 
                 PA = ContourData2PatientArray(contourSequence.ContourData)
                 try:  # axial dimension should have all the same numbers
@@ -108,10 +87,8 @@ class Patient_ROI_Set(object):
 
                 CA = [VectorArray2CVContour(VA)]
                 ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
-                ind = np.around(VA[2, 0])
-                new_ROI['DataVolume'][:, :, ind] += ImSlice
-
-
+                ind = int(np.around(VA[2, 0]))
+                new_ROI['DataVolume'][:, :, ind] += ImSlice.copy()
 
         except AttributeError as ae:
             nContours = 0
