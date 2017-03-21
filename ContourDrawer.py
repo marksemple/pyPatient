@@ -5,7 +5,8 @@
 """
 
 import sys
-from PyQt5.QtCore import (Qt,)
+from PyQt5.QtCore import (Qt, pyqtSignal)
+
 import pyqtgraph as pg
 import numpy as np
 import cv2
@@ -27,6 +28,11 @@ class QContourDrawerWidget(QContourViewerWidget):
     # thisSlice = 0
     # hoverCount = 0
     # tableHeaders = ['ROI', 'Color', 'Slices', 'Contours']
+    editingFlag = False
+    doPaintFlag = False
+    prevInContour = False
+    enteredContour = pyqtSignal()
+    leftContour = pyqtSignal()
 
     def __init__(self,
                  enableDraw=True,
@@ -42,6 +48,9 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.shape = self.circle
         self.plotWidge.addItem(self.circle)
         self.enablePaintingControls()
+        self.morphSize = int(self.nCols / 50)
+        self.enteredContour.connect(self.onEnterContour)
+        self.leftContour.connect(self.onExitContour)
 
     def connectSignals(self):
         # save ORIGINAL mouse events in placeholders for later
@@ -73,17 +82,78 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.imageItem.mousePressEvent = lambda x: self.oldImageMousePress(x)
         self.imageItem.wheelEvent = lambda x: self.oldImageWheel(x)
 
+    def primeToFill(self):
+        self.fill = 255
+        pass
+
+    def primeToWipe(self):
+        self.fill = 0
+        pass
+
+    def paintFillCheck(self, event, modifier):
+        # probes button clicks to see if we should be painting, erasing, or not
+        # doPaint = False
+        # print(dir(event))
+        # print(event.pos().x())
+
+        if event.buttons() == Qt.LeftButton:
+
+            # doPaint = True
+            myPixel = [int(event.pos().y()), int(event.pos().x())]
+            myImage = self.thisROI['raster'][:, :, self.thisSlice]
+            pixelValue = myImage[myPixel[0], myPixel[1]]
+
+            if pixelValue == 0:
+                fill = 255
+                self.doPaint = True
+            else:
+                fill = 0
+                self.doPaint = False
+
+            # if myPixel
+            # fill = 255
+
+        # if event.buttons() == Qt.LeftButton:
+            # doPaint = True
+            # fill = 255
+
+        # if event.buttons() == Qt.RightButton:
+            # doPaint = True
+            # fill = 0
+
+        # if self.doPaint:
+        if modifier:
+            fill = 1 - fill
+        return fill
+
+        return False
+
     def PaintClickEvent(self, event):
         """ When mouse clicks on IMAGE ITEM """
         self.tempCoordList = []
         ts = self.thisSlice
         self.paintCount = 0
-        self.painting = True
+        self.editingFlag = True
 
         x, y = (int(event.pos().x()), int(event.pos().y()))
         self.tempCoordList.append([[y, x]])
-        fill = paintFillCheck(event, self.ctrlModifier)
+
+
+
         oldIm = self.thisROI['raster'][:, :, ts]
+        __outIm, cont, __hier = cv2.findContours(oldIm.astype(np.uint8),
+                                                 cv2.RETR_TREE,
+                                                 cv2.CHAIN_APPROX_SIMPLE)
+
+        isEmpty = not bool(len(cont))
+
+        if oldIm[x, y] > 0 or isEmpty:
+            fill = 255
+            self.doPaint = True
+        else:
+            fill = 0
+            self.doPaint = False
+
         self.thisROI['raster'][:, :, ts] = paintCircle(image=oldIm,
                                                        fill=fill,
                                                        x=y, y=x,
@@ -91,37 +161,76 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.updateContours(isNewSlice=True)
 
     def PaintReleaseEvent(self, event):
-        self.painting = False
+        self.editingFlag = False
         # self.updateSliceCount()
+
+    def onEnterContour(self):
+        print('enter')
+        modifyBrushStyle(self.circle, self.thisROI['color'],
+                         self.contThickness, 'additive')
+        self.primeToFill()
+
+    def onExitContour(self):
+        print('exit :_:')
+        modifyBrushStyle(self.circle, self.thisROI['color'],
+                         self.contThickness, 'subtractive')
+        self.primeToWipe()
 
     def PaintHoverEvent(self, event):
         """ When cursor is over IMAGE ITEM """
         try:
+            x, y = (int(event.pos().x()), int(event.pos().y()))
+            print(x, y)
+            inContour = bool(int(self.thisROI['raster'][x, y, self.thisSlice]))
+
+            # print("your re:", y, x, inContour)
+            print("incontour:", inContour,' prev:', self.prevInContour)
+
+            if inContour is True and self.prevInContour is not True:
+                self.enteredContour.emit()
+                self.prevInContour = True
+
+            elif inContour is not True and self.prevInContour is True:
+                self.leftContour.emit()
+                self.prevInContour = False
+
             if event.isEnter():
                 self.circle.show()
+
             elif event.isExit():
                 self.circle.hide()
 
-            x, y = (int(event.pos().x()), int(event.pos().y()))
             repositionShape(self.circle, x, y, self.radius)
-            fill = paintFillCheck(event, self.ctrlModifier)
 
-            if fill is not False:
-                ts = self.thisSlice
-                self.tempCoordList.append([[y, x]])
-                pts = [np.array(self.tempCoordList).astype(np.int32)]
-                thisVol = self.thisROI['raster']
-                thisVol[:, :, ts] = cv2.polylines(img=thisVol[:, :, ts].copy(),
-                                                  pts=pts,
-                                                  isClosed=False,
-                                                  color=(fill, fill, fill),
-                                                  thickness=2 * self.radius)
+            # modifyBrushStyle(self.circle, self.thisROI['color'],
+            # 2, 'subtractive')
 
-                self.updateContours()
-                # self.paintHere(x, y, fill)
+            if not self.editingFlag:
+                return
+
+            ts = self.thisSlice
+            oldIm = self.thisROI['raster'][:, :, ts]
+
+            if self.doPaint:
+                fill = 255
+            else:
+                fill = 0
+
+            self.tempCoordList.append([[y, x]])
+            pts = [np.array(self.tempCoordList).astype(np.int32)]
+            thisVol = self.thisROI['raster']
+            thisVol[:, :, ts] = cv2.polylines(img=oldIm.copy(),
+                                              pts=pts,
+                                              isClosed=False,
+                                              color=(fill, fill, fill),
+                                              thickness=2 * self.radius)
+
+            self.updateContours()
+            # self.paintHere(x, y, fill)
             # self.hoverCount += 1
 
-        except AttributeError as ae:
+        except Exception as ae:
+            print(ae)
             self.circle.hide()
 
     def PaintWheelEvent(self, event):
@@ -232,7 +341,8 @@ class QContourDrawerWidget(QContourViewerWidget):
     def dilate_erode_ROI(self, roi, direction):
         slice0 = self.thisSlice
         # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                           (self.morphSize, self.morphSize))
         im = roi['raster'][:, :, slice0].copy()
         if direction > 0:
             roi['raster'][:, :, slice0] = cv2.dilate(im, kernel)
@@ -271,24 +381,7 @@ def paintCircle(image, fill, x, y, radius):
                       lineType=cv2.LINE_AA)  # 8
 
 
-def paintFillCheck(event, modifier):
-    # probes button clicks to see if we should be painting, erasing, or not
-    doPaint = False
 
-    if event.buttons() == Qt.LeftButton:
-        doPaint = True
-        fill = 255
-
-    if event.buttons() == Qt.RightButton:
-        doPaint = True
-        fill = 0
-
-    if doPaint:
-        if modifier:
-            fill = 1 - fill
-        return fill
-
-    return False
 
 
 if __name__ == "__main__":

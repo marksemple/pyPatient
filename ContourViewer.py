@@ -11,7 +11,7 @@ import uuid
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QSlider, QPushButton,
                              QTableWidget, QTableWidgetItem,
-                             QSizePolicy, QStyle, QHeaderView,
+                             QSizePolicy, QHeaderView,
                              QGroupBox, QCheckBox, QFormLayout)
 from PyQt5.QtGui import (QBrush, QColor,)
 from PyQt5.QtCore import (Qt,)
@@ -23,14 +23,13 @@ from new_ROI_dialog import newROIDialog
 # from Patient import Patient as PatientObj
 
 
-
 class QContourViewerWidget(QWidget):
     """ Used to Display A Slice of 3D Image Data
     """
 
     contThickness = 2
     contOpacity = 0.20
-    contCompression = 0.70
+    contCompression = 0
     hideContours = False
     painting = False
     imageItem = pg.ImageItem()
@@ -67,7 +66,6 @@ class QContourViewerWidget(QWidget):
 
         # ~ Add Image Item to Plot Widget
         self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=True)
-        # self.backgroun
 
         # ~ Create Widget parts
         self.applyLayout()
@@ -81,10 +79,11 @@ class QContourViewerWidget(QWidget):
         # Canvas for viewing and interacting with patient image data
         # self.plotWidge = plotWidge = pg.PlotWidget()
         self.plotWidge = plotWidge = pg.PlotWidget()
-        plotWidge.showAxis('left', False)
-        plotWidge.showAxis('bottom', False)
+        # plotWidge.showAxis('left', False)
+        # plotWidge.showAxis('bottom', False)
         plotWidge.setAntialiasing(True)
         plotWidge.addItem(self.imageItem)
+        # plotWidge
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)
@@ -107,7 +106,6 @@ class QContourViewerWidget(QWidget):
         sliderLayout.addWidget(self.sliceNumLabel, 0, Qt.AlignCenter)
         sliderLayout.addWidget(self.sliceDistLabel, 0, Qt.AlignCenter)
 
-
         # ~~~~~~~~~~~~~~~ CONTROLS Section
         contourControls = QGroupBox()
         self.contourHide = QCheckBox()
@@ -115,19 +113,27 @@ class QContourViewerWidget(QWidget):
 
         self.contourFillOpacity = QSlider(Qt.Horizontal)
         self.contourFillOpacity.setRange(0, 10)
+        self.contourFillOpacity.setValue(self.contOpacity)
         self.contourFillOpacity.valueChanged.connect(self.opacityChange)
 
         self.contourEdgeThickness = QSlider(Qt.Horizontal)
         self.contourEdgeThickness.setRange(0, 10)
+        self.contourEdgeThickness.setValue(self.contThickness)
         self.contourEdgeThickness.valueChanged.connect(self.thicknessChange)
+
+        self.contourEdgeCompression = QSlider(Qt.Horizontal)
+        self.contourEdgeCompression.setRange(1, 10000)
+        self.contourEdgeCompression.valueChanged.connect(self.compressChange)
+
         contourControlLayout = QFormLayout()
         contourControlLayout.addRow(QLabel("Hide Contours"), self.contourHide)
         contourControlLayout.addRow(QLabel("Fill Opacity"),
                                     self.contourFillOpacity)
         contourControlLayout.addRow(QLabel("Line Width"),
                                     self.contourEdgeThickness)
+        contourControlLayout.addRow(QLabel("Line Simplification"),
+                                    self.contourEdgeCompression)
         contourControls.setLayout(contourControlLayout)
-
 
         # ~~~~~~~~~~~~~~~ TABLE Section
         # interactive summary of ROIs in this image/ patient
@@ -174,6 +180,10 @@ class QContourViewerWidget(QWidget):
         layout.addWidget(tableWidge, 1)
         self.setLayout(layout)
 
+
+    def connectSignals(self):
+        pass
+
     def hideContoursFcn(self, val):
         if bool(val):
             self.hideContours = True
@@ -190,8 +200,13 @@ class QContourViewerWidget(QWidget):
     def opacityChange(self, val):
         if float(val) > 0.9 * self.contourFillOpacity.maximum():
             self.contourEdgeThickness.setValue(0)
-
         self.contOpacity = float(val) / 10.0
+        self.updateContours(isNewSlice=True)
+        self.plotWidge.setFocus()
+
+    def compressChange(self, val):
+        self.contCompression = np.log10(val)
+        # print("{}, {}".format(val, self.contCompression))
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
@@ -285,7 +300,6 @@ class QContourViewerWidget(QWidget):
         if self.hideContours:
             self.imageItem.setImage(medicalIm, autoLevels=False)
             return
-
 
         if isNewSlice:  # create new Background Im
 
