@@ -12,8 +12,12 @@ except:
     import pydicom as dicom
 
 # Locals
-from Patient_ROI import Patient_ROI_Set
-from Patient_Image import Patient_Image
+try:
+    from Patient_ROI import Patient_ROI_Set
+    from Patient_Image import Patient_Image
+except ImportError:
+    from dicommodule.Patient_ROI import Patient_ROI_Set
+    from dicommodule.Patient_Image import Patient_Image
 # from Image import Image
 # from Contour import contour
 # from VolumeViewer import QVolumeViewerWidget

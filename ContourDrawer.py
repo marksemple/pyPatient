@@ -12,31 +12,16 @@ import pyqtgraph as pg
 import numpy as np
 import cv2
 
-# from new_ROI_dialog import newROIDialog
-
-print(__name__)
-
-if __name__ == '__main__':
-    from ContourViewer import QContourViewerWidget  # , scaleColor, getContours
-
-else:
-    # from
-    pass
+try:
+    from ContourViewer import QContourViewerWidget # , scaleColor, getContours
+except ImportError:
+    from dicommodule.ContourViewer import QContourViewerWidget
 
 
 class QContourDrawerWidget(QContourViewerWidget):
     """ Used to Display A Slice of 3D Image Data
     """
 
-    # painting = False
-    # imageItem = pg.ImageItem()
-    # radius = 20
-    # showCircle = True
-    # ctrlModifier = False
-    # shiftModifier = False
-    # thisSlice = 0
-    # hoverCount = 0
-    # tableHeaders = ['ROI', 'Color', 'Slices', 'Contours']
     editingFlag = False
     fill = 0
     doPaintFlag = False
@@ -102,29 +87,6 @@ class QContourDrawerWidget(QContourViewerWidget):
         modifyBrushStyle(self.circle, self.thisROI['color'],
                          self.contThickness, 'subtractive')
 
-    def paintFillCheck(self, event, modifier):
-        # probes button clicks to see if we should be painting, erasing, or not
-
-        if event.buttons() == Qt.LeftButton:
-
-            myPixel = [int(event.pos().y()), int(event.pos().x())]
-            myImage = self.thisROI['raster'][:, :, self.thisSlice]
-            pixelValue = myImage[myPixel[0], myPixel[1]]
-
-            if pixelValue == 0:
-                fill = 255
-                self.doPaint = True
-            else:
-                fill = 0
-                self.doPaint = False
-
-        # if self.doPaint:
-        if modifier:
-            fill = 1 - fill
-        return fill
-
-        return False
-
     def PaintClickEvent(self, event):
         """ When mouse clicks on IMAGE ITEM """
         self.tempCoordList = []
@@ -180,7 +142,6 @@ class QContourDrawerWidget(QContourViewerWidget):
                 return
 
             else:
-
                 ts = self.thisSlice
                 oldIm = self.thisROI['raster'][:, :, ts]
 
@@ -311,6 +272,7 @@ class QContourDrawerWidget(QContourViewerWidget):
                                            (self.morphSize, self.morphSize))
         im = roi['raster'][:, :, slice0].copy()
         if direction > 0:
+
             roi['raster'][:, :, slice0] = cv2.dilate(im, kernel)
         elif direction < 0:
             roi['raster'][:, :, slice0] = cv2.erode(im, kernel)

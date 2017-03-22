@@ -212,7 +212,10 @@ def getImOrientationMatrix(di):
         patPos = di.PatientPosition
     except AttributeError as AE:
         patPos = None
-    imOr = di.ImageOrientationPatient  # Field exists in both US and MR
+    try:
+        imOr = di.ImageOrientationPatient  # Field exists in both US and MR
+    except AttributeError:
+        imOr = [1, 0, 0, 0, 1, 0]
     v1Str = imOr[0:3]
     v2Str = imOr[3:]
     V1 = np.array([float(x) for x in v1Str])

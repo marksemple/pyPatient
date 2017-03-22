@@ -1,8 +1,12 @@
 """ Integrate Contour Editing with Patient Data """
 
-from ContourDrawer import QContourDrawerWidget
-from Patient import Patient as PatientObj
 import sys
+try:
+    from ContourDrawer import QContourDrawerWidget
+    from Patient import Patient as PatientObj
+except ImportError:
+    from dicommodule.ContourDrawer import QContourDrawerWidget
+    from dicommodule.Patient import Patient as PatientObj
 
 
 class ContourDrawingController(QContourDrawerWidget):
@@ -35,6 +39,7 @@ if __name__ == "__main__":
     # rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\clean sample data 10-19-2016\MRtemp'
 
     rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\MR'
+
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
 

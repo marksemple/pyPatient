@@ -18,11 +18,15 @@ from PyQt5.QtCore import (Qt,)
 import pyqtgraph as pg
 import numpy as np
 import cv2
-from new_ROI_dialog import newROIDialog
 
-from Patient_ROI import CVContour2VectorArray
+try:
+    from new_ROI_dialog import newROIDialog  # , scaleColor, getContours
+    from Patient_ROI import CVContour2VectorArray
 
-# from Patient import Patient as PatientObj
+except ImportError:
+    from dicommodule.new_ROI_dialog import newROIDialog
+    from dicommodule.Patient_ROI import CVContour2VectorArray
+
 
 
 class QContourViewerWidget(QWidget):
