@@ -227,7 +227,7 @@ def CVContour2VectorArray(CVContour, sliceZ):
     input: (N x 1 x 2) numpy array of Xs and Ys for OpenCV Contours
     output: transformable vector array
     """
-    flatArray = CVContour.flatten(order='F')
+    flatArray = CVContour.flatten(order='C')
     nPts = int(len(flatArray) / 2)
     vectArray = flatArray.reshape((2, nPts), order='F')
     ones = np.ones((1, nPts))

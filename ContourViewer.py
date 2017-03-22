@@ -20,6 +20,8 @@ import numpy as np
 import cv2
 from new_ROI_dialog import newROIDialog
 
+from Patient_ROI import CVContour2VectorArray
+
 # from Patient import Patient as PatientObj
 
 
@@ -79,8 +81,8 @@ class QContourViewerWidget(QWidget):
         # Canvas for viewing and interacting with patient image data
         # self.plotWidge = plotWidge = pg.PlotWidget()
         self.plotWidge = plotWidge = pg.PlotWidget()
-        # plotWidge.showAxis('left', False)
-        # plotWidge.showAxis('bottom', False)
+        plotWidge.showAxis('left', False)
+        plotWidge.showAxis('bottom', False)
         plotWidge.setAntialiasing(True)
         plotWidge.addItem(self.imageItem)
         # plotWidge
@@ -149,7 +151,7 @@ class QContourViewerWidget(QWidget):
         table.setSelectionBehavior(table.SelectRows)
         table.setSelectionMode(table.SingleSelection)
         table.setSizePolicy(QSizePolicy.Preferred,
-                            QSizePolicy.Preferred)
+                            QSizePolicy.Fixed)
 
         # table.horizontalHeader().setStretchLastSection(True)
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -160,8 +162,8 @@ class QContourViewerWidget(QWidget):
         hwidth = hHeader.length()
         vwidth = vHeader.width()
         fwidth = table.frameWidth() * 2
-        table.setFixedWidth(vwidth + hwidth + 0 + fwidth)
-        table.setFixedHeight(hHeader.height() + vHeader.height())
+        table.setFixedWidth(vwidth + hwidth + fwidth)
+        table.setFixedHeight(vwidth + hwidth + fwidth)
 
         table.horizontalHeader().setResizeMode(QHeaderView.Stretch)
 
@@ -175,11 +177,10 @@ class QContourViewerWidget(QWidget):
         tableWidgeLayout.addStretch()
 
         layout = QHBoxLayout()
-        layout.addLayout(sliderLayout)
         layout.addWidget(plotWidge, 16)
+        layout.addLayout(sliderLayout)
         layout.addWidget(tableWidge, 1)
         self.setLayout(layout)
-
 
     def connectSignals(self):
         pass
@@ -294,7 +295,6 @@ class QContourViewerWidget(QWidget):
         if not bool(self.ROIs):
             return
 
-        # backgroundIm = self.backgroundIm
         medicalIm = self.imageData[:, :, self.thisSlice].copy()
 
         if self.hideContours:
@@ -302,22 +302,16 @@ class QContourViewerWidget(QWidget):
             return
 
         if isNewSlice:  # create new Background Im
-
             if len(medicalIm.shape) == 2:
                 medicalIm = cv2.cvtColor(medicalIm, cv2.COLOR_GRAY2BGR)
-
             for ROI in self.ROIs:
 
                 if ROI['id'] == self.thisROI['id']:
                     continue
-
                 contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
-
                 contours, hi = getContours(inputImage=contBinaryIm,
                                            compression=self.contCompression)
-
                 color = scaleColor(ROI['color'], self.imageItem.levels)
-
                 medicalIm = cv2.drawContours(image=medicalIm.copy(),
                                              contours=contours,
                                              contourIdx=-1,
@@ -332,13 +326,10 @@ class QContourViewerWidget(QWidget):
         if len(backgroundIm.shape) == 2:
             backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
 
-
         activeColor = scaleColor(self.thisROI['color'], self.imageItem.levels)
         contBinaryIm = self.thisROI['raster'][:, :, self.thisSlice].copy()
         activeCont, hierarchy = getContours(inputImage=contBinaryIm,
                                             compression=self.contCompression)
-
-        # bgIm = self.backgroundIm.copy()
 
         activeContourIm = cv2.drawContours(image=backgroundIm.copy(),
                                            contours=activeCont,
@@ -361,7 +352,6 @@ class QContourViewerWidget(QWidget):
                                          lineType=cv2.LINE_AA)
 
         self.imageItem.setImage(waterMarkedIm, autoLevels=False)
-        # self.imageItem.setImage(newContourIm, autoLevels=False)
 
         self.updateSliceCount(nContours=len(activeCont))
 
