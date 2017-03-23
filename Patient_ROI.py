@@ -29,11 +29,12 @@ class Patient_ROI_Set(object):
         self.imageInfo = imageInfo
 
         if file is not None:
-            if self.read_file(file):
-                print('got data from file!')
+            try:
+                self.read_file(file)
+                # print('got data from file!')
                 return
-            else:
-                print("something went wrong reading file")
+            except AttributeError as ae:
+                print("something went wrong reading file: {}".format(ae))
                 return
 
         # how many Regions of Interest are there?
@@ -46,8 +47,12 @@ class Patient_ROI_Set(object):
         """ """
         self.di = di = dicom.read_file(filepath, force=True)
         self.ROIs = []
-        for index, structure in enumerate(di.StructureSetROISequence):
-            newROI = self.add_ROI(structure, di.ROIContourSequence[index])
+        for index, contour in enumerate(di.ROIContourSequence):
+            try:
+                structure = di.StructureSetROISequence[index]
+            except AttributeError as ae:
+                structure = 0
+            newROI = self.add_ROI(structure, contour)
             self.ROIs.append(newROI)
         return True
 
@@ -63,35 +68,42 @@ class Patient_ROI_Set(object):
 
         try:
             cs = contour.ContourSequence
-            nContours = len(cs)
-            for contourSequence in cs:
-
-                cis = contourSequence.ContourImageSequence[0]
-                uid = cis.ReferencedSOPInstanceUID
-
-                PA = ContourData2PatientArray(contourSequence.ContourData)
-                try:  # axial dimension should have all the same numbers
-                    VA = Patient2VectorArray(PA, info['Patient2Pixels'])
-                except:
-                    VA = Patient2VectorArray(PA, info['Pat2Pix_noRot'])
-
-                # VA[2, :] = float(info['UID2Loc'][uid])
-                print('pre\n', VA[:, 1:10])
-
-                nPts = VA.shape[1]
-                VA[2, :] = np.ones((1, nPts)) * info['UID2Ind'][uid]
-
-                print(info['UID2Ind'][uid])
-                print(uid)
-                print('post\n', VA[:, 1:10])
-
-                CA = [VectorArray2CVContour(VA)]
-                ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
-                ind = int(np.around(VA[2, 0]))
-                new_ROI['DataVolume'][:, :, ind] += ImSlice.copy()
-
         except AttributeError as ae:
             nContours = 0
+            return new_ROI
+
+        nContours = len(cs)
+        for contourSequence in cs:
+
+            try:
+                cis = contourSequence.ContourImageSequence[0]
+                uid = cis.ReferencedSOPInstanceUID
+            except AttributeError as ae:
+                # some Ultrasound Contours are made differently
+                sliceLoc = float(contourSequence.ContourData[2])
+                sliceLoc = np.around(sliceLoc, decimals=5)
+                print(sliceLoc)
+                uid = info['Loc2UID'][sliceLoc]
+
+            PA = ContourData2PatientArray(contourSequence.ContourData)
+
+            try:  # axial dimension should have all the same numbers
+                VA = Patient2VectorArray(PA, info['Patient2Pixels'])
+
+            except:
+                VA = Patient2VectorArray(PA, info['Pat2Pix_noRot'])
+
+            # print('pre transformation\n', VA[:, 1:10])
+
+            nPts = VA.shape[1]
+            VA[2, :] = np.ones((1, nPts)) * info['UID2Ind'][uid]
+
+            # print('post transformation\n', VA[:, 1:10])
+
+            CA = [VectorArray2CVContour(VA)]
+            ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
+            ind = int(np.around(VA[2, 0]))
+            new_ROI['DataVolume'][:, :, ind] += ImSlice.copy()
 
         print('{} has contours on {} slices'.format(structure.ROIName,
                                                     nContours))

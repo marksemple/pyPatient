@@ -22,7 +22,7 @@ class newROIDialog(QDialog):
 
         self.nameEdit = QLineEdit()
         self.nameEdit.textChanged.connect(self.onNameEdit)
-        self.colorPick = QPushButton('click to choose colour')
+        self.colorPick = QPushButton('Choose colour')
         self.colorPick.clicked.connect(self.onChooseColor)
         self.styleColorBttn(self.color)
 

@@ -72,37 +72,41 @@ class Patient_Image(object):
         self.dataDict = {}
         tempIndList = []
         tempLocList = []
+        tempUIDList = []
         # tempPosList = []
         pool = ThreadPool(self.info['NSlices'])
         results = pool.map(func=getDicomPixelData, iterable=imFileList)
-        for ind, entry in enumerate(results):  # each dicom's data
-            # imPos, pix = entry
-            thisUID = entry['UID']
-            self.dataDict[thisUID] = entry
 
+        for ind, entry in enumerate(results):  # each dicom's data
+            thisUID = entry['UID']
             tempIndList.append(ind)
             tempLocList.append(entry['SliceLocation'])
+            tempUIDList.append(thisUID)
 
-            info['Loc2UID'][entry['SliceLocation']] = thisUID
+            # info['Loc2UID'][entry['SliceLocation']] = thisUID
+            self.dataDict[thisUID] = entry
             info['UID2Loc'][thisUID] = entry['SliceLocation']
             info['UID2IPP'][thisUID] = entry['ImagePositionPatient']
 
-        self.sliceLocationList = sorted(tempLocList)
+        order = [i[0] for i in sorted(enumerate(tempLocList),
+                                      key=lambda x:x[1])]
 
-        info['Loc2Ind'] = dict(zip(self.sliceLocationList, tempIndList))
-        info['Ind2Loc'] = dict(zip(tempIndList, self.sliceLocationList))
-        info['UID2Ind'] = deepcopy(info['UID2Loc'])
-        for UID in info['UID2Ind']:
-            thisInd = info['Loc2Ind'][info['UID2Loc'][UID]]
-            info['UID2Ind'][UID] = thisInd
-            info['Ind2UID'][thisInd] = UID
+        for newIndex, oldIndex in enumerate(order):
+            thisUID = tempUIDList[oldIndex]
+            thisLoc = tempLocList[oldIndex]
+
+            info['UID2Loc'][thisUID] = thisLoc
+            info['UID2Ind'][thisUID] = newIndex
+            info['Ind2Loc'][newIndex] = thisLoc
+            info['Ind2UID'][newIndex] = thisUID
+            # TRY NOT TO USE THIS ONE:
+            info['Loc2UID'][thisLoc] = thisUID
 
         self.UID_zero = info['Ind2UID'][0]
         ipp0 = info['UID2IPP'][self.UID_zero]
         uid1 = info['Ind2UID'][1]
         ipp1 = info['UID2IPP'][uid1]
         info['SliceSpacing'] = np.linalg.norm(ipp1 - ipp0)
-        # self.UID_zero = info['Ind2UID'][0]
 
     def get_pixel_data(self):
         pixelData = np.zeros([self.info['Rows'],
@@ -172,6 +176,17 @@ class Patient_Image(object):
 
         return Translation.dot(Rotation).dot(Scaling)
 
+    def prettyFormatIPP(self):
+        nSlices = len(self.info['Ind2UID'])
+        prettyString = ''
+        for i in range(0, nSlices):
+
+            ipp = self.info['UID2IPP'][self.info['Ind2UID'][i]]
+
+            prettyString += str(ipp) + '\n'
+
+        print(prettyString)
+
 
 def getStaticDicomSizeProps(imFile, staticProps={}):
     # set the DICOM properties that remain constant for all image files
@@ -193,7 +208,8 @@ def getDicomPixelData(filePath):
     di = dicom.read_file(filePath)
     imageOrientation = getImOrientationMatrix(di)
     imPos = np.array([float(x) for x in di.ImagePositionPatient])
-    sliceLoc = float(imageOrientation.dot(imPos)[2])
+    sliceLoc = imageOrientation.dot(imPos)[2]
+    # print(sliceLoc)
     pixelData = np.asarray(di.pixel_array)
     thisDiDict = {'UID': di.SOPInstanceUID,
                   'ImagePositionPatient': imPos,

@@ -62,6 +62,13 @@ class QContourDrawerWidget(QContourViewerWidget):
         modifyBrushStyle(self.circle, ROI['color'], 2, 'additive')
         # self.tablePicker.setItemSelected()
 
+    def toggleControls(self):
+        super().toggleControls()
+        if not self.controlsHidden:
+            self.enablePaintingControls()
+        else:
+            self.enableMotionControls()
+
     def enablePaintingControls(self):
         self.shape = self.circle
         # self.circle.show()
