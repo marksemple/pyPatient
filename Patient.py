@@ -26,38 +26,34 @@ except ImportError:
 class Patient(object):
     """ container class responsible for reading and writing DCM to file """
 
-    Name = None
-    DOB = None
-    Position = None
+    # Name = None
+    # DOB = None
+    # Position = None
 
-    def __init__(self, patientPath=None, makeImage=False, makeContour=False):
-        """ if patient initialized with """
+    def __init__(self, patientPath):
         super().__init__()
+        self.hasImage = False
+        self.hasROI = False
 
-        # if we're given path to existing DICOM stuff; go there to fill it out
-        """ Scan given patient folder for dicom image files,
-            return dict by modality """
-        if patientPath is not None:
-            # if self.validatePath(patientPath):
-            dcmFiles = self.scanPatientFolder(patientPath)
-            # else:
-            # invalid path?/
-            # return
-        else:
-            dcmFiles = []
-        """ Load medical data from found dicom files """
+        # Scan given patient folder for dicom image files,
+        # return dict by modality
+
+        dcmFiles = self.scanPatientFolder(patientPath)
+        if not bool(dcmFiles):
+            raise Exception("No DICOM Files Found!")
+
+        # Load medical data from found dicom files
         if bool(dcmFiles):
             self.loadPatientData(dcmFiles)
         else:
             self.createPatientData()
-    # def validatePath(self, path):
 
-        print("Image Position Patient")
-        self.Image.prettyFormatIPP()
-        print("Image Orientation Patient")
-        print(self.Image.info['ImageOrientationPatient'])
+        # print("Image Position Patient")
+        # self.Image.prettyFormatIPP()
+        # print("Image Orientation Patient")
+        # print(self.Image.info['ImageOrientationPatient'])
 
-    def scanPatientFolder(self, patient_directory=None):
+    def scanPatientFolder(self, patient_directory):
         """ Scan directory for dicom files """
         # myFiles = find_DCM_files_parallel(patient_directory)
         myFiles = find_DCM_files_serial(patient_directory)
@@ -67,11 +63,11 @@ class Patient(object):
         return myFiles
 
     def loadPatientData(self, dcmFiles={}):
-
-        print(dcmFiles)
+        # print(dcmFiles)
 
         if 'MR' in dcmFiles.keys():
             self.Image = Patient_Image(dcmFiles['MR'])
+            self.hasImage = True
 
         elif 'US' in dcmFiles.keys():
             self.Image = Patient_Image(dcmFiles['US'])
@@ -80,11 +76,12 @@ class Patient(object):
         if 'unknown' in dcmFiles.keys():
             self.StructureSet = Patient_ROI_Set(file=dcmFiles['unknown'][0],
                                                 imageInfo=self.Image.info)
+            self.hasROI = True
 
         if 'RTSTRUCT' in dcmFiles.keys():
             self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0],
                                                 imageInfo=self.Image.info)
-
+            self.hasROI = True
 
     def createPatientData(self):
         # self.Image = Patient_Image()
@@ -172,13 +169,13 @@ def find_DCM_files_serial(rootpath=None):
 
 if __name__ == "__main__":
 
-    rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
 
-    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData\MR'
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData\MR'
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData\RTStructureSet'
 
@@ -186,7 +183,7 @@ if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (HFS)'
 
-    patient = Patient(patientPath=rootTest)
+    patient = Patient('')  #patientPath=rootTest)
 
     # print(patient.Image.info['UID2IPP'].values())
     # ippVals = list(patient.Image.info['UID2IPP'].values())

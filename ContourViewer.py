@@ -28,32 +28,8 @@ except ImportError:
     from dicommodule.Patient_ROI import CVContour2VectorArray
 
 
-
 class QContourViewerWidget(QWidget):
-    """ Used to Display A Slice of 3D Image Data
-    """
-
-    contThickness = 2
-    contOpacity = 0.20
-    contCompression = 0
-    hideContours = False
-    painting = False
-    imageItem = pg.ImageItem()
-    radius = 20
-    showCircle = True
-    ctrlModifier = False
-    shiftModifier = False
-    controlsHidden = False
-    thisSlice = 0
-    hoverCount = 0
-    TableSliceCount = []
-    TableContCount = []
-    TableVertCount = []
-    tableHeaders = ['ROI   ',
-                    'Color ',
-                    'Slices ',
-                    'on Slice',
-                    'Vertices']
+    """ Used to Display A Slice of 3D Image Data """
 
     def __init__(self,
                  imageData=None,
@@ -62,140 +38,96 @@ class QContourViewerWidget(QWidget):
 
         super().__init__(*args, **kwargs)
 
-        # assert(type(imageData) == np.ndarray)
+        self.imageItem = pg.ImageItem()
+        self.ROIs = []
 
-        if imageData is not None:
-            self.initializeImage(imageData)
+        self.hasImageData = False
+        self.hasContourData = False
+        self.hideContours = False
+        self.showCircle = True
+        self.shiftModifier = False
+        self.controlsHidden = False
 
-        self.ROIs = ROIs
-        for ROI in ROIs:
-            self.addROI(name=ROI.name, color=ROI.color)
+        self.contThickness = 2
+        self.contOpacity = 0.20
+        self.contCompression = 1
+        self.radius = 20
+        self.thisSlice = 0
+        self.hoverCount = 0
+
+        self.TableSliceCount = []
+        self.TableContCount = []
+        self.TableVertCount = []
+        self.tableHeaders = ['ROI   ',
+                             'Color ',
+                             'Slices ',
+                             'on Slice',
+                             'Vertices']
 
         # ~ Create Widget parts
         self.applyLayout()
         self.connectSignals()
         self.resize(1200, 700)
 
-    def initializeImage(self, imageData):
+        if imageData is not None:
+            print("Image is {}".format(imageData.shape))
+            self.init_Image(imageData)
+
+        if bool(ROIs):
+            print("Has {} Contours".format(len(ROIs)))
+            self.init_ROIs(ROIs)
+
+    def init_Image(self, imageData):
         self.imageData = np.swapaxes(imageData, 0, 1)
         self.contourImg = np.zeros(imageData.shape)
         self.nRows, self.nCols, self.nSlices = imageData.shape
         self.backgroundIm = np.array((self.nRows, self.nCols))
         self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=True)
+        self.init_Slider(self.slider)
+        self.morphSize = int(self.nCols / 50)
+        self.hasImageData = True
+
         # ~ Add Image Item to Plot Widget
 
-    def applyLayout(self):
-        # ~ Create "Controls" Panel Layout for Slider
+    def init_ROIs(self, ROIs):
+        self.ROIs = ROIs
+        for ROI in ROIs:
+            self.addROI(name=ROI.name, color=ROI.color)
 
-        # ~~~~~~~~~~~~~ VIEWER SECTION
-        # Canvas for viewing and interacting with patient image data
-        # self.plotWidge = plotWidge = pg.PlotWidget()
-        self.plotWidge = plotWidge = pg.PlotWidget()
-        plotWidge.showAxis('left', False)
-        plotWidge.showAxis('bottom', False)
-        plotWidge.setAntialiasing(True)
-        plotWidge.addItem(self.imageItem)
-        # plotWidge
-        viewBox = plotWidge.getViewBox()
-        viewBox.invertY(True)
-        viewBox.setAspectLocked(1.0)
-        viewBox.setBackgroundColor('#FFFFFF')
+    def init_Slider(self, slider):
+        slider.setPageStep(1)
+        slider.setRange(0, self.nSlices - 1)
 
-        # ~~~~~~~~~~~~~~~ SLIDER SECTION
-        # Controls for scanning through slices, and some labels
-        sliderLayout = QVBoxLayout()
-        MW = 40  # minimumWidth
-        self.slider = QSlider()
-        self.slider.valueChanged.connect(self.sliderChanged)
-        self.slider.setMinimum(0)
-        self.slider.setPageStep(1)
-        self.slider.setMaximum(self.nSlices - 1)
-        self.slider.setMinimumWidth(MW)
-        self.sliceNumLabel = QLabel("1 / %d" % (self.nSlices))
-        self.sliceDistLabel = QLabel("0.00")
+    def addROI(self, ev=None, name=None, color=None, data=None, *args):
+        # First, name and choose color for ROI
+        if name is None or color is None:
+            roiDialog = newROIDialog()
+            roiDialog.exec_()
+            if not roiDialog.makeStatus:
+                print("cancelled")
+                return
+            name, color = roiDialog.getProperties()
+        else:
+            name = name
+            color = color
 
-        self.collapseControls = QPushButton('<< Controls')
-        self.collapseControls.clicked.connect(self.toggleControls)
+        if data is None:
+            data = np.zeros((self.nRows, self.nCols, self.nSlices),
+                            dtype=np.uint8)
+        counter = countContourSlices(data)
+        # add make ROI object
+        self.ROIs.append({'color': color[0:3],
+                          'index': len(self.ROIs),
+                          'name': name,
+                          'id': uuid.uuid4(),
+                          'raster': data,
+                          'sliceCount': counter})
 
-        sliderLayout.addWidget(self.collapseControls)
-        sliderLayout.addWidget(self.slider)
-        sliderLayout.addWidget(self.sliceNumLabel, 0, Qt.AlignCenter)
-        sliderLayout.addWidget(self.sliceDistLabel, 0, Qt.AlignCenter)
+        self.add_ROI_to_Table(self.ROIs[-1])
+        self.changeROI(ROI_ind=len(self.ROIs) - 1)
+        self.hasContourData = True
+        self.plotWidge.setFocus()
 
-        # ~~~~~~~~~~~~~~~ CONTROLS Section
-        contourControls = QGroupBox()
-        self.contourHide = QCheckBox()
-        self.contourHide.stateChanged.connect(self.hideContoursFcn)
-
-        self.contourFillOpacity = QSlider(Qt.Horizontal)
-        self.contourFillOpacity.setRange(0, 10)
-        self.contourFillOpacity.setValue(self.contOpacity)
-        self.contourFillOpacity.valueChanged.connect(self.opacityChange)
-
-        self.contourEdgeThickness = QSlider(Qt.Horizontal)
-        self.contourEdgeThickness.setRange(0, 10)
-        self.contourEdgeThickness.setValue(self.contThickness)
-        self.contourEdgeThickness.valueChanged.connect(self.thicknessChange)
-
-        self.contourEdgeCompression = QSlider(Qt.Horizontal)
-        self.contourEdgeCompression.setRange(0, 20)
-        self.contourEdgeCompression.valueChanged.connect(self.compressChange)
-
-        contourControlLayout = QFormLayout()
-        contourControlLayout.addRow(QLabel("Hide Contours"), self.contourHide)
-        contourControlLayout.addRow(QLabel("Fill Opacity"),
-                                    self.contourFillOpacity)
-        contourControlLayout.addRow(QLabel("Line Width"),
-                                    self.contourEdgeThickness)
-        contourControlLayout.addRow(QLabel("Line Simplification"),
-                                    self.contourEdgeCompression)
-        contourControls.setLayout(contourControlLayout)
-
-        # ~~~~~~~~~~~~~~~ TABLE Section
-        # interactive summary of ROIs in this image/ patient
-        self.tableWidge = tableWidge = QWidget()
-        tableWidgeLayout = QVBoxLayout()
-        tableWidge.setLayout(tableWidgeLayout)
-
-        table = self.tablePicker = QTableWidget()
-        table.setColumnCount(len(self.tableHeaders))
-        table.setHorizontalHeaderLabels(self.tableHeaders)
-        table.verticalHeader().setVisible(False)
-        table.cellClicked.connect(self.onCellClick)
-        table.setSelectionBehavior(table.SelectRows)
-        table.setSelectionMode(table.SingleSelection)
-        table.setSizePolicy(QSizePolicy.Preferred,
-                            QSizePolicy.Fixed)
-        table.resizeColumnsToContents()
-
-        # table.horizontalHeader().setStretchLastSection(True)
-        table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-        hHeader = table.horizontalHeader()
-        vHeader = table.verticalHeader()
-
-        hwidth = hHeader.length()
-        vwidth = vHeader.width()
-        fwidth = table.frameWidth() * 2
-        table.setFixedWidth(vwidth + hwidth + fwidth)
-        table.setFixedHeight(vwidth + hwidth + fwidth)
-
-        table.horizontalHeader().setResizeMode(QHeaderView.Stretch)
-
-        bttn = QPushButton(" + New ROI")
-        bttn.clicked.connect(self.addROI)
-        bttn.setFixedWidth(vwidth + hwidth + fwidth)
-
-        tableWidgeLayout.addWidget(bttn)
-        tableWidgeLayout.addWidget(table)
-        tableWidgeLayout.addWidget(contourControls)
-        tableWidgeLayout.addStretch()
-
-        layout = QHBoxLayout()
-        layout.addWidget(plotWidge, 16)
-        layout.addLayout(sliderLayout)
-        layout.addWidget(tableWidge, 1)
-        self.setLayout(layout)
 
     def connectSignals(self):
         pass
@@ -274,44 +206,11 @@ class QContourViewerWidget(QWidget):
     def changeROI(self, ROI_ind):
         ROI = self.ROIs[ROI_ind]
         self.thisROI = ROI
-
         # styleString = """QTableView::item:selected {background: rgb(%s, %s, %s);}""" % ROI['color']
         # print(styleString)
         # styleString = """ QTableView::item:first {background: white;} """
         # self.tablePicker.setStyleSheet(styleString)
-
         self.updateContours(isNewSlice=True)
-
-    def addROI(self, ev=None, name=None, color=None, data=None, *args):
-        # First, name and choose color for ROI
-        if name is None or color is None:
-            roiDialog = newROIDialog()
-            roiDialog.exec_()
-            if not roiDialog.makeStatus:
-                print("cancelled")
-                return
-            name, color = roiDialog.getProperties()
-        else:
-            name = name
-            color = color
-
-        if data is None:
-            data = np.zeros((self.nRows, self.nCols, self.nSlices),
-                            dtype=np.uint8)
-
-        counter = countContourSlices(data)
-
-        # add make ROI object
-        self.ROIs.append({'color': color[0:3],
-                          'index': len(self.ROIs),
-                          'name': name,
-                          'id': uuid.uuid4(),
-                          'raster': data,
-                          'sliceCount': counter})
-
-        self.add_ROI_to_Table(self.ROIs[-1])
-        self.changeROI(ROI_ind=len(self.ROIs) - 1)
-        self.plotWidge.setFocus()
 
     def add_ROI_to_Table(self, ROI):
         row = self.tablePicker.rowCount()
@@ -345,8 +244,8 @@ class QContourViewerWidget(QWidget):
         if isNewSlice:  # create new Background Im
             if len(medicalIm.shape) == 2:
                 medicalIm = cv2.cvtColor(medicalIm, cv2.COLOR_GRAY2BGR)
-            for ROI in self.ROIs:
 
+            for ROI in self.ROIs:
                 if ROI['id'] == self.thisROI['id']:
                     continue
                 contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
@@ -395,8 +294,126 @@ class QContourViewerWidget(QWidget):
                                          lineType=cv2.LINE_AA)
 
         self.imageItem.setImage(waterMarkedIm, autoLevels=False)
-
         self.updateTableFields(self.thisROI, activeCont)
+
+    def applyLayout(self):
+        # ~ Create "Controls" Panel Layout for Slider
+
+        # ~~~~~~~~~~~~~ VIEWER SECTION
+        # Canvas for viewing and interacting with patient image data
+        # self.plotWidge = plotWidge = pg.PlotWidget()
+        self.plotWidge = plotWidge = pg.PlotWidget()
+        plotWidge.showAxis('left', False)
+        plotWidge.showAxis('bottom', False)
+        plotWidge.setAntialiasing(True)
+        plotWidge.addItem(self.imageItem)
+        # plotWidge
+        viewBox = plotWidge.getViewBox()
+        viewBox.invertY(True)
+        viewBox.setAspectLocked(1.0)
+        viewBox.setBackgroundColor('#FFFFFF')
+
+        # ~~~~~~~~~~~~~~~ SLIDER SECTION
+        # Controls for scanning through slices, and some labels
+        sliderLayout = QHBoxLayout()
+        MW = 40  # minimumWidth
+        self.slider = QSlider()
+        self.slider.setOrientation(Qt.Horizontal)
+        self.slider.valueChanged.connect(self.sliderChanged)
+        # self.slider.setMinimumWidth(MW)
+        self.sliceNumLabel = QLabel("1 / N")
+        self.sliceDistLabel = QLabel("0.00")
+
+        self.collapseControls = QPushButton('<< Controls')
+        self.collapseControls.clicked.connect(self.toggleControls)
+
+        sliderLayout.addWidget(self.sliceNumLabel, 0, Qt.AlignCenter)
+        sliderLayout.addWidget(self.slider)
+        sliderLayout.addWidget(self.sliceDistLabel, 0, Qt.AlignCenter)
+        sliderLayout.addWidget(self.collapseControls)
+
+        viewportLayout = QVBoxLayout()
+        viewportLayout.addLayout(sliderLayout)
+        viewportLayout.addWidget(plotWidge)
+
+        # ~~~~~~~~~~~~~~~ CONTROLS Section
+        contourControls = QGroupBox()
+        self.contourHide = QCheckBox()
+        self.contourHide.stateChanged.connect(self.hideContoursFcn)
+
+        self.contourFillOpacity = QSlider(Qt.Horizontal)
+        self.contourFillOpacity.setRange(0, 10)
+        self.contourFillOpacity.setValue(self.contOpacity)
+        self.contourFillOpacity.valueChanged.connect(self.opacityChange)
+
+        self.contourEdgeThickness = QSlider(Qt.Horizontal)
+        self.contourEdgeThickness.setRange(0, 10)
+        self.contourEdgeThickness.setValue(self.contThickness)
+        self.contourEdgeThickness.valueChanged.connect(self.thicknessChange)
+
+        self.contourEdgeCompression = QSlider(Qt.Horizontal)
+        self.contourEdgeCompression.setRange(0, 20)
+        self.contourEdgeCompression.setValue(self.contCompression * 10
+                                             )
+        self.contourEdgeCompression.valueChanged.connect(self.compressChange)
+
+        contourControlLayout = QFormLayout()
+        contourControlLayout.addRow(QLabel("Hide Contours"), self.contourHide)
+        contourControlLayout.addRow(QLabel("Fill Opacity"),
+                                    self.contourFillOpacity)
+        contourControlLayout.addRow(QLabel("Line Width"),
+                                    self.contourEdgeThickness)
+        contourControlLayout.addRow(QLabel("Line Simplification"),
+                                    self.contourEdgeCompression)
+        contourControls.setLayout(contourControlLayout)
+
+        # ~~~~~~~~~~~~~~~ TABLE Section
+        # interactive summary of ROIs in this image/ patient
+        self.tableWidge = tableWidge = QWidget()
+        tableWidgeLayout = QVBoxLayout()
+        tableWidge.setLayout(tableWidgeLayout)
+
+        table = self.tablePicker = QTableWidget()
+        table.setColumnCount(len(self.tableHeaders))
+        table.setHorizontalHeaderLabels(self.tableHeaders)
+        table.verticalHeader().setVisible(False)
+        table.cellClicked.connect(self.onCellClick)
+        table.setSelectionBehavior(table.SelectRows)
+        table.setSelectionMode(table.SingleSelection)
+        table.setSizePolicy(QSizePolicy.Preferred,
+                            QSizePolicy.Fixed)
+        table.resizeColumnsToContents()
+
+        # table.horizontalHeader().setStretchLastSection(True)
+        table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        hHeader = table.horizontalHeader()
+        vHeader = table.verticalHeader()
+
+        hwidth = hHeader.length()
+        vwidth = vHeader.width()
+        fwidth = table.frameWidth() * 2
+        table.setFixedWidth(vwidth + hwidth + fwidth)
+        table.setFixedHeight(vwidth + hwidth + fwidth)
+
+        table.horizontalHeader().setResizeMode(QHeaderView.Stretch)
+
+        bttn = QPushButton(" + New ROI")
+        bttn.clicked.connect(self.addROI)
+        bttn.setFixedWidth(vwidth + hwidth + fwidth)
+
+        tableWidgeLayout.addWidget(bttn)
+        tableWidgeLayout.addWidget(table)
+        tableWidgeLayout.addWidget(contourControls)
+        tableWidgeLayout.addStretch()
+
+        layout = QHBoxLayout()
+        # layout.addWidget(plotWidge, 16)
+        layout.addLayout(viewportLayout, 16)
+        # layout.addLayout(sliderLayout)
+        layout.addWidget(tableWidge, 1)
+        self.setLayout(layout)
+
 
 
 def scaleColor(color, levels):
@@ -452,10 +469,13 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint16)
     myImage = 55 * np.ones((700, 700, 20), dtype=np.uint16)
+
     # for index, thisSlice in enumerate(myImage):
         # myImage[:, :, index - 1] = myImage[:, :, index - 1] * index * 10
     # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
-    form = QContourViewerWidget(imageData=myImage)
+
+    form = QContourViewerWidget()  #imageData=myImage)
+    form.init_Image(myImage)
     form.addROI(name='test1', color=(240, 20, 20))
     form.addROI(name='test2', color=(20, 240, 20))
     form.show()

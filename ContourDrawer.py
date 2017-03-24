@@ -21,11 +21,6 @@ except ImportError:
 class QContourDrawerWidget(QContourViewerWidget):
     """ Used to Display A Slice of 3D Image Data
     """
-
-    editingFlag = False
-    fill = 0
-    doPaintFlag = False
-    prevInContour = False
     enteredContour = pyqtSignal()
     leftContour = pyqtSignal()
 
@@ -35,15 +30,21 @@ class QContourDrawerWidget(QContourViewerWidget):
 
         super().__init__(*args, **kwargs)
 
+        self.editingFlag = False
+        self.inContour = False
+        self.prevInContour = False
+        self.ctrlModifier = False
+        self.paintingEnabled = False
+        self.fill = 0
+
         self.circle = pg.QtGui.QGraphicsEllipseItem(-self.radius,
                                                     -self.radius,
                                                     self.radius * 2,
                                                     self.radius * 2)
         self.circle.hide()
-        self.shape = self.circle
+
         self.plotWidge.addItem(self.circle)
         self.enablePaintingControls()
-        self.morphSize = int(self.nCols / 50)
         self.enteredContour.connect(self.primeToFill)
         self.leftContour.connect(self.primeToWipe)
 
@@ -70,19 +71,19 @@ class QContourDrawerWidget(QContourViewerWidget):
             self.enableMotionControls()
 
     def enablePaintingControls(self):
-        self.shape = self.circle
-        # self.circle.show()
         self.plotWidge.setCursor(Qt.CrossCursor)
         self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)
         self.imageItem.mousePressEvent = lambda x: self.PaintClickEvent(x)
         self.imageItem.mouseReleaseEvent = lambda x: self.PaintReleaseEvent(x)
         self.imageItem.wheelEvent = lambda x: self.PaintWheelEvent(x)
+        self.paintingEnabled = True
 
     def enableMotionControls(self):
         self.plotWidge.setCursor(Qt.OpenHandCursor)
         self.imageItem.hoverEvent = lambda x: self.oldImageHover(x)
         self.imageItem.mousePressEvent = lambda x: self.oldImageMousePress(x)
         self.imageItem.wheelEvent = lambda x: self.oldImageWheel(x)
+        self.paintingEnabled = False
 
     def primeToFill(self):
         self.fill = 255
@@ -96,10 +97,13 @@ class QContourDrawerWidget(QContourViewerWidget):
 
     def PaintClickEvent(self, event):
         """ When mouse clicks on IMAGE ITEM """
+        if self.hasContourData is not True:
+            return
+
+        self.editingFlag = True
+
         self.tempCoordList = []
         ts = self.thisSlice
-        self.paintCount = 0
-        self.editingFlag = True
 
         x, y = (int(event.pos().x()), int(event.pos().y()))
         self.tempCoordList.append([[y, x]])
@@ -108,9 +112,10 @@ class QContourDrawerWidget(QContourViewerWidget):
         oldIm = self.thisROI['raster'][:, :, ts]
         isEmpty = checkEmpty(oldIm)
 
-        if isEmpty:
-            print("is empty")
+        if isEmpty or self.inContour:
             self.primeToFill()
+        else:
+            self.primeToWipe()
 
         self.thisROI['raster'][:, :, ts] = paintCircle(image=oldIm,
                                                        fill=self.fill,
@@ -119,7 +124,12 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.updateContours(isNewSlice=True)
 
     def PaintReleaseEvent(self, event):
+        """ When Mouse Button is Lifted"""
+        if self.hasContourData is not True:
+            return
+
         self.editingFlag = False
+
         if checkEmpty(self.thisROI['raster'][:, :, self.thisSlice]):
             self.primeToFill()
 
@@ -127,31 +137,35 @@ class QContourDrawerWidget(QContourViewerWidget):
         """ When cursor is over IMAGE ITEM """
         try:
             x, y = (int(event.pos().x()), int(event.pos().y()))
+
             if event.isEnter():
                 self.circle.show()
+
             elif event.isExit():
                 self.circle.hide()
+
             repositionShape(self.circle, x, y, self.radius)
 
-            if not self.editingFlag:
+            if not self.editingFlag:  # mouse motion without click
 
                 binaryContIm = self.thisROI['raster'][:, :, self.thisSlice]
-                inContour = inContourCheck((x, y), binaryContIm)
+                NowInContour = inContourCheck((x, y), binaryContIm)
 
-                if inContour is True and self.prevInContour is not True:
+                if NowInContour is True and self.prevInContour is not True:
                     self.enteredContour.emit()
                     self.prevInContour = True
+                    self.inContour = True
 
-                elif inContour is not True and self.prevInContour is True:
+                elif NowInContour is not True and self.prevInContour is True:
                     self.leftContour.emit()
                     self.prevInContour = False
-
+                    self.inContour = False
                 return
 
-            else:
+            else:  # mouse motion yes click
+
                 ts = self.thisSlice
                 oldIm = self.thisROI['raster'][:, :, ts]
-
                 self.tempCoordList.append([[y, x]])
                 pts = [np.array(self.tempCoordList).astype(np.int32)]
                 thisVol = self.thisROI['raster']
@@ -162,7 +176,6 @@ class QContourDrawerWidget(QContourViewerWidget):
                                                          self.fill,
                                                          self.fill),
                                                   thickness=2 * self.radius)
-
                 self.updateContours()
 
         except Exception as ae:
@@ -199,6 +212,9 @@ class QContourDrawerWidget(QContourViewerWidget):
                 self.changeROI(ROI_ind=ind)
 
             # s, x, d, c
+            if not self.paintingEnabled:
+                return
+
             if event.key() == 83:  # s -- copy superior slice ROI
                 self.unionNeighbourSlice(self.thisROI, -1)
             if event.key() == 88:  # x -- copy inferior slice ROI
@@ -214,17 +230,8 @@ class QContourDrawerWidget(QContourViewerWidget):
                 self.changeROI(ROI_ind=newInd)
 
             if event.key() == 16777249:  # CTRL -- Invert Painters
-                print("ctrl dwn")
-                oldIm = self.thisROI['raster'][:, :, self.thisSlice]
-                if checkEmpty(oldIm) or self.prevInContour:
-                    self.primeToWipe()
-                else:
-                    self.primeToFill()
-
-                self.enteredContour.disconnect()
-                self.leftContour.disconnect()
-                self.enteredContour.connect(self.primeToWipe)
-                self.leftContour.connect(self.primeToFill)
+                if not self.editingFlag:
+                    self.doControlModifier()
 
             if event.key() == 16777248:  # SHIFT -- Motion Mode
                 self.shiftModifier = True
@@ -234,26 +241,42 @@ class QContourDrawerWidget(QContourViewerWidget):
             self.updateContours()
 
     def PlotKeyRelease(self, event):
-
         if bool(self.ROIs):
-            if event.key() == 16777249:  # CTRL
-                oldIm = self.thisROI['raster'][:, :, self.thisSlice]
-                if checkEmpty(oldIm) or self.prevInContour:
-                    self.primeToFill()
-                else:
-                    self.primeToWipe()
 
-                self.enteredContour.disconnect()
-                self.leftContour.disconnect()
-                self.enteredContour.connect(self.primeToFill)
-                self.leftContour.connect(self.primeToWipe)
+            if event.key() == 16777249:  # CTRL
+                if not self.editingFlag and self.ctrlModifier:
+                    self.undoControlModifier()
 
             if event.key() == 16777248:  # SHIFT
                 self.shiftModifier = True
                 self.circle.show()
                 self.enablePaintingControls()
 
-        # self.updateSliceCount()
+    def doControlModifier(self):
+        oldIm = self.thisROI['raster'][:, :, self.thisSlice]
+        if checkEmpty(oldIm) or self.prevInContour:
+            self.primeToWipe()
+        else:
+            self.primeToFill()
+        self.enteredContour.disconnect()
+        self.leftContour.disconnect()
+        self.enteredContour.connect(self.primeToWipe)
+        self.leftContour.connect(self.primeToFill)
+        self.inContour = not self.inContour
+        self.ctrlModifier = True
+
+    def undoControlModifier(self):
+        oldIm = self.thisROI['raster'][:, :, self.thisSlice]
+        if checkEmpty(oldIm) or self.prevInContour:
+            self.primeToFill()
+        else:
+            self.primeToWipe()
+        self.enteredContour.disconnect()
+        self.leftContour.disconnect()
+        self.enteredContour.connect(self.primeToFill)
+        self.leftContour.connect(self.primeToWipe)
+        self.inContour = not self.inContour
+        self.ctrlModifier = False
 
     def unionNeighbourSlice(self, roi, direction):
         slice0 = self.thisSlice
@@ -344,16 +367,12 @@ def paintCircle(image, fill, x, y, radius):
 
 
 if __name__ == "__main__":
-
-
-
-
-
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
     myImage = 55 * np.ones((700, 700, 20), dtype=np.uint16)
-    form = QContourDrawerWidget(imageData=myImage)
-    form.addROI(name='test1', color=(240, 240, 20))
-    form.addROI(name='test2', color=(20, 240, 240))
+    form = QContourDrawerWidget() #imageData=myImage)
+    form.init_Image(imageData=myImage)
+    # form.addROI(name='test1', color=(240, 240, 20))
+    # form.addROI(name='test2', color=(20, 240, 240))
     form.show()
     sys.exit(app.exec_())
