@@ -62,7 +62,7 @@ class Patient_ROI_Set(object):
         volSize = (self.imageInfo['Rows'],
                    self.imageInfo['Cols'], self.imageInfo['NSlices'])
         new_ROI = {'ROINumber': int(structure.ROINumber),
-                   'ROIName': structure.ROIName,
+                   'ROIName': structure.ROIName.lower(),
                    'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
                    'ROIColor': [int(x) for x in contour.ROIDisplayColor],
                    'DataVolume': np.zeros(volSize)}

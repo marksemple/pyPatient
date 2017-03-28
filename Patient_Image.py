@@ -40,7 +40,7 @@ class Patient_Image(object):
         # There are properties that describe the entire VOLUME,
         # and there are properties that describe an individual slice
 
-        print(self.info)
+        # print(self.info)
 
         if bool(fileList):
             self.info = getStaticDicomSizeProps(fileList[0], self.info)
@@ -52,8 +52,8 @@ class Patient_Image(object):
             self.info['Pat2Pix_noRot'] = self.GetPatient2Pixels(do_rot=False)
             self.info['Pix2Pat_noRot'] = self.GetPixels2Patient(do_rot=False)
 
-            print('Pat2Pix', self.info['Patient2Pixels'])
-            print('Pat2Pix2', self.info['Pat2Pix_noRot'])
+            # print('Pat2Pix', self.info['Patient2Pixels'])
+            # print('Pat2Pix2', self.info['Pat2Pix_noRot'])
 
         # else:
         # self.createProps()
@@ -88,7 +88,7 @@ class Patient_Image(object):
             info['UID2Loc'][thisUID] = entry['SliceLocation']
             info['UID2IPP'][thisUID] = entry['ImagePositionPatient']
 
-        print(tempUIDList)
+        # print(tempUIDList)
 
         order = [i[0] for i in sorted(enumerate(tempLocList),
                                       key=lambda x:x[1])]

@@ -35,6 +35,7 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.prevInContour = False
         self.ctrlModifier = False
         self.paintingEnabled = False
+        self.isActive = False
         self.fill = 0
 
         self.circle = pg.QtGui.QGraphicsEllipseItem(-self.radius,
@@ -135,6 +136,11 @@ class QContourDrawerWidget(QContourViewerWidget):
 
     def PaintHoverEvent(self, event):
         """ When cursor is over IMAGE ITEM """
+
+        if not self.isActive:
+            self.isActive = True
+            self.plotWidge.setFocus()
+
         try:
             x, y = (int(event.pos().x()), int(event.pos().y()))
 
@@ -143,6 +149,7 @@ class QContourDrawerWidget(QContourViewerWidget):
 
             elif event.isExit():
                 self.circle.hide()
+                self.isActive = False
 
             repositionShape(self.circle, x, y, self.radius)
 

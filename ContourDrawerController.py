@@ -7,6 +7,7 @@ try:
 except ImportError:
     from dicommodule.ContourDrawer import QContourDrawerWidget
     from dicommodule.Patient import Patient as PatientObj
+import Affine_Registration_Fcns as ARF
 
 
 class PatientContourDrawer(QContourDrawerWidget):
@@ -31,11 +32,17 @@ class PatientContourDrawer(QContourDrawerWidget):
         # self.changeROI(0)
 
     def initializePatient(self, Patient):
+        self.Patient = Patient
         self.init_Image(Patient.Image.data)
         for thisROI in Patient.StructureSet.ROIs:
             self.addROI(name=thisROI['ROIName'],
                         color=thisROI['ROIColor'],
                         data=thisROI['DataVolume'])
+
+        pros = self.Patient.StructureSet.ROI_byName['prostate']['DataVolume']
+        bounds, size = ARF.findBoundingCuboid(pros)
+        self.prostateStart = bounds[0, 2]
+        self.prostateStop = bounds[1, 2]
 
 
     def sliderChanged(self, newValue):
@@ -54,7 +61,9 @@ if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\MR'
 
-    rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\CLEAN - Sample Data 10-02-2016 - backup\MRtemp'
+    # rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\CLEAN - Sample Data 10-02-2016 - backup\MRtemp'
+
+    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData - Copy\US'
 
     # rootTest = r'C:\Users\MarkSemple\Documents\Sunnybrook Research Institute\Deformable Registration Project\CLEAN - Sample Data 10-02-2016 - backup\US'
 

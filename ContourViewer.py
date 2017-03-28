@@ -50,7 +50,7 @@ class QContourViewerWidget(QWidget):
 
         self.contThickness = 2
         self.contOpacity = 0.20
-        self.contCompression = 1
+        self.contCompression = 0
         self.radius = 20
         self.thisSlice = 0
         self.hoverCount = 0
@@ -204,7 +204,6 @@ class QContourViewerWidget(QWidget):
         self.plotWidge.setFocus()
 
     def changeROI(self, ROI_ind):
-        ROI = self.ROIs[ROI_ind]
         self.thisROI = ROI
         # styleString = """QTableView::item:selected {background: rgb(%s, %s, %s);}""" % ROI['color']
         # print(styleString)
@@ -303,8 +302,8 @@ class QContourViewerWidget(QWidget):
         # Canvas for viewing and interacting with patient image data
         # self.plotWidge = plotWidge = pg.PlotWidget()
         self.plotWidge = plotWidge = pg.PlotWidget()
-        # plotWidge.showAxis('left', False)
-        # plotWidge.showAxis('bottom', False)
+        plotWidge.showAxis('left', False)
+        plotWidge.showAxis('bottom', False)
         plotWidge.setAntialiasing(True)
         plotWidge.addItem(self.imageItem)
         # plotWidge
