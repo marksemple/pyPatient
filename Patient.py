@@ -71,7 +71,7 @@ class Patient(object):
 
         elif 'US' in dcmFiles.keys():
             self.Image = Patient_Image(dcmFiles['US'])
-            print(self.Image.info['Ind2Loc'])
+            # print(self.Image.info['Ind2Loc'])
 
         if 'unknown' in dcmFiles.keys():
             self.StructureSet = Patient_ROI_Set(file=dcmFiles['unknown'][0],

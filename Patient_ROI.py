@@ -47,6 +47,7 @@ class Patient_ROI_Set(object):
         """ """
         self.di = di = dicom.read_file(filepath, force=True)
         self.ROIs = []
+        self.ROI_byName = {}
         for index, contour in enumerate(di.ROIContourSequence):
             try:
                 structure = di.StructureSetROISequence[index]
@@ -54,6 +55,7 @@ class Patient_ROI_Set(object):
                 structure = 0
             newROI = self.add_ROI(structure, contour)
             self.ROIs.append(newROI)
+            self.ROI_byName[newROI['ROIName']] = newROI
         return True
 
     def add_ROI(self, structure, contour):
@@ -72,6 +74,8 @@ class Patient_ROI_Set(object):
             nContours = 0
             return new_ROI
 
+        # print(info['UID2Ind'])
+
         nContours = len(cs)
         for contourSequence in cs:
 
@@ -82,8 +86,8 @@ class Patient_ROI_Set(object):
                 # some Ultrasound Contours are made differently
                 sliceLoc = float(contourSequence.ContourData[2])
                 sliceLoc = np.around(sliceLoc, decimals=5)
-                print(sliceLoc)
-                uid = info['Loc2UID'][sliceLoc]
+                # print(sliceLoc)
+                uid = info['Loc2UID'][int(round(sliceLoc))]
 
             PA = ContourData2PatientArray(contourSequence.ContourData)
 

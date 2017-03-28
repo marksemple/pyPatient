@@ -172,7 +172,7 @@ class QContourViewerWidget(QWidget):
 
     def sliderChanged(self, newValue):
         self.thisSlice = int(newValue)
-        self.sliceNumLabel.setText("%d / %d" % (newValue + 1, self.nSlices))
+        self.sliceNumLabel.setText("%d / %d" % (newValue, self.nSlices - 1))
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
@@ -303,8 +303,8 @@ class QContourViewerWidget(QWidget):
         # Canvas for viewing and interacting with patient image data
         # self.plotWidge = plotWidge = pg.PlotWidget()
         self.plotWidge = plotWidge = pg.PlotWidget()
-        plotWidge.showAxis('left', False)
-        plotWidge.showAxis('bottom', False)
+        # plotWidge.showAxis('left', False)
+        # plotWidge.showAxis('bottom', False)
         plotWidge.setAntialiasing(True)
         plotWidge.addItem(self.imageItem)
         # plotWidge

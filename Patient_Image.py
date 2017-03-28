@@ -88,12 +88,14 @@ class Patient_Image(object):
             info['UID2Loc'][thisUID] = entry['SliceLocation']
             info['UID2IPP'][thisUID] = entry['ImagePositionPatient']
 
+        print(tempUIDList)
+
         order = [i[0] for i in sorted(enumerate(tempLocList),
                                       key=lambda x:x[1])]
 
         for newIndex, oldIndex in enumerate(order):
             thisUID = tempUIDList[oldIndex]
-            thisLoc = tempLocList[oldIndex]
+            thisLoc = int(round(tempLocList[oldIndex]))
 
             info['UID2Loc'][thisUID] = thisLoc
             info['UID2Ind'][thisUID] = newIndex
