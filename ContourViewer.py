@@ -11,8 +11,8 @@ import uuid
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QSlider, QPushButton,
                              QTableWidget, QTableWidgetItem,
-                             QSizePolicy, QHeaderView,
-                             QGroupBox, QCheckBox, QFormLayout)
+                             QSizePolicy, QHeaderView, QColorDialog,
+                             QGroupBox, QCheckBox, QFormLayout, QSplitter)
 from PyQt5.QtGui import (QBrush, QColor,)
 from PyQt5.QtCore import (Qt,)
 import pyqtgraph as pg
@@ -44,6 +44,7 @@ class QContourViewerWidget(QWidget):
         self.hasImageData = False
         self.hasContourData = False
         self.hideContours = False
+        self.hideImage = False
         self.showCircle = True
         self.shiftModifier = False
         self.controlsHidden = False
@@ -56,13 +57,15 @@ class QContourViewerWidget(QWidget):
         self.hoverCount = 0
 
         self.TableSliceCount = []
-        self.TableContCount = []
-        self.TableVertCount = []
-        self.tableHeaders = ['ROI   ',
-                             'Color ',
-                             'Slices ',
-                             'on Slice',
-                             'Vertices']
+        self.TableHideCheck = []
+        # self.TableContCount = []
+        # self.TableVertCount = []
+        self.tableHeaders = ['ROI',
+                             'Color',
+                             'Slices',
+                             'Show']
+                             # 'on Slice',
+                             # 'Vertices']
 
         # ~ Create Widget parts
         self.applyLayout()
@@ -121,7 +124,8 @@ class QContourViewerWidget(QWidget):
                           'name': name,
                           'id': uuid.uuid4(),
                           'raster': data,
-                          'sliceCount': counter})
+                          'sliceCount': counter,
+                          'hidden': False})
 
         self.add_ROI_to_Table(self.ROIs[-1])
         self.changeROI(ROI_ind=len(self.ROIs) - 1)
@@ -153,6 +157,14 @@ class QContourViewerWidget(QWidget):
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
+    def hideImageFcn(self, val):
+        if bool(val):
+            self.hideImage = True
+        else:
+            self.hideImage = False
+        self.updateContours(isNewSlice=True)
+        self.plotWidge.setFocus()
+
     def thicknessChange(self, val):
         self.contThickness = val
         self.updateContours(isNewSlice=True)
@@ -177,33 +189,54 @@ class QContourViewerWidget(QWidget):
         self.plotWidge.setFocus()
 
     def updateTableFields(self, ROI, contours):
-        nVerts = 0
+        # nVerts = 0
         nConts = 0
-        for contour in contours:
-            nConts += 1
-            nVerts += contour.shape[0]
+        # for contour in contours:
+        # nConts += 1
+        # nVerts += contour.shape[0]
         ROI['sliceCount'][self.thisSlice] = nConts
         Nbools = sum([bool(entry) for entry in ROI['sliceCount']])
         self.TableSliceCount[ROI['index']].setText(str(Nbools))
-        self.TableContCount[ROI['index']].setText(str(nConts))
-        self.TableVertCount[ROI['index']].setText(str(nVerts))
+        if ROI['hidden']:
+            self.TableHideCheck[ROI['index']].setText('N')
+        else:
+            self.TableHideCheck[ROI['index']].setText('Y')
+        # self.TableContCount[ROI['index']].setText(str(nConts))
+        # self.TableVertCount[ROI['index']].setText(str(nVerts))
 
     def onCellClick(self, row, col):
-        # print(table)
-        print('ROI')
-        # roi = self.ROIs[row]
         self.changeROI(ROI_ind=row)
-        if col == 0:
+
+        if col == 0:  # NAME
             pass
-        elif col == 1:
-            print(col)
-        elif col == 2:
-            print(col)
-        elif col == 3:
-            print(col)
+
+        elif col == 1:  # COLOR
+            color = self.chooseColor()
+            self.thisROI['color'] = color[0:3]
+            qCol = QBrush(QColor(*color[0:3]))
+            myItem = self.tablePicker.item(row, col)
+            myItem.setBackground(qCol)
+            # self.tablePicker.item(row, col).setBackground(qCol)
+
+
+        elif col == 2:  # SLICES
+            pass
+
+        elif col == 3:  # VISIBLE
+            print('show/hide')
+            self.thisROI['hidden'] = not self.thisROI['hidden']
+
+        self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
+    def chooseColor(self):
+        colorDiag = QColorDialog()
+        colorDiag.exec_()
+        color = colorDiag.selectedColor()
+        return color.getRgb()
+
     def changeROI(self, ROI_ind):
+        ROI = self.ROIs[ROI_ind]
         self.thisROI = ROI
         # styleString = """QTableView::item:selected {background: rgb(%s, %s, %s);}""" % ROI['color']
         # print(styleString)
@@ -212,29 +245,54 @@ class QContourViewerWidget(QWidget):
         self.updateContours(isNewSlice=True)
 
     def add_ROI_to_Table(self, ROI):
+
         row = self.tablePicker.rowCount()
         self.tablePicker.insertRow(row)
+
+        # ROI NAME
         name = QTableWidgetItem(ROI['name'])
-        color = QTableWidgetItem(' ')
-        color.setBackground(QBrush(QColor(*ROI['color'])))
-        sliceCount = QTableWidgetItem(str(sum(ROI['sliceCount'])))
-        contCount = QTableWidgetItem()
-        vertCount = QTableWidgetItem()
-        self.TableSliceCount.append(sliceCount)
-        self.TableContCount.append(contCount)
-        self.TableVertCount.append(vertCount)
+        name.setFlags(Qt.ItemIsEnabled)
         self.tablePicker.setItem(row, 0, name)
+
+        # ROI COLOR (clickable)
+        color = QTableWidgetItem(' ')
+        color.setFlags(Qt.ItemIsEnabled)
+        color.setBackground(QBrush(QColor(*ROI['color'])))
         self.tablePicker.setItem(row, 1, color)
-        self.tablePicker.setItem(row, 2, self.TableSliceCount[-1])
-        self.tablePicker.setItem(row, 3, self.TableContCount[-1])
-        self.tablePicker.setItem(row, 4, self.TableVertCount[-1])
+
+        # ROI Slice Count
+        sliceCount = QTableWidgetItem(str(sum(ROI['sliceCount'])))
+        sliceCount.setFlags(Qt.ItemIsEnabled)
+        self.TableSliceCount.append(sliceCount)
+        self.tablePicker.setItem(row, 2, sliceCount)
+
+        # Show/Hide ROI
+        visibleCheck = QTableWidgetItem("Y")
+        visibleCheck.setFlags(Qt.ItemIsEnabled)
+        self.TableHideCheck.append(visibleCheck)
+        self.tablePicker.setItem(row, 3, visibleCheck)
+
+        # ROI COntours-On-Slice Count
+        # contCount = QTableWidgetItem()
+        # self.TableContCount.append(contCount)
+        # self.tablePicker.setItem(row, 3, self.TableContCount[-1])
+
+        # ROI Vertex Count
+        # vertCount = QTableWidgetItem()
+        # self.TableVertCount.append(vertCount)
+        # self.tablePicker.setItem(row, 4, self.TableVertCount[-1])
+
         self.plotWidge.setFocus()
 
     def updateContours(self, isNewSlice=False):
         if not bool(self.ROIs):
             return
 
-        medicalIm = self.imageData[:, :, self.thisSlice].copy()
+        if self.hideImage is False:
+            medicalIm = self.imageData[:, :, self.thisSlice].copy()
+        else:
+            medicalIm = np.zeros(self.imageData[:, :, self.thisSlice].shape,
+                                 dtype=self.imageData[:, :, self.thisSlice].dtype)
 
         if self.hideContours:
             self.imageItem.setImage(medicalIm, autoLevels=False)
@@ -245,8 +303,13 @@ class QContourViewerWidget(QWidget):
                 medicalIm = cv2.cvtColor(medicalIm, cv2.COLOR_GRAY2BGR)
 
             for ROI in self.ROIs:
+
+                if ROI['hidden']:
+                    continue
+
                 if ROI['id'] == self.thisROI['id']:
                     continue
+
                 contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
                 contours, hi = getContours(inputImage=contBinaryIm,
                                            compression=self.contCompression)
@@ -267,32 +330,35 @@ class QContourViewerWidget(QWidget):
         if len(backgroundIm.shape) == 2:
             backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
 
+
         activeColor = scaleColor(self.thisROI['color'], self.imageItem.levels)
         contBinaryIm = self.thisROI['raster'][:, :, self.thisSlice].copy()
         activeCont, hierarchy = getContours(inputImage=contBinaryIm,
                                             compression=self.contCompression)
 
-        activeContourIm = cv2.drawContours(image=backgroundIm.copy(),
-                                           contours=activeCont,
-                                           contourIdx=-1,
-                                           color=activeColor,
-                                           thickness=-1,
-                                           lineType=cv2.LINE_AA)  # 8
+        if not self.thisROI['hidden']:
 
-        alph = self.contOpacity
-        waterMarkedIm = backgroundIm.copy()
-        cv2.addWeighted(backgroundIm, 1 - alph,
-                        activeContourIm, alph,
-                        0, waterMarkedIm)
+            activeContourIm = cv2.drawContours(image=backgroundIm.copy(),
+                                               contours=activeCont,
+                                               contourIdx=-1,
+                                               color=activeColor,
+                                               thickness=-1,
+                                               lineType=cv2.LINE_AA)  # 8
 
-        waterMarkedIm = cv2.drawContours(image=waterMarkedIm,
-                                         contours=activeCont,
-                                         contourIdx=-1,
-                                         color=activeColor,
-                                         thickness=self.contThickness,
-                                         lineType=cv2.LINE_AA)
+            alph = self.contOpacity
+            waterMarkedIm = backgroundIm.copy()
+            cv2.addWeighted(backgroundIm, 1 - alph,
+                            activeContourIm, alph,
+                            0, waterMarkedIm)
 
-        self.imageItem.setImage(waterMarkedIm, autoLevels=False)
+            backgroundIm = cv2.drawContours(image=waterMarkedIm,
+                                            contours=activeCont,
+                                            contourIdx=-1,
+                                            color=activeColor,
+                                            thickness=self.contThickness,
+                                            lineType=cv2.LINE_AA)
+
+        self.imageItem.setImage(backgroundIm, autoLevels=False)
         self.updateTableFields(self.thisROI, activeCont)
 
     def applyLayout(self):
@@ -340,6 +406,9 @@ class QContourViewerWidget(QWidget):
         self.contourHide = QCheckBox()
         self.contourHide.stateChanged.connect(self.hideContoursFcn)
 
+        self.imageHide = QCheckBox()
+        self.imageHide.stateChanged.connect(self.hideImageFcn)
+
         self.contourFillOpacity = QSlider(Qt.Horizontal)
         self.contourFillOpacity.setRange(0, 10)
         self.contourFillOpacity.setValue(self.contOpacity)
@@ -357,6 +426,7 @@ class QContourViewerWidget(QWidget):
         self.contourEdgeCompression.valueChanged.connect(self.compressChange)
 
         contourControlLayout = QFormLayout()
+        contourControlLayout.addRow(QLabel("Hide Image"), self.imageHide)
         contourControlLayout.addRow(QLabel("Hide Contours"), self.contourHide)
         contourControlLayout.addRow(QLabel("Fill Opacity"),
                                     self.contourFillOpacity)
@@ -392,8 +462,8 @@ class QContourViewerWidget(QWidget):
         hwidth = hHeader.length()
         vwidth = vHeader.width()
         fwidth = table.frameWidth() * 2
-        table.setFixedWidth(vwidth + hwidth + fwidth)
-        table.setFixedHeight(vwidth + hwidth + fwidth)
+        # table.setFixedWidth(vwidth + hwidth + fwidth)
+        table.setFixedHeight((vwidth + hwidth + fwidth) * 1.15)
 
         table.horizontalHeader().setResizeMode(QHeaderView.Stretch)
 
@@ -406,13 +476,23 @@ class QContourViewerWidget(QWidget):
         tableWidgeLayout.addWidget(contourControls)
         tableWidgeLayout.addStretch()
 
-        layout = QHBoxLayout()
-        # layout.addWidget(plotWidge, 16)
-        layout.addLayout(viewportLayout, 16)
-        # layout.addLayout(sliderLayout)
-        layout.addWidget(tableWidge, 1)
-        self.setLayout(layout)
+        blankWidge = QWidget()
+        # blankLayout = QHBoxLayout()
+        # blankWidge.setLayout(blankLayout)
+        blankWidge.setLayout(viewportLayout)
 
+        splitta = QSplitter()
+        splitta.addWidget(blankWidge)
+        splitta.addWidget(tableWidge)
+        # splitta.setStyleSheet()
+
+        layout = QHBoxLayout()
+        layout.addWidget(splitta)
+        # layout.addWidget(plotWidge, 16)
+        # layout.addLayout(viewportLayout, 16)
+        # layout.addLayout(sliderLayout)
+        # layout.addWidget(tableWidge, 4)
+        self.setLayout(layout)
 
 
 def scaleColor(color, levels):
@@ -451,13 +531,6 @@ def countContourSlices(volume):
                                              cv2.RETR_TREE,
                                              cv2.CHAIN_APPROX_SIMPLE)
         contourCount.append(len(cont))
-
-    # for ind in range(0, volume.shape[2]):
-        # if np.any(volume[:, :, ind]):
-            # hasContour = True
-        # else:
-            # hasContour = False
-        # contourCount.append(hasContour)
 
     return contourCount
 

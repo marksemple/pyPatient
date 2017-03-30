@@ -72,6 +72,8 @@ class QContourDrawerWidget(QContourViewerWidget):
             self.enableMotionControls()
 
     def enablePaintingControls(self):
+        if self.controlsHidden:
+            return
         self.plotWidge.setCursor(Qt.CrossCursor)
         self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)
         self.imageItem.mousePressEvent = lambda x: self.PaintClickEvent(x)
