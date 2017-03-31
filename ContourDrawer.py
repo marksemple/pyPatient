@@ -37,13 +37,11 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.paintingEnabled = False
         self.isActive = False
         self.fill = 0
-
         self.circle = pg.QtGui.QGraphicsEllipseItem(-self.radius,
                                                     -self.radius,
                                                     self.radius * 2,
                                                     self.radius * 2)
         self.circle.hide()
-
         self.plotWidge.addItem(self.circle)
         self.enablePaintingControls()
         self.enteredContour.connect(self.primeToFill)
@@ -58,21 +56,18 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.plotWidge.keyReleaseEvent = lambda x: self.PlotKeyRelease(x)
 
     def changeROI(self, ROI_ind):
-        ROI = self.ROIs[ROI_ind]
-        self.thisROI = ROI
-        self.updateContours(isNewSlice=True)
+        ROI = super().changeROI(ROI_ind)
         modifyBrushStyle(self.circle, ROI['color'], 2, 'additive')
-        # self.tablePicker.setItemSelected()
 
-    def toggleControls(self):
-        super().toggleControls()
-        if not self.controlsHidden:
-            self.enablePaintingControls()
-        else:
+    def hideControls(self, val):
+        super().hideControls(val)
+        if val:
             self.enableMotionControls()
+        else:
+            self.enablePaintingControls()
 
     def enablePaintingControls(self):
-        if self.controlsHidden:
+        if self.collapseControls.isChecked():
             return
         self.plotWidge.setCursor(Qt.CrossCursor)
         self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)

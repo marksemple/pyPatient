@@ -18,6 +18,7 @@ try:
 except ImportError:
     from dicommodule.Patient_ROI import Patient_ROI_Set
     from dicommodule.Patient_Image import Patient_Image
+
 # from Image import Image
 # from Contour import contour
 # from VolumeViewer import QVolumeViewerWidget
@@ -64,22 +65,34 @@ class Patient(object):
 
     def loadPatientData(self, dcmFiles={}):
         # print(dcmFiles)
+        # MR = 'MR Image Storage'
+        # RTST = 'RT Structure Set Storage'
+        MR = '1.2.840.10008.5.1.4.1.1.4'
+        RTST = '1.2.840.10008.5.1.4.1.1.481.3'
+        US = '1.2.840.10008.5.1.4.1.1.6.1'
 
-        if 'MR' in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles['MR'])
+
+        print(dcmFiles)
+
+        if MR in dcmFiles.keys():
+            self.Image = Patient_Image(dcmFiles[MR])
             self.hasImage = True
 
-        elif 'US' in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles['US'])
-            # print(self.Image.info['Ind2Loc'])
+        elif US in dcmFiles.keys():
+            self.Image = Patient_Image(dcmFiles[US])
+            self.hasImage = True
 
-        if 'unknown' in dcmFiles.keys():
-            self.StructureSet = Patient_ROI_Set(file=dcmFiles['unknown'][0],
+        elif 'CT' in dcmFiles.keys():
+            self.Image = Patient_Image(dcmFiles['CT'])
+            self.hasImage = True
+
+        if RTST in dcmFiles.keys():
+            self.StructureSet = Patient_ROI_Set(file=dcmFiles[RTST][0],
                                                 imageInfo=self.Image.info)
             self.hasROI = True
 
-        if 'RTSTRUCT' in dcmFiles.keys():
-            self.StructureSet = Patient_ROI_Set(file=dcmFiles['RTSTRUCT'][0],
+        if 'unknown' in dcmFiles.keys():
+            self.StructureSet = Patient_ROI_Set(file=dcmFiles['unknown'][0],
                                                 imageInfo=self.Image.info)
             self.hasROI = True
 
@@ -155,7 +168,7 @@ def find_DCM_files_serial(rootpath=None):
 
     for fullpath in dcmList:
         try:
-            modality = dicom.read_file(fullpath, force=True).Modality
+            modality = dicom.read_file(fullpath, force=True).SOPClassUID
         except:
             modality = 'unknown'
         if modality not in dcmDict:

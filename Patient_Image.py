@@ -25,13 +25,7 @@ class Patient_Image(object):
         UID2IPP
     """
 
-    info = {'UID2Loc': {},
-            'UID2Ind': {},
-            'UID2IPP': {},
-            'Loc2UID': {},
-            'Loc2Ind': {},
-            'Ind2UID': {},
-            'Ind2Loc': {}}
+
 
     def __init__(self, fileList):
 
@@ -39,6 +33,14 @@ class Patient_Image(object):
         # must all belong to same reference set
         # There are properties that describe the entire VOLUME,
         # and there are properties that describe an individual slice
+
+        self.info = {'UID2Loc': {},
+                     'UID2Ind': {},
+                     'UID2IPP': {},
+                     'Loc2UID': {},
+                     'Loc2Ind': {},
+                     'Ind2UID': {},
+                     'Ind2Loc': {}}
 
         # print(self.info)
 
@@ -51,6 +53,9 @@ class Patient_Image(object):
             self.info['Pixels2Patient'] = self.GetPixels2Patient()
             self.info['Pat2Pix_noRot'] = self.GetPatient2Pixels(do_rot=False)
             self.info['Pix2Pat_noRot'] = self.GetPixels2Patient(do_rot=False)
+
+            print("Image Scaling: ", self.info['PixelSpacing'][0],
+                  self.info['PixelSpacing'][1], self.info['SliceSpacing'])
 
             # print('Pat2Pix', self.info['Patient2Pixels'])
             # print('Pat2Pix2', self.info['Pat2Pix_noRot'])

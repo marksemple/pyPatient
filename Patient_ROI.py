@@ -77,6 +77,9 @@ class Patient_ROI_Set(object):
         # print(info['UID2Ind'])
 
         nContours = len(cs)
+
+        print('UIDS that info has', info['UID2Ind'].keys())
+
         for contourSequence in cs:
 
             try:
@@ -86,26 +89,30 @@ class Patient_ROI_Set(object):
                 # some Ultrasound Contours are made differently
                 sliceLoc = float(contourSequence.ContourData[2])
                 sliceLoc = np.around(sliceLoc, decimals=5)
-                # print(sliceLoc)
                 uid = info['Loc2UID'][int(round(sliceLoc))]
 
             PA = ContourData2PatientArray(contourSequence.ContourData)
 
             try:  # axial dimension should have all the same numbers
-                VA = Patient2VectorArray(PA, info['Patient2Pixels'])
-
-            except:
                 VA = Patient2VectorArray(PA, info['Pat2Pix_noRot'])
 
+            except:
+                VA = Patient2VectorArray(PA, info['Patient2Pixels'])
+
             # print('pre transformation\n', VA[:, 1:10])
+            # print(PA[:, 0:5])
+            # print(info['Patient2Pixels'])
+            # print(info['Pat2Pix_noRot'])
+            # print(VA[:, 0:5])
 
             nPts = VA.shape[1]
-            VA[2, :] = np.ones((1, nPts)) * info['UID2Ind'][uid]
+            # VA[2, :] = np.ones((1, nPts)) * info['UID2Ind'][uid]
+            print(uid)
 
             # print('post transformation\n', VA[:, 1:10])
 
             CA = [VectorArray2CVContour(VA)]
-            ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
+            ImSlice = CVContour2ImageArray(CA, volSize[1], volSize[0])
             ind = int(np.around(VA[2, 0]))
             new_ROI['DataVolume'][:, :, ind] += ImSlice.copy()
 
@@ -248,6 +255,8 @@ def CVContour2VectorArray(CVContour, sliceZ):
     vectArray = flatArray.reshape((2, nPts), order='F')
     ones = np.ones((1, nPts))
     paddedVectArray = np.vstack((vectArray, ones * sliceZ, ones))
+    paddedVectArray = np.hstack((paddedVectArray,
+                                 np.array([paddedVectArray[:, 0]]).T))
     return paddedVectArray
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
