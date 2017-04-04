@@ -101,9 +101,12 @@ class QContourViewerWidget(QWidget):
         slider.setPageStep(1)
         slider.setRange(0, self.nSlices - 1)
 
-    def addROI(self, event=None, name=None, color=None,
-               data=None, lineWidth=3, *args):
+    def addROI(self, event=None, name=None, color=None, num=-1,
+               data=None, RefUID=uuid.uuid4(), lineWidth=3, *args):
         """ Registers a new ROI """
+
+        # if num == -1:
+        num = len(self.ROIs)
 
         # First, name and choose color for ROI
         if name is None or color is None:
@@ -123,9 +126,10 @@ class QContourViewerWidget(QWidget):
         counter = countContourSlices(data)
 
         # add make ROI object
-        self.ROIs.append({'index': len(self.ROIs),
+        self.ROIs.append({'index': num,
                           'name': name,
                           'color': color[0:3],
+                          'refUID': RefUID,
                           'id': uuid.uuid4(),
                           'raster': data,
                           'vector': [pg.PlotDataItem()],
@@ -157,10 +161,8 @@ class QContourViewerWidget(QWidget):
 
     def hideContoursFcn(self, val):
         """ """
-        if bool(val):
-            self.thisROI['hidden'] = True
-        else:
-            self.thisROI['hidden'] = False
+        for ROI in self.ROIs:
+            ROI['hidden'] = bool(val)
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
@@ -211,16 +213,17 @@ class QContourViewerWidget(QWidget):
     def updateTableFields(self, ROI, contours):
         """ """
         nConts = 0
+        ROI_Index = ROI['index']
         for contour in contours:
             nConts += 1
         # nVerts += contour.shape[0]
         ROI['sliceCount'][self.thisSlice] = nConts
         Nbools = sum([bool(entry) for entry in ROI['sliceCount']])
-        self.TableSliceCount[ROI['index']].setText(str(Nbools))
+        self.TableSliceCount[ROI_Index].setText(str(Nbools))
         if ROI['hidden']:
-            self.TableHideCheck[ROI['index']].setText('Hidden')
+            self.TableHideCheck[ROI_Index].setText('Hidden')
         else:
-            self.TableHideCheck[ROI['index']].setText('Shown')
+            self.TableHideCheck[ROI_Index].setText('Shown')
         # self.TableContCount[ROI['index']].setText(str(nConts))
         # self.TableVertCount[ROI['index']].setText(str(nVerts))
 
@@ -290,7 +293,7 @@ class QContourViewerWidget(QWidget):
         self.tablePicker.setItem(row, 2, sliceCount)
 
         # Show/Hide ROI
-        visibleCheck = QTableWidgetItem("Y")
+        visibleCheck = QTableWidgetItem("Shown")
         visibleCheck.setFlags(Qt.ItemIsEnabled)
         self.TableHideCheck.append(visibleCheck)
         self.tablePicker.setItem(row, 3, visibleCheck)

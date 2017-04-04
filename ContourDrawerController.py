@@ -30,17 +30,19 @@ class PatientContourDrawer(QContourDrawerWidget):
 
         self.Patient = Patient
         if Patient is not None:
-            self.initializePatient(Patient)
+            self.patient2Editor(Patient)
 
         # self.changeROI(0)
 
-    def initializePatient(self, Patient):
+    def patient2Editor(self, Patient):
         self.Patient = Patient
         self.init_Image(Patient.Image.data)
         for thisROI in Patient.StructureSet.ROIs:
             self.addROI(name=thisROI['ROIName'],
                         color=thisROI['ROIColor'],
-                        data=thisROI['DataVolume'])
+                        data=thisROI['DataVolume'],
+                        RefUID=thisROI['FrameRef_UID'],
+                        num=thisROI['ROINumber'])
 
         try:
             pros = Patient.StructureSet.ROI_byName['prostate']['DataVolume']
@@ -49,6 +51,13 @@ class PatientContourDrawer(QContourDrawerWidget):
             self.prostateStop = bounds[1, 2]
         except:
             print("no ARF")
+
+    # def editor2Patient(self):
+    #     for ROI in  self.Patient.StructureSet.ROIs
+    #     self.Patient.StructureSet
+
+    #     return self.Patient
+
 
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)
@@ -70,9 +79,12 @@ if __name__ == "__main__":
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Niranjan-ArticlesAndCommandFiles\Input\MR'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Report\Report\TSMRtoUScase_3\RTStructrureSet'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-19-2016\MR'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\MR'
-#
-    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\MR Anonymized'
+    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\MR Anonymized'
+
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Niranjan_Data\MR-US_Clean\MR-US_Clean\TSMRtoUScase_1\US'
+
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\SunnybrookDataset'
 
     form = PatientContourDrawer(PatientPath=rootTest)
     form.show()

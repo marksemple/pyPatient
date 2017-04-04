@@ -70,9 +70,9 @@ class Patient(object):
         MR = '1.2.840.10008.5.1.4.1.1.4'
         RTST = '1.2.840.10008.5.1.4.1.1.481.3'
         US = '1.2.840.10008.5.1.4.1.1.6.1'
+        CT = '1.2.840.10008.5.1.4.1.1.2'
 
-
-        print(dcmFiles)
+        # print(dcmFiles)
 
         if MR in dcmFiles.keys():
             self.Image = Patient_Image(dcmFiles[MR])
@@ -82,8 +82,8 @@ class Patient(object):
             self.Image = Patient_Image(dcmFiles[US])
             self.hasImage = True
 
-        elif 'CT' in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles['CT'])
+        elif CT in dcmFiles.keys():
+            self.Image = Patient_Image(dcmFiles[CT])
             self.hasImage = True
 
         if RTST in dcmFiles.keys():
@@ -125,7 +125,7 @@ def find_DCM_files_parallel(rootpath=None):
 
     print("Found {} files".format(len(dcmFileList)))
 
-    if len(dcmFileList) > 200:
+    if len(dcmFileList) > 300:
         print('Too many files!')
         return
 
@@ -162,7 +162,7 @@ def find_DCM_files_serial(rootpath=None):
                 fullpath = os.path.join(root, file)
                 dcmList.append(fullpath)
 
-    if len(dcmList) > 200:
+    if len(dcmList) > 300:
         print('Too many files!')
         return
 

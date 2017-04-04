@@ -48,6 +48,9 @@ class Patient_ROI_Set(object):
         self.di = di = dicom.read_file(filepath, force=True)
         self.ROIs = []
         self.ROI_byName = {}
+
+        print('test', len(di.ReferencedFrameOfReferenceSequence))
+
         for index, contour in enumerate(di.ROIContourSequence):
             try:
                 structure = di.StructureSetROISequence[index]
@@ -55,12 +58,13 @@ class Patient_ROI_Set(object):
                 structure = 0
             newROI = self.add_ROI(structure, contour)
             self.ROIs.append(newROI)
+            # print(newROI['ROIName'])
             self.ROI_byName[newROI['ROIName']] = newROI
         return True
 
     def add_ROI(self, structure, contour):
-        volSize = (self.imageInfo['Rows'],
-                   self.imageInfo['Cols'], self.imageInfo['NSlices'])
+        volSize = (self.imageInfo['Cols'],
+                   self.imageInfo['Rows'], self.imageInfo['NSlices'])
         new_ROI = {'ROINumber': int(structure.ROINumber),
                    'ROIName': structure.ROIName.lower(),
                    'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
@@ -68,8 +72,16 @@ class Patient_ROI_Set(object):
                    'DataVolume': np.zeros(volSize)}
         info = self.imageInfo
 
+        if 'prostate' in new_ROI['ROIName']:
+            new_ROI['ROIName'] = 'prostate'
+        elif 'dil' in new_ROI['ROIName']:
+            new_ROI['ROIName'] = 'dil'
+        elif 'urethra' in new_ROI['ROIName']:
+            new_ROI['ROIName'] = 'urethra'
+
         try:
             cs = contour.ContourSequence
+
         except AttributeError as ae:
             nContours = 0
             return new_ROI
@@ -78,7 +90,7 @@ class Patient_ROI_Set(object):
 
         nContours = len(cs)
 
-        print('UIDS that info has', info['UID2Ind'].keys())
+        # print('UIDS that info has', info['UID2Ind'].keys())
 
         for contourSequence in cs:
 
@@ -95,8 +107,9 @@ class Patient_ROI_Set(object):
 
             try:  # axial dimension should have all the same numbers
                 VA = Patient2VectorArray(PA, info['Pat2Pix_noRot'])
-
-            except:
+                # print("aligned first time")
+            except Exception:
+                # print("not aligned")
                 VA = Patient2VectorArray(PA, info['Patient2Pixels'])
 
             # print('pre transformation\n', VA[:, 1:10])
@@ -107,7 +120,7 @@ class Patient_ROI_Set(object):
 
             nPts = VA.shape[1]
             # VA[2, :] = np.ones((1, nPts)) * info['UID2Ind'][uid]
-            print(uid)
+            # print(uid)
 
             # print('post transformation\n', VA[:, 1:10])
 
@@ -150,9 +163,42 @@ class Patient_ROI_Set(object):
     #     print("NEW ROI: {}".format(structure.ROIName))
     #     return new_ROI
 
-    def write_file(self, filepath):
+    def write_file(self, filepath, ROI):
         """ """
-        pass
+        # pass
+        # self.di
+
+        # destination
+
+        # pydicom.write_file(filepath, self.di)
+
+
+
+    def writeToFile(self):
+        # di = pydicom.read_file(self.filePath)
+        # print("overwriting %s to file" % self.contourName)
+        thisROI = di.ROIContourSequence[self.ROIindex]
+        for thisContSeq in thisROI.ContourSequence:
+            try:
+                contNum = thisContSeq.ContourNumber
+            except:
+                contNum = thisContSeq.ContourImageSequence[0].ReferencedSOPInstanceUID
+
+            upData = self.slice2ContCoords[self.contNum2Slice[contNum][0]][0]
+            upDataStr = FormatForDicom(upData)
+            thisContSeq.ContourData = upDataStr
+            npts = len(upDataStr) / 3
+            thisContSeq.NumberOfContourPoints = str(int(npts))
+
+        pydicom.write_file(self.filePath, self.di)
+        # time.sleep(0.25)
+
+
+def FormatForDicom(contourData):
+    flatData = contourData.flatten()
+    stringData = [str(item) for item in flatData]
+    return stringData
+
 
 
 """ Helper functions to transform between contour representations """
