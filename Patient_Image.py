@@ -45,18 +45,23 @@ class Patient_Image(object):
         # print(self.info)
 
         if bool(fileList):
-            self.info = getStaticDicomSizeProps(fileList[0], self.info)
+            info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
             self.info['NSlices'] = len(fileList)
             self.get_sliceVariable_Properties(fileList)
             self.data = self.get_pixel_data()
-            self.info['Patient2Pixels'] = self.GetPatient2Pixels()
-            self.info['Pixels2Patient'] = self.GetPixels2Patient()
-            self.info['Pat2Pix_noRot'] = self.GetPatient2Pixels(do_rot=False)
-            self.info['Pix2Pat_noRot'] = self.GetPixels2Patient(do_rot=False)
+            info['Patient2Pixels'] = self.GetPatient2Pixels()
+            info['Pixels2Patient'] = self.GetPixels2Patient()
+            info['Pat2Pix_noRot'] = self.GetPatient2Pixels(do_rot=False)
+            info['Pix2Pat_noRot'] = self.GetPixels2Patient(do_rot=False)
 
-            print("Image Scaling: ", self.info['PixelSpacing'][0],
-                  self.info['PixelSpacing'][1], self.info['SliceSpacing'])
+            print("Image Scaling: ", info['PixelSpacing'][0],
+                  info['PixelSpacing'][1], info['SliceSpacing'])
 
+
+            if info['PatientPosition'] == 'FFS':
+                info['Patient2Pixels'], info['Pat2Pix_noRot'] = info['Pat2Pix_noRot'], info['Patient2Pixels']
+                info['Pixels2Patient'], info['Pix2Pat_noRot'] = info['Pix2Pat_noRot'], info['Pixels2Patient']
+                    # self.
             # print('Pat2Pix', self.info['Patient2Pixels'])
             # print('Pat2Pix2', self.info['Pat2Pix_noRot'])
 
@@ -206,7 +211,9 @@ def getStaticDicomSizeProps(imFile, staticProps={}):
     staticProps['PixelSpacing'] = [float(pxsp) for pxsp in di.PixelSpacing]
     try:
         staticProps['PatientPosition'] = di.PatientPosition
+        print("Patient Position: {}".format(di.PatientPosition))
     except:
+        print("No Patient Position field")
         staticProps['PatientPosition'] = ''
     return staticProps
 

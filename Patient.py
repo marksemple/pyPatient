@@ -57,6 +57,18 @@ class Patient(object):
     def scanPatientFolder(self, patient_directory):
         """ Scan directory for dicom files """
         # myFiles = find_DCM_files_parallel(patient_directory)
+
+        dcmFiles = []
+        print(patient_directory)
+        for root, dirs, files in os.walk(patient_directory):
+            for file in files:
+                if file.endswith('.dcm'):
+                    dcmFiles.append(file)
+
+        if len(dcmFiles) == 0:
+            print('NO FILES')
+            raise IOError
+
         myFiles = find_DCM_files_serial(patient_directory)
 
         for key in myFiles.keys():
@@ -176,11 +188,54 @@ def find_DCM_files_serial(rootpath=None):
 
         dcmDict[modality].append(fullpath)
 
-    print("serial took %.2fs to sort DCMS" % (time.time() - time_zero))
+    print("serial took %.2fs to sort DCMS for %s" % (time.time() - time_zero,
+                                                     modality))
     return(dcmDict)
 
 
+def backupFile_finder(path):
+
+    MR = None
+    US = None
+
+    for root, dirs, files in os.walk(path):
+
+        for folder in dirs:
+
+            fullfolder = os.path.join(root, folder)
+            print(os.path.join(root, folder))
+
+            if 'MR' in folder.upper():
+
+                print("THIS THE MR")
+                MR = fullfolder
+
+            elif 'US' in folder.upper():
+
+                print("THIS THE US")
+                US = fullfolder
+
+
+    if MR is not None:
+        for root, dirs, files in os.walk(MR):
+            print(files)
+
+
+    if US is not None:
+        for root, dirs, files in os.walk(US):
+            print(files)
+
+
+
 if __name__ == "__main__":
+
+    print('pass')
+    pass
+
+    # rootTest = r'X:\MR_to_US_Fusion\Curran_John'
+
+    # backupFile_finder(rootTest)
+
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
 
@@ -196,28 +251,28 @@ if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (HFS)'
 
-    patient = Patient('')  #patientPath=rootTest)
+    # patient = Patient('')  #patientPath=rootTest)
 
-    # print(patient.Image.info['UID2IPP'].values())
-    # ippVals = list(patient.Image.info['UID2IPP'].values())
-    # print(patient.Image.info['ImageOrientationPatient'])
-    # print(patient.Image)
-    # print(patient.StructureSet)
+    # # print(patient.Image.info['UID2IPP'].values())
+    # # ippVals = list(patient.Image.info['UID2IPP'].values())
+    # # print(patient.Image.info['ImageOrientationPatient'])
+    # # print(patient.Image)
+    # # print(patient.StructureSet)
 
-    from PyQt5.QtWidgets import QApplication
-    from ContourDrawer import QContourDrawerWidget
-    import sys
-
-
-    app = QApplication(sys.argv)
-    # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
-    # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
-    form = QContourDrawerWidget(imageData=patient.Image.data)
-    for thisROI in patient.StructureSet.ROIs:
-        form.addROI(name=thisROI['ROIName'],
-                    color=thisROI['ROIColor'],
-                    data=thisROI['DataVolume'])
+    # from PyQt5.QtWidgets import QApplication
+    # from ContourDrawer import QContourDrawerWidget
+    # import sys
 
 
-    form.show()
-    sys.exit(app.exec_())
+    # app = QApplication(sys.argv)
+    # # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
+    # # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
+    # form = QContourDrawerWidget(imageData=patient.Image.data)
+    # for thisROI in patient.StructureSet.ROIs:
+    #     form.addROI(name=thisROI['ROIName'],
+    #                 color=thisROI['ROIColor'],
+    #                 data=thisROI['DataVolume'])
+
+
+    # form.show()
+    # sys.exit(app.exec_())

@@ -62,6 +62,7 @@ class QContourViewerWidget(QWidget):
         # Data Items
         self.imageItem = pg.ImageItem()
         self.ROIs = []
+        self.ROIs_byName = {}
 
         # Widget parts
         self.applyLayout()
@@ -102,7 +103,7 @@ class QContourViewerWidget(QWidget):
         slider.setRange(0, self.nSlices - 1)
 
     def addROI(self, event=None, name=None, color=None, num=-1,
-               data=None, RefUID=uuid.uuid4(), lineWidth=3, *args):
+               data=None, RefUID=uuid.uuid4(), lineWidth=1, *args):
         """ Registers a new ROI """
 
         # if num == -1:
@@ -125,18 +126,22 @@ class QContourViewerWidget(QWidget):
                             dtype=np.uint8)
         counter = countContourSlices(data)
 
+        # self.ROIs.append()
+
         # add make ROI object
-        self.ROIs.append({'index': num,
-                          'name': name,
-                          'color': color[0:3],
-                          'refUID': RefUID,
+        self.ROIs.append({'ROINumber': num,
+                          'ROIName': name,
+                          'ROIColor': color[0:3],
+                          'FrameRef_UID': RefUID,
+                          'DataVolume': data,
                           'id': uuid.uuid4(),
-                          'raster': data,
                           'vector': [pg.PlotDataItem()],
                           'sliceCount': counter,
                           'lineWidth': lineWidth,
                           'polyCompression': 0.7,
                           'hidden': False})
+
+        self.ROIs_byName[name] = self.ROIs[-1]
 
         self.ROIs[-1]['vector'][-1].setPen(color=color[0:3], width=lineWidth)
         self.plotWidge.addItem(self.ROIs[-1]['vector'][-1])
@@ -210,22 +215,35 @@ class QContourViewerWidget(QWidget):
         except:
             pass
 
-    def updateTableFields(self, ROI, contours):
+    def updateEntireTable(self):
+        for ROI in self.ROIs:
+            self.updateTableFields(ROI=ROI)
+
+    def updateTableFields(self, ROI, contours=[]):
         """ """
         nConts = 0
-        ROI_Index = ROI['index']
-        for contour in contours:
-            nConts += 1
-        # nVerts += contour.shape[0]
-        ROI['sliceCount'][self.thisSlice] = nConts
+        ROI_Index = ROI['tableInd']
+        # print('present ROI_index', ROI_Index)
+        # print(ROI['ROIName'], ROI['ROINumber'])
+        if bool(contours):
+            for contour in contours:
+                nConts += 1
+            ROI['sliceCount'][self.thisSlice] = nConts
+
         Nbools = sum([bool(entry) for entry in ROI['sliceCount']])
+
         self.TableSliceCount[ROI_Index].setText(str(Nbools))
+
         if ROI['hidden']:
             self.TableHideCheck[ROI_Index].setText('Hidden')
         else:
             self.TableHideCheck[ROI_Index].setText('Shown')
-        # self.TableContCount[ROI['index']].setText(str(nConts))
-        # self.TableVertCount[ROI['index']].setText(str(nVerts))
+
+        qCol = QBrush(QColor(*ROI['ROIColor'][0:3]))
+        self.tablePicker.item(ROI_Index, 1).setBackground(qCol)
+
+        # self.TableContCount[ROI['ROINumber']].setText(str(nConts))
+        # self.TableVertCount[ROI['ROINumber']].setText(str(nVerts))
 
     def onCellClick(self, row, col):
         """ Handler for clicks on the TABLE object;
@@ -238,7 +256,7 @@ class QContourViewerWidget(QWidget):
 
         elif col == 1:  # COLOR
             color = self.chooseColor()
-            self.thisROI['color'] = color[0:3]
+            self.thisROI['ROIColor'] = color[0:3]
             qCol = QBrush(QColor(*color[0:3]))
             myItem = self.tablePicker.item(row, col)
             myItem.setBackground(qCol)
@@ -274,16 +292,17 @@ class QContourViewerWidget(QWidget):
 
         row = self.tablePicker.rowCount()
         self.tablePicker.insertRow(row)
+        ROI['tableInd'] = row
 
         # ROI NAME
-        name = QTableWidgetItem(ROI['name'])
+        name = QTableWidgetItem(ROI['ROIName'])
         name.setFlags(Qt.ItemIsEnabled)
         self.tablePicker.setItem(row, 0, name)
 
         # ROI COLOR (clickable)
         color = QTableWidgetItem(' ')
         color.setFlags(Qt.ItemIsEnabled)
-        color.setBackground(QBrush(QColor(*ROI['color'])))
+        color.setBackground(QBrush(QColor(*ROI['ROIColor'])))
         self.tablePicker.setItem(row, 1, color)
 
         # ROI Slice Count
@@ -342,14 +361,14 @@ class QContourViewerWidget(QWidget):
                 if ROI['id'] == self.thisROI['id']:
                     continue
 
-                contBinaryIm = ROI['raster'][:, :, self.thisSlice].copy()
+                contBinaryIm = ROI['DataVolume'][:, :, self.thisSlice].copy()
                 contours, hi = getContours(inputImage=contBinaryIm,
                                            compression=ROI['polyCompression'])
 
                 self.updateOutlines(ROI,
                                     contours,
                                     ROI['lineWidth'],
-                                    ROI['color'])
+                                    ROI['ROIColor'])
 
                 self.updateTableFields(ROI, contours)
 
@@ -360,8 +379,8 @@ class QContourViewerWidget(QWidget):
         if len(backgroundIm.shape) == 2:
             backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
 
-        activeColor = scaleColor(self.thisROI['color'], self.imageItem.levels)
-        contBinaryIm = self.thisROI['raster'][:, :, self.thisSlice].copy()
+        activeColor = scaleColor(self.thisROI['ROIColor'], self.imageItem.levels)
+        contBinaryIm = self.thisROI['DataVolume'][:, :, self.thisSlice].copy()
         activeCompression = self.thisROI['polyCompression']
         activeCont, hierarchy = getContours(inputImage=contBinaryIm,
                                             compression=activeCompression)
@@ -385,7 +404,7 @@ class QContourViewerWidget(QWidget):
             self.updateOutlines(self.thisROI,
                                 activeCont,
                                 self.thisROI['lineWidth'],
-                                self.thisROI['color'])
+                                self.thisROI['ROIColor'])
 
         self.imageItem.setImage(backgroundIm, autoLevels=False)
         self.updateTableFields(self.thisROI, activeCont)
@@ -526,7 +545,7 @@ class QContourViewerWidget(QWidget):
 
         table.horizontalHeader().setResizeMode(QHeaderView.Stretch)
 
-        bttn = QPushButton(" + New ROI")
+        self.addROIbttn = bttn = QPushButton(" + New ROI")
         bttn.clicked.connect(self.addROI)
         bttn.setFixedWidth(vwidth + hwidth + fwidth)
 
@@ -570,9 +589,9 @@ def scaleColor(color, levels):
 
 
 def formatHTML(ROI):
-    htmlOpener = '<font size="6" color=%s>' % ColorDec2Hex(ROI['color'])
+    htmlOpener = '<font size="6" color=%s>' % ColorDec2Hex(ROI['ROIColor'])
     htmlCloser = '</font>'
-    htmlString = htmlOpener + ROI['name'] + htmlCloser
+    htmlString = htmlOpener + ROI['ROIName'] + htmlCloser
     return htmlString
 
 
@@ -635,7 +654,7 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
 
-    myImage = 150 * np.random.random((700, 700, 2))
+    myImage = 150 * np.random.random((700, 700, 3))
     myImage = myImage.astype(np.uint16)
 
     form = QContourViewerWidget()  # imageData=myImage)

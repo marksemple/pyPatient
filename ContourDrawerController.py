@@ -1,17 +1,22 @@
 """ Integrate Contour Editing with Patient Data """
 
 import sys
+import uuid
 import numpy as np
+import pyqtgraph as pg
 try:
     from ContourDrawer import QContourDrawerWidget
+    from ContourViewer import countContourSlices
     from Patient import Patient as PatientObj
 except ImportError:
     from dicommodule.ContourDrawer import QContourDrawerWidget
+    from dicommodule.ContourViewer import countContourSlices
     from dicommodule.Patient import Patient as PatientObj
 try:
     import Affine_Registration_Fcns as ARF
 except ImportError:
     pass
+
 
 class PatientContourDrawer(QContourDrawerWidget):
 
@@ -28,21 +33,42 @@ class PatientContourDrawer(QContourDrawerWidget):
         if PatientPath is not None:
             Patient = PatientObj(patientPath=PatientPath)
 
-        self.Patient = Patient
         if Patient is not None:
             self.patient2Editor(Patient)
 
-        # self.changeROI(0)
+        self.addROIbttn.hide()
+
+    def addROI(self, ROI):
+        sliceCount = countContourSlices(ROI['DataVolume'])
+
+        ROI.update({'id': uuid.uuid4(),
+                    'vector': [pg.PlotDataItem()],
+                    'sliceCount': sliceCount,
+                    'polyCompression': 0.7,
+                    'hidden': False})
+
+        if 'lineWidth' not in ROI:
+            ROI['lineWidth'] = 3
+
+        self.ROIs.append(ROI)
+        self.ROIs_byName[ROI['ROIName']] = ROI
+
+        print(ROI['ROIName'], ' --- ', ROI['ROINumber'])
+
+        ROI['vector'][-1].setPen(color=ROI['ROIColor'][0:3],
+                                 width=ROI['lineWidth'])
+        self.plotWidge.addItem(ROI['vector'][-1])
+
+        self.add_ROI_to_Table(ROI)
+        self.changeROI(ROI_ind=ROI['tableInd'])
+        self.hasContourData = True
+        self.plotWidge.setFocus()
 
     def patient2Editor(self, Patient):
         self.Patient = Patient
         self.init_Image(Patient.Image.data)
         for thisROI in Patient.StructureSet.ROIs:
-            self.addROI(name=thisROI['ROIName'],
-                        color=thisROI['ROIColor'],
-                        data=thisROI['DataVolume'],
-                        RefUID=thisROI['FrameRef_UID'],
-                        num=thisROI['ROINumber'])
+            self.addROI(thisROI)
 
         try:
             pros = Patient.StructureSet.ROI_byName['prostate']['DataVolume']
@@ -53,11 +79,24 @@ class PatientContourDrawer(QContourDrawerWidget):
             print("no ARF")
 
     # def editor2Patient(self):
-    #     for ROI in  self.Patient.StructureSet.ROIs
-    #     self.Patient.StructureSet
-
-    #     return self.Patient
-
+    #     # pass
+    #     print('\n~~~~~~~~~~~~ Exporting ~~~~~~~~~~~~')
+    #     for ROI in self.ROIs:
+    #         print(ROI['ROIName'])
+    #         if ROI['ROIName'] in self.Patient.StructureSet.ROI_byName.keys():
+    #             print("update ROI {}".format(ROI['ROIName']))
+    #             # print('color', ROI['ROIColor'])
+    #             # for ROI
+    #             # update ROI
+    #         else:
+    #             print("add new ROI {}".format(ROI['ROIName']))
+                # add new ROI
+                # make new ROI for this one
+        # if len(self.Patient.di.RTROIObservationsSequence) == len(self.ROIs):
+        # for ROI in self.Patient.StructureSet.ROIs:
+        # self.Patient.StructureSet
+            # pass
+        # return self.Patient
 
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)
@@ -79,10 +118,12 @@ if __name__ == "__main__":
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Niranjan-ArticlesAndCommandFiles\Input\MR'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Report\Report\TSMRtoUScase_3\RTStructrureSet'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-19-2016\MR'
-    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\MR Anonymized'
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Niranjan_Data\MR-US_Clean\MR-US_Clean\TSMRtoUScase_1\US'
+
+    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US_OUTPUT'
 
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\SunnybrookDataset'
 

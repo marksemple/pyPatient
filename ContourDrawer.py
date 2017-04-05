@@ -57,7 +57,7 @@ class QContourDrawerWidget(QContourViewerWidget):
 
     def changeROI(self, ROI_ind):
         ROI = super().changeROI(ROI_ind)
-        modifyBrushStyle(self.circle, ROI['color'], 2, 'additive')
+        modifyBrushStyle(self.circle, ROI['ROIColor'], 2, 'additive')
 
     def hideControls(self, val):
         super().hideControls(val)
@@ -85,12 +85,12 @@ class QContourDrawerWidget(QContourViewerWidget):
 
     def primeToFill(self):
         self.fill = 255
-        modifyBrushStyle(self.circle, self.thisROI['color'],
+        modifyBrushStyle(self.circle, self.thisROI['ROIColor'],
                          self.contThickness, 'additive')
 
     def primeToWipe(self):
         self.fill = 0
-        modifyBrushStyle(self.circle, self.thisROI['color'],
+        modifyBrushStyle(self.circle, self.thisROI['ROIColor'],
                          self.contThickness, 'subtractive')
 
     def PaintClickEvent(self, event):
@@ -107,7 +107,7 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.tempCoordList.append([[y, x]])
 
         # see if any contours exist on this slice
-        oldIm = self.thisROI['raster'][:, :, ts]
+        oldIm = self.thisROI['DataVolume'][:, :, ts]
         isEmpty = checkEmpty(oldIm)
 
         if isEmpty or self.inContour:
@@ -115,10 +115,10 @@ class QContourDrawerWidget(QContourViewerWidget):
         else:
             self.primeToWipe()
 
-        self.thisROI['raster'][:, :, ts] = paintCircle(image=oldIm,
-                                                       fill=self.fill,
-                                                       x=y, y=x,
-                                                       radius=self.radius)
+        self.thisROI['DataVolume'][:, :, ts] = paintCircle(image=oldIm,
+                                                           fill=self.fill,
+                                                           x=y, y=x,
+                                                           radius=self.radius)
         self.updateContours(isNewSlice=True)
 
     def PaintReleaseEvent(self, event):
@@ -128,7 +128,7 @@ class QContourDrawerWidget(QContourViewerWidget):
 
         self.editingFlag = False
 
-        if checkEmpty(self.thisROI['raster'][:, :, self.thisSlice]):
+        if checkEmpty(self.thisROI['DataVolume'][:, :, self.thisSlice]):
             self.primeToFill()
 
     def PaintHoverEvent(self, event):
@@ -152,7 +152,7 @@ class QContourDrawerWidget(QContourViewerWidget):
 
             if not self.editingFlag:  # mouse motion without click
 
-                binaryContIm = self.thisROI['raster'][:, :, self.thisSlice]
+                binaryContIm = self.thisROI['DataVolume'][:, :, self.thisSlice]
                 NowInContour = inContourCheck((x, y), binaryContIm)
 
                 if NowInContour is True and self.prevInContour is not True:
@@ -169,10 +169,10 @@ class QContourDrawerWidget(QContourViewerWidget):
             else:  # mouse motion yes click
 
                 ts = self.thisSlice
-                oldIm = self.thisROI['raster'][:, :, ts]
+                oldIm = self.thisROI['DataVolume'][:, :, ts]
                 self.tempCoordList.append([[y, x]])
                 pts = [np.array(self.tempCoordList).astype(np.int32)]
-                thisVol = self.thisROI['raster']
+                thisVol = self.thisROI['DataVolume']
                 thisVol[:, :, ts] = cv2.polylines(img=oldIm.copy(),
                                                   pts=pts,
                                                   isClosed=False,
@@ -257,7 +257,7 @@ class QContourDrawerWidget(QContourViewerWidget):
                 self.enablePaintingControls()
 
     def doControlModifier(self):
-        oldIm = self.thisROI['raster'][:, :, self.thisSlice]
+        oldIm = self.thisROI['DataVolume'][:, :, self.thisSlice]
         if checkEmpty(oldIm) or self.prevInContour:
             self.primeToWipe()
         else:
@@ -270,7 +270,7 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.ctrlModifier = True
 
     def undoControlModifier(self):
-        oldIm = self.thisROI['raster'][:, :, self.thisSlice]
+        oldIm = self.thisROI['DataVolume'][:, :, self.thisSlice]
         if checkEmpty(oldIm) or self.prevInContour:
             self.primeToFill()
         else:
@@ -293,10 +293,10 @@ class QContourDrawerWidget(QContourViewerWidget):
             print("already at top!")
             return
 
-        neighbIm = roi['raster'][:, :, slice0 + direction].copy()
-        thisIm = roi['raster'][:, :, slice0].copy()
+        neighbIm = roi['DataVolume'][:, :, slice0 + direction].copy()
+        thisIm = roi['DataVolume'][:, :, slice0].copy()
 
-        roi['raster'][:, :, slice0] = neighbIm + thisIm
+        roi['DataVolume'][:, :, slice0] = neighbIm + thisIm
 
         # ~~~~~~~~~~~~~~~ TABLE Section
     def dilate_erode_ROI(self, roi, direction):
@@ -304,12 +304,12 @@ class QContourDrawerWidget(QContourViewerWidget):
         # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
                                            (self.morphSize, self.morphSize))
-        im = roi['raster'][:, :, slice0].copy()
+        im = roi['DataVolume'][:, :, slice0].copy()
         if direction > 0:
 
-            roi['raster'][:, :, slice0] = cv2.dilate(im, kernel)
+            roi['DataVolume'][:, :, slice0] = cv2.dilate(im, kernel)
         elif direction < 0:
-            roi['raster'][:, :, slice0] = cv2.erode(im, kernel)
+            roi['DataVolume'][:, :, slice0] = cv2.erode(im, kernel)
         self.updateContours()
 
 

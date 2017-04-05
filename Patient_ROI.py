@@ -35,7 +35,7 @@ class Patient_ROI_Set(object):
                 return
             except AttributeError as ae:
                 print("something went wrong reading file: {}".format(ae))
-                return
+                raise Exception
 
         # how many Regions of Interest are there?
         pass
@@ -46,10 +46,12 @@ class Patient_ROI_Set(object):
     def read_file(self, filepath):
         """ """
         self.di = di = dicom.read_file(filepath, force=True)
+        (head, self.SSFile) = os.path.split(filepath)
         self.ROIs = []
         self.ROI_byName = {}
 
-        print('test', len(di.ReferencedFrameOfReferenceSequence))
+        # print('test', len(di.ReferencedFrameOfReferenceSequence))
+        # print("RT ROI OBSERVATIONS:", len(di.RTROIObservationsSequence))
 
         for index, contour in enumerate(di.ROIContourSequence):
             try:
@@ -61,6 +63,53 @@ class Patient_ROI_Set(object):
             # print(newROI['ROIName'])
             self.ROI_byName[newROI['ROIName']] = newROI
         return True
+
+    def over_write_file(self, filepath):
+        print('looking at {}'.format(filepath))
+        di = dicom.read_file(filepath)
+
+        for index, contour in enumerate(di.ROIContourSequence):
+
+            try:
+                structure = di.StructureSetROISequence[index]
+                name = structure.ROIName
+                if name in self.ROI_byName.keys():
+                    print("Already got thid one:{}".format(name))
+                else:
+                    print("Make new one for :{}".format(name))
+            except AttributeError as ae:
+                structure = 0
+            # ROI = self.ROIs[]
+            # newROI = self.add_ROI(structure, contour)
+            # self.ROIs.append(newROI)
+            # print(newROI['ROIName'])
+            # self.ROI_byName[newROI['ROIName']] = newROI
+            # return True
+        pass
+
+    def writeToFile(self):
+        # di = pydicom.read_file(self.filePath)
+        # print("overwriting %s to file" % self.contourName)
+        thisROI = di.ROIContourSequence[self.ROIindex]
+        for thisContSeq in thisROI.ContourSequence:
+            try:
+                contNum = thisContSeq.ContourNumber
+            except:
+                contNum = thisContSeq.ContourImageSequence[0].ReferencedSOPInstanceUID
+
+            upData = self.slice2ContCoords[self.contNum2Slice[contNum][0]][0]
+            upDataStr = FormatForDicom(upData)
+            thisContSeq.ContourData = upDataStr
+            npts = len(upDataStr) / 3
+            thisContSeq.NumberOfContourPoints = str(int(npts))
+
+        pydicom.write_file(self.filePath, self.di)
+        # time.sleep(0.25)
+
+    def FormatForDicom(contourData):
+        flatData = contourData.flatten()
+        stringData = [str(item) for item in flatData]
+        return stringData
 
     def add_ROI(self, structure, contour):
         volSize = (self.imageInfo['Cols'],
@@ -133,6 +182,11 @@ class Patient_ROI_Set(object):
                                                     nContours))
         return new_ROI
 
+
+
+
+
+
     # def ContourSequence2BinaryVolume(self, structure, contour):
     #     """ Data from DICOM file into raster volume """
 
@@ -160,49 +214,15 @@ class Patient_ROI_Set(object):
     #         # print('index {} has {}'.format(ind, ImSlice.shape))
     #         new_ROI['DataVolume'][:, :, ind] = ImSlice
 
-    #     print("NEW ROI: {}".format(structure.ROIName))
-    #     return new_ROI
-
-    def write_file(self, filepath, ROI):
-        """ """
-        # pass
-        # self.di
-
-        # destination
-
-        # pydicom.write_file(filepath, self.di)
-
-
-
-    def writeToFile(self):
-        # di = pydicom.read_file(self.filePath)
-        # print("overwriting %s to file" % self.contourName)
-        thisROI = di.ROIContourSequence[self.ROIindex]
-        for thisContSeq in thisROI.ContourSequence:
-            try:
-                contNum = thisContSeq.ContourNumber
-            except:
-                contNum = thisContSeq.ContourImageSequence[0].ReferencedSOPInstanceUID
-
-            upData = self.slice2ContCoords[self.contNum2Slice[contNum][0]][0]
-            upDataStr = FormatForDicom(upData)
-            thisContSeq.ContourData = upDataStr
-            npts = len(upDataStr) / 3
-            thisContSeq.NumberOfContourPoints = str(int(npts))
-
-        pydicom.write_file(self.filePath, self.di)
-        # time.sleep(0.25)
-
-
-def FormatForDicom(contourData):
-    flatData = contourData.flatten()
-    stringData = [str(item) for item in flatData]
-    return stringData
-
 
 
 """ Helper functions to transform between contour representations """
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+# def mkStructureSetROISequence(ROI)
+
+#     dicom.
 
 
 def ContourData2PatientArray(contourData):
