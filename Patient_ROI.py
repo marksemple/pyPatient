@@ -37,6 +37,8 @@ class Patient_ROI_Set(object):
                 print("something went wrong reading file: {}".format(ae))
                 raise Exception
 
+            # self.filepath = file
+
         # how many Regions of Interest are there?
         pass
 
@@ -46,7 +48,8 @@ class Patient_ROI_Set(object):
     def read_file(self, filepath):
         """ """
         self.di = di = dicom.read_file(filepath, force=True)
-        (head, self.SSFile) = os.path.split(filepath)
+        # self.filepath = filepath
+        (self.fileroot, self.SSFile) = os.path.split(filepath)
         self.ROIs = []
         self.ROI_byName = {}
 
@@ -54,62 +57,18 @@ class Patient_ROI_Set(object):
         # print("RT ROI OBSERVATIONS:", len(di.RTROIObservationsSequence))
 
         for index, contour in enumerate(di.ROIContourSequence):
+
             try:
                 structure = di.StructureSetROISequence[index]
+
             except AttributeError as ae:
                 structure = 0
             newROI = self.add_ROI(structure, contour)
+
             self.ROIs.append(newROI)
-            # print(newROI['ROIName'])
             self.ROI_byName[newROI['ROIName']] = newROI
+
         return True
-
-    def over_write_file(self, filepath):
-        print('looking at {}'.format(filepath))
-        di = dicom.read_file(filepath)
-
-        for index, contour in enumerate(di.ROIContourSequence):
-
-            try:
-                structure = di.StructureSetROISequence[index]
-                name = structure.ROIName
-                if name in self.ROI_byName.keys():
-                    print("Already got thid one:{}".format(name))
-                else:
-                    print("Make new one for :{}".format(name))
-            except AttributeError as ae:
-                structure = 0
-            # ROI = self.ROIs[]
-            # newROI = self.add_ROI(structure, contour)
-            # self.ROIs.append(newROI)
-            # print(newROI['ROIName'])
-            # self.ROI_byName[newROI['ROIName']] = newROI
-            # return True
-        pass
-
-    def writeToFile(self):
-        # di = pydicom.read_file(self.filePath)
-        # print("overwriting %s to file" % self.contourName)
-        thisROI = di.ROIContourSequence[self.ROIindex]
-        for thisContSeq in thisROI.ContourSequence:
-            try:
-                contNum = thisContSeq.ContourNumber
-            except:
-                contNum = thisContSeq.ContourImageSequence[0].ReferencedSOPInstanceUID
-
-            upData = self.slice2ContCoords[self.contNum2Slice[contNum][0]][0]
-            upDataStr = FormatForDicom(upData)
-            thisContSeq.ContourData = upDataStr
-            npts = len(upDataStr) / 3
-            thisContSeq.NumberOfContourPoints = str(int(npts))
-
-        pydicom.write_file(self.filePath, self.di)
-        # time.sleep(0.25)
-
-    def FormatForDicom(contourData):
-        flatData = contourData.flatten()
-        stringData = [str(item) for item in flatData]
-        return stringData
 
     def add_ROI(self, structure, contour):
         volSize = (self.imageInfo['Cols'],
@@ -119,59 +78,40 @@ class Patient_ROI_Set(object):
                    'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
                    'ROIColor': [int(x) for x in contour.ROIDisplayColor],
                    'DataVolume': np.zeros(volSize)}
+        self.FrameOfReferenceUID = structure.ReferencedFrameOfReferenceUID
         info = self.imageInfo
 
-        if 'prostate' in new_ROI['ROIName']:
-            new_ROI['ROIName'] = 'prostate'
-        elif 'dil' in new_ROI['ROIName']:
-            new_ROI['ROIName'] = 'dil'
-        elif 'urethra' in new_ROI['ROIName']:
-            new_ROI['ROIName'] = 'urethra'
+        new_ROI['ROIName'] = new_ROI['ROIName'].lower()
 
         try:
-            cs = contour.ContourSequence
+            contourSequence = contour.ContourSequence
 
         except AttributeError as ae:
             nContours = 0
             return new_ROI
 
-        # print(info['UID2Ind'])
+        nContours = len(contourSequence)
 
-        nContours = len(cs)
-
-        # print('UIDS that info has', info['UID2Ind'].keys())
-
-        for contourSequence in cs:
+        for contour in contourSequence:
 
             try:
-                cis = contourSequence.ContourImageSequence[0]
+                cis = contour.ContourImageSequence[0]
                 uid = cis.ReferencedSOPInstanceUID
             except AttributeError as ae:
                 # some Ultrasound Contours are made differently
-                sliceLoc = float(contourSequence.ContourData[2])
+                sliceLoc = float(contour.ContourData[2])
                 sliceLoc = np.around(sliceLoc, decimals=5)
                 uid = info['Loc2UID'][int(round(sliceLoc))]
 
-            PA = ContourData2PatientArray(contourSequence.ContourData)
+            PA = ContourData2PatientArray(contour.ContourData)
 
             try:  # axial dimension should have all the same numbers
                 VA = Patient2VectorArray(PA, info['Pat2Pix_noRot'])
-                # print("aligned first time")
+
             except Exception:
-                # print("not aligned")
                 VA = Patient2VectorArray(PA, info['Patient2Pixels'])
 
-            # print('pre transformation\n', VA[:, 1:10])
-            # print(PA[:, 0:5])
-            # print(info['Patient2Pixels'])
-            # print(info['Pat2Pix_noRot'])
-            # print(VA[:, 0:5])
-
             nPts = VA.shape[1]
-            # VA[2, :] = np.ones((1, nPts)) * info['UID2Ind'][uid]
-            # print(uid)
-
-            # print('post transformation\n', VA[:, 1:10])
 
             CA = [VectorArray2CVContour(VA)]
             ImSlice = CVContour2ImageArray(CA, volSize[1], volSize[0])
@@ -183,46 +123,137 @@ class Patient_ROI_Set(object):
         return new_ROI
 
 
+    """ Helper functions to transform between contour representations """
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def over_write_file(self, outputDir):
+
+        print("over writing ROI file! ")
+        pix2pat = self.imageInfo['Pixels2Patient']
+        ind2loc = self.imageInfo['Ind2Loc']
+
+        for ROI in self.ROIs:
+            print('{}: {}'.format(ROI['ROINumber'], ROI['ROIName']))
+
+        ROInames_in_file = []
+        for SSROISeq in self.di.StructureSetROISequence:
+            ROInames_in_file.append(SSROISeq.ROIName.lower())
+        fileROI_set = set(ROInames_in_file)
+
+        PatientROI_set = set(self.ROI_byName.keys())
+        patient_not_file = list(PatientROI_set.difference(fileROI_set))
+        print('ROIs in pat but not file', patient_not_file)
+
+        for patientName in patient_not_file:
+            thisROI = self.ROI_byName[patientName]
+
+            ROIObsSeq = mkNewROIObs_dataset(thisROI)
+            self.di.RTROIObservationsSequence.append(ROIObsSeq)
+
+            SSROI = mkNewStructureSetROI_dataset(thisROI,
+                                                 self.FrameOfReferenceUID)
+            self.di.StructureSetROISequence.append(SSROI)
+
+            ROIContour = mkNewROIContour_dataset(thisROI)
+            self.di.ROIContourSequence.append(ROIContour)
+
+        for index, SS in enumerate(self.di.StructureSetROISequence):
+
+            thisROI = self.ROI_byName[SS.ROIName.lower()]
+
+            ContourSequence = mkNewContour_Sequence(thisROI, ind2loc, pix2pat)
+
+            self.di.ROIContourSequence[index].ContourSequence = ContourSequence
+
+        outFile = self.SSFile
+        outpath = os.path.join(outputDir, outFile)
+        print('saving to {}'.format(outpath))
+        dicom.write_file(outpath, self.di)
 
 
+def mkNewStructureSetROI_dataset(ROI, FrameOfRefUID):
+    # Create a new DataSet for the Structure Set ROI Sequence
+
+    SSROI = dicom.dataset.Dataset()
+    SSROI.ROINumber = ROI['ROINumber']
+    SSROI.ReferencedFrameOfReferenceUID = str(FrameOfRefUID)
+    SSROI.ROIName = ROI['ROIName']
+    SSROI.ROIDescription = ROI['ROIName']
+    SSROI.ROIGenerationAlgorithm = 'WARPED_MR'
+
+    return SSROI
 
 
-    # def ContourSequence2BinaryVolume(self, structure, contour):
-    #     """ Data from DICOM file into raster volume """
+def mkNewROIObs_dataset(ROI):
+    # Create a new DataSet for the RT ROI OBSERVATIONS SEQUENCE
 
-    #     volSize = (self.imageInfo['Rows'],
-    #                self.imageInfo['Cols'], self.imageInfo['NSlices'])
+    ROIObsSeq = dicom.dataset.Dataset()
+    ROIObsSeq.ObservationNumber = ROI['ROINumber']
+    ROIObsSeq.ReferencedROINumber = ROI['ROINumber']
+    ROIObsSeq.ROIObservationDescription = ROI['ROIName']
+    ROIObsSeq.RTROIInterpretedType = 'REGION_OF_INTEREST'
+    ROIObsSeq.ROIInterpreter = 'admin'
 
-    #     new_ROI = {'ROINumber': int(structure.ROINumber),
-    #                'ROIName': structure.ROIName,
-    #                'FrameRef_UID': structure.ReferencedFrameOfReferenceUID,
-    #                'ROIColor': [int(x) for x in contour.ROIDisplayColor],
-    #                'DataVolume': np.zeros(volSize)}
-
-    #     for contourSequence in contour.ContourSequence:
-    #         PA = ContourData2PatientArray(contourSequence.ContourData)
-    #         try:
-    #             VA = Patient2VectorArray(PA,
-    # self.imageInfo['Patient2Pixels'])
-    #             print(VA)
-    #         except:
-    #             VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix_noRot'])
-    #             print(VA)
-    #         CA = [VectorArray2CVContour(VA)]
-    #         ImSlice = CVContour2ImageArray(CA, volSize[0], volSize[1])
-    #         ind = int(VA[2, 0])
-    #         # print('index {} has {}'.format(ind, ImSlice.shape))
-    #         new_ROI['DataVolume'][:, :, ind] = ImSlice
+    return ROIObsSeq
 
 
+def mkNewROIContour_dataset(ROI):
+    # Create a new DataSet for the RT ROI OBSERVATIONS SEQUENCE
 
-""" Helper functions to transform between contour representations """
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ROIContour = dicom.dataset.Dataset()
+    ROIContour.ROIDisplayColor = [str(x) for x in ROI['ROIColor']]
+    ROIContour.ReferencedROINumber = ROI['ROINumber']
+    # ROIContour.ContourSequence = dicom.sequence.Sequence()
+    return ROIContour
 
 
-# def mkStructureSetROISequence(ROI)
+def mkNewContour_Sequence(ROI, index2location, pix2patTForm):
 
-#     dicom.
+    # ROI['DataVolume']
+    contourSequence = dicom.sequence.Sequence()
+    contourCount = 0
+
+    # iterate through slices of image volume
+    for sliceIndex in range(0, ROI['DataVolume'].shape[2]):
+
+        if 'polyCompression' in ROI:
+            compression = ROI['polyCompression']
+        else:
+            compression = 0
+
+        CvContour = ImageArray2CVContour(ROI['DataVolume'][:, :, sliceIndex].T,
+                                         compression)
+
+        if not bool(CvContour):
+            # print("no contours on slice {}".format(sliceIndex))
+            continue
+
+        thisLocation = index2location[sliceIndex]
+
+        # ** how to do multiple contours????
+
+        VectorArray = CVContour2VectorArray(CvContour[0], sliceIndex)
+        PatientArray = Vector2PatientArray(VectorArray, pix2patTForm)
+        ContourData = PatientArray2ContourData(PatientArray)
+        contourCount += 1
+        Contour = mkNewContour(ContourData, contourCount)
+
+        contourSequence.append(Contour)
+
+        # print(Contour)
+
+    return contourSequence
+
+
+def mkNewContour(ContourData, contourNumber=1):
+
+    contour = dicom.dataset.Dataset()
+    contour.ContourGeometricType = 'CLOSED_PLANAR'
+    contour.NumberOfContourPoints = int(len(ContourData) / 3)
+    contour.ContourNumber = contourNumber
+    contour.ContourData = ContourData
+
+    return contour
 
 
 def ContourData2PatientArray(contourData):
@@ -266,14 +297,8 @@ def Patient2VectorArray(PatientArray, transform):
     vectorArray = transform.dot(PatientArray)
     vectorArray = np.around(vectorArray, decimals=2)
 
-    # print(vectorArray[2, 0])
-    # print(vectorArray[2, 1])
     dummy = np.ones((1, vectorArray.shape[1])) * vectorArray[2, 0]
     same = np.allclose(vectorArray[2, :], dummy)
-
-    # print("T", transform)
-    # print(vectorArray)
-    # print(dummy[0, :10])
 
     if same is not True:
         raise Exception
@@ -350,16 +375,18 @@ def CVContour2ImageArray(CVContour, rows, cols):
     return contourImageOut
 
 
-def ImageArray2CVContour(ImageArray, compression=None):
+def ImageArray2CVContour(ImageArray, compression=0):
     """ Transforms binary ImageArray to list of vectors
     input: ImageArray must be a binary image/raster of the contour object
     output: vector list of contours
     """
-    im, contours, hierarchy = cv2.findContours(ImageArray.copy(),
+    _imageArray = ImageArray.copy().astype(np.uint8)
+    im, contours, hierarchy = cv2.findContours(_imageArray,
                                                cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
 
-    if type(compression) == int:
+    if not compression == 0:
+        # compression = int(compression)
         for ind, contour in enumerate(contours):
             contours[ind] = cv2.approxPolyDP(contour, compression, True)
 

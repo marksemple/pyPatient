@@ -53,11 +53,13 @@ class PatientContourDrawer(QContourDrawerWidget):
         self.ROIs.append(ROI)
         self.ROIs_byName[ROI['ROIName']] = ROI
 
-        print(ROI['ROIName'], ' --- ', ROI['ROINumber'])
+        # print(ROI['ROIName'], ' --- ', ROI['ROINumber'])
 
         ROI['vector'][-1].setPen(color=ROI['ROIColor'][0:3],
                                  width=ROI['lineWidth'])
         self.plotWidge.addItem(ROI['vector'][-1])
+
+        # self.Patient.StructureSet.add_new_ROI(ROI)
 
         self.add_ROI_to_Table(ROI)
         self.changeROI(ROI_ind=ROI['tableInd'])
@@ -75,28 +77,10 @@ class PatientContourDrawer(QContourDrawerWidget):
             bounds, size = ARF.findBoundingCuboid(pros)
             self.prostateStart = bounds[0, 2]
             self.prostateStop = bounds[1, 2]
+
         except:
             print("no ARF")
 
-    # def editor2Patient(self):
-    #     # pass
-    #     print('\n~~~~~~~~~~~~ Exporting ~~~~~~~~~~~~')
-    #     for ROI in self.ROIs:
-    #         print(ROI['ROIName'])
-    #         if ROI['ROIName'] in self.Patient.StructureSet.ROI_byName.keys():
-    #             print("update ROI {}".format(ROI['ROIName']))
-    #             # print('color', ROI['ROIColor'])
-    #             # for ROI
-    #             # update ROI
-    #         else:
-    #             print("add new ROI {}".format(ROI['ROIName']))
-                # add new ROI
-                # make new ROI for this one
-        # if len(self.Patient.di.RTROIObservationsSequence) == len(self.ROIs):
-        # for ROI in self.Patient.StructureSet.ROIs:
-        # self.Patient.StructureSet
-            # pass
-        # return self.Patient
 
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)
@@ -120,12 +104,13 @@ if __name__ == "__main__":
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-19-2016\MR'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\MR Anonymized'
-
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Niranjan_Data\MR-US_Clean\MR-US_Clean\TSMRtoUScase_1\US'
-
-    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US_OUTPUT'
-
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US_OUTPUT'
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US'
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\SunnybrookDataset'
+
+    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 9-30-2016\RTStructure'
 
     form = PatientContourDrawer(PatientPath=rootTest)
     form.show()

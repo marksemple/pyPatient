@@ -57,7 +57,6 @@ class Patient_Image(object):
             print("Image Scaling: ", info['PixelSpacing'][0],
                   info['PixelSpacing'][1], info['SliceSpacing'])
 
-
             if info['PatientPosition'] == 'FFS':
                 info['Patient2Pixels'], info['Pat2Pix_noRot'] = info['Pat2Pix_noRot'], info['Patient2Pixels']
                 info['Pixels2Patient'], info['Pix2Pat_noRot'] = info['Pix2Pat_noRot'], info['Pixels2Patient']
