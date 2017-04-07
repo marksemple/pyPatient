@@ -27,7 +27,7 @@ class Patient_Image(object):
 
 
 
-    def __init__(self, fileList):
+    def __init__(self, fileList, revRot=False):
 
         # must have fileList attribute
         # must all belong to same reference set
@@ -46,23 +46,34 @@ class Patient_Image(object):
 
         if bool(fileList):
             info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
-            self.info['NSlices'] = len(fileList)
+
+            print("MR IOP: {}".format(info['IOP']))
+
+            info['NSlices'] = len(fileList)
             self.get_sliceVariable_Properties(fileList)
             self.data = self.get_pixel_data()
-            info['Patient2Pixels'] = self.GetPatient2Pixels()
-            info['Pixels2Patient'] = self.GetPixels2Patient()
-            info['Pat2Pix_noRot'] = self.GetPatient2Pixels(do_rot=False)
-            info['Pix2Pat_noRot'] = self.GetPixels2Patient(do_rot=False)
+
+            info['R'] = info['ImageOrientationPatient']
+            info['RT'] = info['ImageOrientationPatient'].T
+
+            print("REVROT:", revRot)
+            if not revRot:
+                info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
+                info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
+                info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
+                info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
+            else:
+                info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
+                info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
+                info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
+                info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
+
+            # print("PAT2PIX", info['Pat2Pix_R'])
 
             print("Image Scaling: ", info['PixelSpacing'][0],
                   info['PixelSpacing'][1], info['SliceSpacing'])
 
-            if info['PatientPosition'] == 'FFS':
-                info['Patient2Pixels'], info['Pat2Pix_noRot'] = info['Pat2Pix_noRot'], info['Patient2Pixels']
-                info['Pixels2Patient'], info['Pix2Pat_noRot'] = info['Pix2Pat_noRot'], info['Pixels2Patient']
-                    # self.
-            # print('Pat2Pix', self.info['Patient2Pixels'])
-            # print('Pat2Pix2', self.info['Pat2Pix_noRot'])
+            print("going with R of:\n{}".format(info['Pat2Pix_R']))
 
         # else:
         # self.createProps()
@@ -128,17 +139,14 @@ class Patient_Image(object):
             pixelData[:, :, ind] = self.dataDict[uid]['PixelData']
         return pixelData
 
-    def GetPatient2Pixels(self, do_rot=True):
+    def GetPatient2Pixels(self, R=np.eye(3)):
         """ Transformaton of Patient Coordinate to Pixel Indices
             """
         sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
 
         # ROTATION
         temp = np.eye(4)
-        R = self.info['ImageOrientationPatient']
-        if not do_rot:
-            R = R.T
-        temp[0:3, 0:3] = R.T
+        temp[0:3, 0:3] = R
         Rotation = temp
 
         # TRANSLATION
@@ -157,16 +165,13 @@ class Patient_Image(object):
 
         return Scaling.dot(Rotation).dot(Translation)
 
-    def GetPixels2Patient(self, do_rot=True):
+    def GetPixels2Patient(self, R=np.eye(3)):
         """ Transformation of Pixel Indices to Patient Coordinates """
         sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
 
         # ROTATION
         # if Rotation:
         temp = np.eye(4)
-        R = self.info['ImageOrientationPatient']
-        if not do_rot:
-            R = R.T
         temp[0:3, 0:3] = R
         Rotation = temp
 
@@ -204,6 +209,10 @@ def getStaticDicomSizeProps(imFile, staticProps={}):
     di = dicom.read_file(imFile)
     # staticProps = {}
     staticProps['ImageOrientationPatient'] = getImOrientationMatrix(di)
+    try:
+        staticProps['IOP'] = di.ImageOrientationPatient
+    except:
+        staticProps['IOP'] = [1, 0, 0, 0, 1, 0]
     # print("IOP: ", staticProps['ImageOrientationPatient'])
     staticProps['Rows'] = di.Rows
     staticProps['Cols'] = di.Columns
@@ -237,10 +246,10 @@ def getImOrientationMatrix(di):
     # get the Volume Rotation from file (remains const)
     if isinstance(di, str):
         di = dicom.read_file(di)
-    try:
-        patPos = di.PatientPosition
-    except AttributeError as AE:
-        patPos = None
+    # try:
+    #     patPos = di.PatientPosition
+    # except AttributeError as AE:
+    #     patPos = None
     try:
         imOr = di.ImageOrientationPatient  # Field exists in both US and MR
     except AttributeError:
@@ -253,12 +262,7 @@ def getImOrientationMatrix(di):
     V2 = V2 / np.linalg.norm(V2)
     V3 = np.cross(V1, V2)
     R = np.array([V1, V2, V3])  # a 3x3 Rotation matrix
-    if patPos == "FFS":
-        # print("FFS")
-        return R
-    if patPos == "HFS":  # ims taken Backwards!
-        # print("HFS")
-        return R
+
     return R
 
 

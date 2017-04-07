@@ -105,11 +105,7 @@ class Patient_ROI_Set(object):
 
             PA = ContourData2PatientArray(contour.ContourData)
 
-            try:  # axial dimension should have all the same numbers
-                VA = Patient2VectorArray(PA, info['Pat2Pix_noRot'])
-
-            except Exception:
-                VA = Patient2VectorArray(PA, info['Patient2Pixels'])
+            VA = Patient2VectorArray(PA, info['Pat2Pix_R'])
 
             nPts = VA.shape[1]
 
@@ -129,7 +125,7 @@ class Patient_ROI_Set(object):
     def over_write_file(self, outputDir):
 
         print("over writing ROI file! ")
-        pix2pat = self.imageInfo['Pixels2Patient']
+        pix2pat = self.imageInfo['Pix2Pat_RT']
         ind2loc = self.imageInfo['Ind2Loc']
 
         for ROI in self.ROIs:
@@ -297,11 +293,11 @@ def Patient2VectorArray(PatientArray, transform):
     vectorArray = transform.dot(PatientArray)
     vectorArray = np.around(vectorArray, decimals=2)
 
-    dummy = np.ones((1, vectorArray.shape[1])) * vectorArray[2, 0]
-    same = np.allclose(vectorArray[2, :], dummy)
+    # dummy = np.ones((1, vectorArray.shape[1])) * vectorArray[2, 0]
+    # same = np.allclose(vectorArray[2, :], dummy)
 
-    if same is not True:
-        raise Exception
+    # if same is not True:
+        # raise Exception
 
     return vectorArray
 

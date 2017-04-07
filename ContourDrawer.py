@@ -80,7 +80,8 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.plotWidge.setCursor(Qt.OpenHandCursor)
         self.imageItem.hoverEvent = lambda x: self.oldImageHover(x)
         self.imageItem.mousePressEvent = lambda x: self.oldImageMousePress(x)
-        self.imageItem.wheelEvent = lambda x: self.oldImageWheel(x)
+        # self.imageItem.wheelEvent = lambda x: self.oldImageWheel(x)
+        self.imageItem.wheelEvent = lambda x: self.scrollWheelEvent(x)
         self.paintingEnabled = False
 
     def primeToFill(self):
@@ -130,6 +131,18 @@ class QContourDrawerWidget(QContourViewerWidget):
 
         if checkEmpty(self.thisROI['DataVolume'][:, :, self.thisSlice]):
             self.primeToFill()
+
+    def scrollWheelEvent(self, event):
+        x, y = (int(event.pos().x()), int(event.pos().y()))
+        try:
+            angle = event.delta()
+        except Exception as ae:
+            print(ae)
+            angle = event.angleDelta().y()
+
+        deltaWheel = np.sign(angle)
+        self.slider.setSliderPosition(self.thisSlice + deltaWheel)
+
 
     def PaintHoverEvent(self, event):
         """ When cursor is over IMAGE ITEM """

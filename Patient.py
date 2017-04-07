@@ -31,13 +31,15 @@ class Patient(object):
     # DOB = None
     # Position = None
 
-    def __init__(self, patientPath):
+    def __init__(self, patientPath, reverse_rotation=False):
         super().__init__()
         self.hasImage = False
         self.hasROI = False
 
         # Scan given patient folder for dicom image files,
         # return dict by modality
+
+        self.reverseRotation = reverse_rotation
 
         dcmFiles = self.scanPatientFolder(patientPath)
         if not bool(dcmFiles):
@@ -87,15 +89,18 @@ class Patient(object):
         # print(dcmFiles)
 
         if MR in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles[MR])
+            self.Image = Patient_Image(dcmFiles[MR],
+                                       revRot=self.reverseRotation)
             self.hasImage = True
 
         elif US in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles[US])
+            self.Image = Patient_Image(dcmFiles[US],
+                                       revRot=self.reverseRotation)
             self.hasImage = True
 
         elif CT in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles[CT])
+            self.Image = Patient_Image(dcmFiles[CT],
+                                       revRot=self.reverseRotation)
             self.hasImage = True
 
         if RTST in dcmFiles.keys():

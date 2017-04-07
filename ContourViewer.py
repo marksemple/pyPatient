@@ -337,8 +337,10 @@ class QContourViewerWidget(QWidget):
         ie. draw new ROI, or change slice to be shown"""
 
         if self.hideImage is False:
+            self.imageItem.show()
             medicalIm = self.imageData[:, :, self.thisSlice].copy()
         else:
+            self.imageItem.hide()
             imDtype = self.imageData[:, :, self.thisSlice].dtype
             medicalIm = np.zeros(self.imageData[:, :, self.thisSlice].shape,
                                  dtype=imDtype)
@@ -443,8 +445,9 @@ class QContourViewerWidget(QWidget):
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)
-        # viewBox.setBackgroundColor('#FFFFFF')
-        viewBox.setBackgroundColor('#000000')
+        viewBox.setBackgroundColor('#FFFFFF')
+        # viewBox.setBackgroundColor('#888888')
+        # viewBox.setBackgroundColor('#0')
         viewBox.state['autoRange'] = [False, False]
         viewBox.sigStateChanged.connect(self.on_VB_Resize)
         htmlOpener = '<font size="12" color="white"><b>'
