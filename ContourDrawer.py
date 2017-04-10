@@ -43,7 +43,8 @@ class QContourDrawerWidget(QContourViewerWidget):
                                                     self.radius * 2)
         self.circle.hide()
         self.plotWidge.addItem(self.circle)
-        self.enablePaintingControls()
+        # self.enablePaintingControls()
+        # self.collapseControls.click()
         self.enteredContour.connect(self.primeToFill)
         self.leftContour.connect(self.primeToWipe)
 
@@ -51,7 +52,7 @@ class QContourDrawerWidget(QContourViewerWidget):
         # save ORIGINAL mouse events in placeholders for later
         self.oldImageHover = self.imageItem.hoverEvent
         self.oldImageMousePress = self.imageItem.mousePressEvent
-        self.oldImageWheel = self.imageItem.wheelEvent
+        self.oldImageWheel = self.wheelEvent
         self.plotWidge.keyPressEvent = lambda x: self.PlotKeyPress(x)
         self.plotWidge.keyReleaseEvent = lambda x: self.PlotKeyRelease(x)
 
@@ -63,8 +64,10 @@ class QContourDrawerWidget(QContourViewerWidget):
         super().hideControls(val)
         if val:
             self.enableMotionControls()
+            self.paintingEnabled = False
         else:
             self.enablePaintingControls()
+            self.paintingEnabled = True
 
     def enablePaintingControls(self):
         if self.collapseControls.isChecked():
@@ -73,16 +76,24 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)
         self.imageItem.mousePressEvent = lambda x: self.PaintClickEvent(x)
         self.imageItem.mouseReleaseEvent = lambda x: self.PaintReleaseEvent(x)
-        self.imageItem.wheelEvent = lambda x: self.PaintWheelEvent(x)
-        self.paintingEnabled = True
+        # self.wheelEvent = lambda x: self.PaintWheelEvent(x)
+        self.wheelEvent = self.dummyFunc
+        self.plotWidge.wheelEvent = lambda x: self.PaintWheelEvent(x)
+        self.imageItem.wheelEvent = self.dummyFunc
+        # self.paintingEnabled = True
 
     def enableMotionControls(self):
         self.plotWidge.setCursor(Qt.OpenHandCursor)
         self.imageItem.hoverEvent = lambda x: self.oldImageHover(x)
         self.imageItem.mousePressEvent = lambda x: self.oldImageMousePress(x)
         # self.imageItem.wheelEvent = lambda x: self.oldImageWheel(x)
-        self.imageItem.wheelEvent = lambda x: self.scrollWheelEvent(x)
-        self.paintingEnabled = False
+        self.wheelEvent = lambda x: self.scrollWheelEvent(x)
+        self.plotWidge.wheelEvent = self.dummyFunc
+        self.imageItem.wheelEvent = self.dummyFunc
+        # self.paintingEnabled = False
+
+    def dummyFunc(self, *args, **kwargs):
+        pass
 
     def primeToFill(self):
         self.fill = 255
@@ -137,7 +148,7 @@ class QContourDrawerWidget(QContourViewerWidget):
         try:
             angle = event.delta()
         except Exception as ae:
-            print(ae)
+            # print(ae)
             angle = event.angleDelta().y()
 
         deltaWheel = np.sign(angle)
@@ -202,10 +213,11 @@ class QContourDrawerWidget(QContourViewerWidget):
     def PaintWheelEvent(self, event):
         """  """
         x, y = (int(event.pos().x()), int(event.pos().y()))
+        # print(x,y)
         try:
             angle = event.delta()
         except Exception as ae:
-            print(ae)
+            # print(ae)
             angle = event.angleDelta().y()
         if (self.radius + np.sign(angle)) > 1:
             self.radius += 2 * np.sign(angle)
@@ -260,12 +272,15 @@ class QContourDrawerWidget(QContourViewerWidget):
     def PlotKeyRelease(self, event):
         if bool(self.ROIs):
 
+            if not self.paintingEnabled:
+                return
+
             if event.key() == 16777249:  # CTRL
                 if not self.editingFlag and self.ctrlModifier:
                     self.undoControlModifier()
 
             if event.key() == 16777248:  # SHIFT
-                self.shiftModifier = True
+                self.shiftModifier = False
                 self.circle.show()
                 self.enablePaintingControls()
 

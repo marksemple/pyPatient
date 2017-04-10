@@ -92,6 +92,8 @@ class Patient_ROI_Set(object):
 
         nContours = len(contourSequence)
 
+
+
         for contour in contourSequence:
 
             try:
@@ -224,17 +226,18 @@ def mkNewContour_Sequence(ROI, index2location, pix2patTForm):
             # print("no contours on slice {}".format(sliceIndex))
             continue
 
-        thisLocation = index2location[sliceIndex]
+        # thisLocation = index2location[sliceIndex]
 
         # ** how to do multiple contours????
+        for thisContour in CvContour:
 
-        VectorArray = CVContour2VectorArray(CvContour[0], sliceIndex)
-        PatientArray = Vector2PatientArray(VectorArray, pix2patTForm)
-        ContourData = PatientArray2ContourData(PatientArray)
-        contourCount += 1
-        Contour = mkNewContour(ContourData, contourCount)
+            VectorArray = CVContour2VectorArray(thisContour, sliceIndex)
+            PatientArray = Vector2PatientArray(VectorArray, pix2patTForm)
+            ContourData = PatientArray2ContourData(PatientArray)
+            contourCount += 1
+            DCMContour = mkNewContour(ContourData, contourCount)
 
-        contourSequence.append(Contour)
+            contourSequence.append(DCMContour)
 
         # print(Contour)
 

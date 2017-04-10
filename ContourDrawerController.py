@@ -108,9 +108,10 @@ if __name__ == "__main__":
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US_OUTPUT'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US'
     # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\SunnybrookDataset'
 
-    rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 9-30-2016\RTStructure'
+    rootTest = r'P:/USERS/PUBLIC/Amir K/MR2USRegistartionProject/Sample Data/new sample data/sample 14\RTStructure'
+
+    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 9-30-2016\RTStructure'
 
     form = PatientContourDrawer(PatientPath=rootTest)
     form.show()

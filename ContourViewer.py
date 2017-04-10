@@ -101,6 +101,8 @@ class QContourViewerWidget(QWidget):
         """ Sets slider range and step based on dimensions of image volume """
         slider.setPageStep(1)
         slider.setRange(0, self.nSlices - 1)
+        self.sliceNumLabel.setText("1 / {}".format(self.nSlices))
+        # self.sliceDistLabel = QLabel("0.00")
 
     def addROI(self, event=None, name=None, color=None, num=-1,
                data=None, RefUID=uuid.uuid4(), lineWidth=1, *args):
@@ -442,12 +444,12 @@ class QContourViewerWidget(QWidget):
         plotWidge.showAxis('bottom', False)
         plotWidge.setAntialiasing(True)
         plotWidge.addItem(self.imageItem)
+        plotWidge.setBackground((255, 255, 255))
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)
-        viewBox.setBackgroundColor('#FFFFFF')
+        viewBox.setBackgroundColor('#DDDDDD')
         # viewBox.setBackgroundColor('#888888')
-        # viewBox.setBackgroundColor('#0')
         viewBox.state['autoRange'] = [False, False]
         viewBox.sigStateChanged.connect(self.on_VB_Resize)
         htmlOpener = '<font size="12" color="white"><b>'
@@ -457,6 +459,7 @@ class QContourViewerWidget(QWidget):
         self.roiText = pg.TextItem()
         plotWidge.addItem(self.axText)
         plotWidge.addItem(self.roiText)
+        plotWidge.setStyleSheet("QWidget {border: none;}")
         viewBox.autoRange()
 
         # ~~~~~~~~~~~~~~~ SLIDER SECTION
