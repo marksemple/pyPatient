@@ -445,6 +445,7 @@ class QContourViewerWidget(QWidget):
         plotWidge.setAntialiasing(True)
         plotWidge.addItem(self.imageItem)
         plotWidge.setBackground((255, 255, 255))
+        plotWidge.hideButtons()
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(1.0)

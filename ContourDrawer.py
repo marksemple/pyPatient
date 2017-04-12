@@ -52,7 +52,9 @@ class QContourDrawerWidget(QContourViewerWidget):
         # save ORIGINAL mouse events in placeholders for later
         self.oldImageHover = self.imageItem.hoverEvent
         self.oldImageMousePress = self.imageItem.mousePressEvent
-        self.oldImageWheel = self.wheelEvent
+        # self.oldImageWheel = self.wheelEvent
+        self.oldWheelEvent = self.wheelEvent
+        self.oldPlotWidgeWheelEvent = self.plotWidge.wheelEvent
         self.plotWidge.keyPressEvent = lambda x: self.PlotKeyPress(x)
         self.plotWidge.keyReleaseEvent = lambda x: self.PlotKeyRelease(x)
 
@@ -62,32 +64,39 @@ class QContourDrawerWidget(QContourViewerWidget):
 
     def hideControls(self, val):
         super().hideControls(val)
+        # print(val)
         if val:
+            # print("enabling motion controls")
             self.enableMotionControls()
             self.paintingEnabled = False
         else:
+            # print("enabling painting controls")
             self.enablePaintingControls()
             self.paintingEnabled = True
 
     def enablePaintingControls(self):
-        if self.collapseControls.isChecked():
-            return
         self.plotWidge.setCursor(Qt.CrossCursor)
-        self.imageItem.hoverEvent = lambda x: self.PaintHoverEvent(x)
-        self.imageItem.mousePressEvent = lambda x: self.PaintClickEvent(x)
-        self.imageItem.mouseReleaseEvent = lambda x: self.PaintReleaseEvent(x)
-        # self.wheelEvent = lambda x: self.PaintWheelEvent(x)
-        self.wheelEvent = self.dummyFunc
-        self.plotWidge.wheelEvent = lambda x: self.PaintWheelEvent(x)
-        self.imageItem.wheelEvent = self.dummyFunc
+
+        self.imageItem.hoverEvent = self.PaintHoverEvent
+        self.imageItem.mousePressEvent = self.PaintClickEvent
+        self.imageItem.mouseReleaseEvent = self.PaintReleaseEvent
+
+        # WHEEL
+        # no scrolling, no zooming -- > only pen size
+        self.wheelEvent = self.oldWheelEvent
+        self.plotWidge.wheelEvent = self.oldPlotWidgeWheelEvent
+        self.imageItem.wheelEvent = self.PaintWheelEvent
+
         # self.paintingEnabled = True
 
     def enableMotionControls(self):
         self.plotWidge.setCursor(Qt.OpenHandCursor)
-        self.imageItem.hoverEvent = lambda x: self.oldImageHover(x)
-        self.imageItem.mousePressEvent = lambda x: self.oldImageMousePress(x)
-        # self.imageItem.wheelEvent = lambda x: self.oldImageWheel(x)
-        self.wheelEvent = lambda x: self.scrollWheelEvent(x)
+        self.imageItem.hoverEvent = self.oldImageHover
+        self.imageItem.mousePressEvent = self.oldImageMousePress
+
+        # WHEEL
+        # no pen size, no zooming -> only scrolling
+        self.wheelEvent = self.scrollWheelEvent
         self.plotWidge.wheelEvent = self.dummyFunc
         self.imageItem.wheelEvent = self.dummyFunc
         # self.paintingEnabled = False
@@ -154,7 +163,6 @@ class QContourDrawerWidget(QContourViewerWidget):
         deltaWheel = np.sign(angle)
         self.slider.setSliderPosition(self.thisSlice + deltaWheel)
 
-
     def PaintHoverEvent(self, event):
         """ When cursor is over IMAGE ITEM """
 
@@ -213,7 +221,6 @@ class QContourDrawerWidget(QContourViewerWidget):
     def PaintWheelEvent(self, event):
         """  """
         x, y = (int(event.pos().x()), int(event.pos().y()))
-        # print(x,y)
         try:
             angle = event.delta()
         except Exception as ae:
