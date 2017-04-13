@@ -17,6 +17,10 @@ try:
 except ImportError:
     pass
 
+import SimpleITK as sitk
+
+
+
 
 class PatientContourDrawer(QContourDrawerWidget):
 
@@ -73,14 +77,18 @@ class PatientContourDrawer(QContourDrawerWidget):
             self.addROI(thisROI)
 
         try:
-            pros = Patient.StructureSet.ROI_byName['prostate']['DataVolume']
+            MRProsKey  = 'prostate'
+            for key in Patient.StructureSet.ROI_byName:
+                if 'warped_mr_prostate' in key.lower():
+                    MRProsKey = key.lower()
+                    break
+            pros = Patient.StructureSet.ROI_byName[MRProsKey]['DataVolume']
             bounds, size = ARF.findBoundingCuboid(pros)
             self.prostateStart = bounds[0, 2]
             self.prostateStop = bounds[1, 2]
 
         except:
             print("no ARF")
-
 
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)
@@ -95,25 +103,19 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
 
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\MR'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData - Copy\US'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData\MRtemp'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\Jan 11 - bad data\Cutler_Douglas _ in python - Copy\US'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Niranjan-ArticlesAndCommandFiles\Input\MR'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Report\Report\TSMRtoUScase_3\RTStructrureSet'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-19-2016\MR'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\MR Anonymized'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Niranjan_Data\MR-US_Clean\MR-US_Clean\TSMRtoUScase_1\US'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US_OUTPUT'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 10-05-2016 -- 3 - Copy\US'
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE - Copy\US'
 
-    rootTest = r'P:/USERS/PUBLIC/Amir K/MR2USRegistartionProject/Sample Data/new sample data/sample 14\RTStructure'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion\Sub4 - RTStructure'
 
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\CLEAN - Sample Data 9-30-2016\RTStructure'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion'
+
+    rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 3 - Mark Deformable Registration\Sub1 - RTStructure'
+
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion\Sub1 - RTStructure'
+    # rootTest += r'\Sub4 - RTStructure'
 
     form = PatientContourDrawer(PatientPath=rootTest)
     form.show()
+
+    print(form.Patient.StructureSet.ROI_byName.keys())
 
     sys.exit(app.exec_())
