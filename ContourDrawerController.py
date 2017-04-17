@@ -92,11 +92,13 @@ class PatientContourDrawer(QContourDrawerWidget):
 
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)
-        if self.Patient.hasImage:
-            # print('{} trigger!'.format(self.Patient.Image.info['NSlices']))
-            newPosn = self.Patient.Image.info['Ind2Loc'][newValue]
-            self.sliceDistLabel.setText("%.1fmm" % newPosn)
-
+        try:
+            if self.Patient.hasImage:
+                # print('{} trigger!'.format(self.Patient.Image.info['NSlices']))
+                newPosn = self.Patient.Image.info['Ind2Loc'][newValue]
+                self.sliceDistLabel.setText("%.1fmm" % newPosn)
+        except AttributeError:
+            return
 
 if __name__ == "__main__":
 

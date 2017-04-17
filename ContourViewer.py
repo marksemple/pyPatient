@@ -208,6 +208,8 @@ class QContourViewerWidget(QWidget):
     def sliderChanged(self, newValue):
         """ Fcn called upon motion of the main slider;
         Changes the current index through the data volume"""
+        if not self.hasImageData:
+            return
         self.thisSlice = int(newValue)
         try:
             self.sliceNumLabel.setText("%d / %d" % (newValue,
