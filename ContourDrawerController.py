@@ -20,8 +20,6 @@ except ImportError:
 import SimpleITK as sitk
 
 
-
-
 class PatientContourDrawer(QContourDrawerWidget):
 
     def __init__(self, Patient=None, PatientPath=None, *args, **kwargs):
@@ -100,6 +98,7 @@ class PatientContourDrawer(QContourDrawerWidget):
         except AttributeError:
             return
 
+
 if __name__ == "__main__":
 
     from PyQt5.QtWidgets import QApplication
@@ -110,10 +109,11 @@ if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion'
 
-    rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 3 - Mark Deformable Registration\Sub1 - RTStructure'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 3 - Mark Deformable Registration\Sub1 - RTStructure'
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion\Sub1 - RTStructure'
     # rootTest += r'\Sub4 - RTStructure'
+    rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Mark Ten Patient Dataset 2017\sample patient 1\US'
 
     form = PatientContourDrawer(PatientPath=rootTest)
     form.show()
