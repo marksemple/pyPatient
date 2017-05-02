@@ -107,17 +107,15 @@ if __name__ == "__main__":
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion\Sub4 - RTStructure'
 
-    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion'
 
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 3 - Mark Deformable Registration\Sub1 - RTStructure'
-
     # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Niranjan Sample Data MR-US_Clean\MR-US_Clean\Mode 1 - MR2USFusion\Sub1 - RTStructure'
-    # rootTest += r'\Sub4 - RTStructure'
-    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\Mark Ten Patient Dataset 2017\sample patient 1\MR'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\output_MR2USFusion\sample 1'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\Input Data\sample 1\MR_anon'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\output_MR2USFusion\sample 1 _anon'
 
-    rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\output_plastimatch_Mark\sample 1'
+    rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\output_plastimatch_Mark\sample 2'
 
-    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\output_MR2USFusion\sample 10'
 
     form = PatientContourDrawer(PatientPath=rootTest)
     form.show()
