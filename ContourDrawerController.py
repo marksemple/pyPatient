@@ -88,13 +88,34 @@ class PatientContourDrawer(QContourDrawerWidget):
         except:
             print("no ARF")
 
+    def viewPick(self, index):
+        print(index)
+        viewBox = self.plotWidge.getViewBox()
+        if index == 0:  # axial
+            # viewBox.setAspectLocked(lock=True, ratio=1.0)
+            self.planeInd = 2
+        elif index == 1:  # saggital
+            # viewBox.setAspectLocked(lock=True, ratio=7)
+            self.planeInd = 0
+
+        info = self.Patient.Image.info
+        spacing = [info['PixelSpacing'][0],
+                   info['PixelSpacing'][1],
+                   info['SliceSpacing']]
+        ratio = spacing[2] / spacing[self.planeInd]
+        viewBox.setAspectLocked(lock=True, ratio=ratio)
+        self.imageData = np.swapaxes(self.originalImage, self.planeInd, 2)
+        self.init_Slider(self.slider)
+
+
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)
         try:
             if self.Patient.hasImage:
+                pass
                 # print('{} trigger!'.format(self.Patient.Image.info['NSlices']))
-                newPosn = self.Patient.Image.info['Ind2Loc'][newValue]
-                self.sliceDistLabel.setText("%.1fmm" % newPosn)
+                # newPosn = self.Patient.Image.info['Ind2Loc'][newValue]
+                # self.sliceDistLabel.setText("%.1fmm" % newPosn)
         except AttributeError:
             return
 

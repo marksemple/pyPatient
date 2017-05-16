@@ -13,7 +13,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QSlider, QPushButton,
                              QTableWidget, QTableWidgetItem,
                              QSizePolicy, QHeaderView, QColorDialog,
-                             QGroupBox, QCheckBox, QFormLayout, QSplitter)
+                             QGroupBox, QCheckBox, QFormLayout, QSplitter,
+                             QComboBox,)
 from PyQt5.QtGui import (QBrush, QColor,)
 from PyQt5.QtCore import (Qt,)
 import pyqtgraph as pg
@@ -52,6 +53,7 @@ class QContourViewerWidget(QWidget):
         self.radius = 20
         self.thisSlice = 0
         self.hoverCount = 0
+        self.planeInd = 2
 
         # Lists
         self.TableSliceCount = []
@@ -80,9 +82,11 @@ class QContourViewerWidget(QWidget):
     def init_Image(self, imageData):
         """ registers imageData to Viewer, extracts some more variables;
         such as image dimensions"""
-        self.imageData = np.swapaxes(imageData, 0, 1)
-        self.contourImg = np.zeros(imageData.shape)
-        self.nRows, self.nCols, self.nSlices = imageData.shape
+        self.originalImage = np.swapaxes(imageData, 0, 1)
+        self.imageData = self.originalImage.copy()
+        # self.imageData = np.swapaxes(self.imageData, 0, 2)
+        self.contourImg = np.zeros(self.imageData.shape)
+        self.nRows, self.nCols, self.nSlices = self.imageData.shape
         self.backgroundIm = np.array((self.nRows, self.nCols))
         self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=True)
         self.init_Slider(self.slider)
@@ -100,7 +104,7 @@ class QContourViewerWidget(QWidget):
     def init_Slider(self, slider):
         """ Sets slider range and step based on dimensions of image volume """
         slider.setPageStep(1)
-        slider.setRange(0, self.nSlices - 1)
+        slider.setRange(0, self.originalImage.shape[self.planeInd] - 1)
         self.sliceNumLabel.setText("1 / {}".format(self.nSlices))
         # self.sliceDistLabel = QLabel("0.00")
 
@@ -213,7 +217,7 @@ class QContourViewerWidget(QWidget):
         self.thisSlice = int(newValue)
         try:
             self.sliceNumLabel.setText("%d / %d" % (newValue,
-                                                    self.nSlices - 1))
+                                                    self.imageData.shape[2]-1))
             self.updateContours(isNewSlice=True)
             self.plotWidge.setFocus()
         except:
@@ -225,6 +229,9 @@ class QContourViewerWidget(QWidget):
 
     def updateTableFields(self, ROI, contours=[]):
         """ """
+
+        return
+
         nConts = 0
         ROI_Index = ROI['tableInd']
         # print('present ROI_index', ROI_Index)
@@ -340,6 +347,8 @@ class QContourViewerWidget(QWidget):
         result in something different being shown on the axes;
         ie. draw new ROI, or change slice to be shown"""
 
+        print(self.imageData.shape, ', ', self.thisSlice)
+
         if self.hideImage is False:
             self.imageItem.show()
             medicalIm = self.imageData[:, :, self.thisSlice].copy()
@@ -367,7 +376,10 @@ class QContourViewerWidget(QWidget):
                 if ROI['id'] == self.thisROI['id']:
                     continue
 
-                contBinaryIm = ROI['DataVolume'][:, :, self.thisSlice].copy()
+                # roiDataVolume = np.swapaxes(myROI_self.planeInd)
+
+                myROI = np.swapaxes(ROI['DataVolume'], self.planeInd, 2)
+                contBinaryIm = myROI[:, :, self.thisSlice].copy()
                 contours, hi = getContours(inputImage=contBinaryIm,
                                            compression=ROI['polyCompression'])
 
@@ -385,8 +397,10 @@ class QContourViewerWidget(QWidget):
         if len(backgroundIm.shape) == 2:
             backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
 
-        activeColor = scaleColor(self.thisROI['ROIColor'], self.imageItem.levels)
-        contBinaryIm = self.thisROI['DataVolume'][:, :, self.thisSlice].copy()
+        activeColor = scaleColor(self.thisROI['ROIColor'],
+                                 self.imageItem.levels)
+        myROI = np.swapaxes(self.thisROI['DataVolume'], self.planeInd, 2)
+        contBinaryIm = myROI[:, :, self.thisSlice].copy()
         activeCompression = self.thisROI['polyCompression']
         activeCont, hierarchy = getContours(inputImage=contBinaryIm,
                                             compression=activeCompression)
@@ -434,6 +448,21 @@ class QContourViewerWidget(QWidget):
                 ROI['vector'][index].setData(x=vect[1, :] + 0.5,
                                              y=vect[0, :] + 0.5)
 
+    def viewPick(self, index):
+        print(index)
+        viewBox = self.plotWidge.getViewBox()
+        if index == 0:  # axial
+            viewBox.setAspectLocked(lock=True, ratio=1.0)
+            self.planeInd = 2
+        elif index == 1:  # saggital
+            viewBox.setAspectLocked(lock=True, ratio=7)
+            self.planeInd = 0
+
+        self.imageData = np.swapaxes(self.originalImage, self.planeInd, 2)
+        self.init_Slider(self.slider)
+        # self.
+
+
     def applyLayout(self):
         """ Definition of WIDGET Layout"""
         # ~ Create "Controls" Panel Layout for Slider
@@ -450,7 +479,7 @@ class QContourViewerWidget(QWidget):
         plotWidge.hideButtons()
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
-        viewBox.setAspectLocked(1.0)
+        viewBox.setAspectLocked(ratio=1.0)
         viewBox.setBackgroundColor('#DDDDDD')
         # viewBox.setBackgroundColor('#888888')
         viewBox.state['autoRange'] = [False, False]
@@ -494,6 +523,11 @@ class QContourViewerWidget(QWidget):
         self.contourHide = QCheckBox()
         self.contourHide.stateChanged.connect(self.hideContoursFcn)
 
+        self.viewSelect = QComboBox()
+        self.viewSelect.activated.connect(self.viewPick)
+        self.viewSelect.addItem('Axial View')
+        self.viewSelect.addItem('Saggital View')
+
         self.imageHide = QCheckBox()
         self.imageHide.stateChanged.connect(self.hideImageFcn)
 
@@ -514,6 +548,7 @@ class QContourViewerWidget(QWidget):
         self.contourEdgeCompression.valueChanged.connect(self.compressChange)
 
         contourControlLayout = QFormLayout()
+        contourControlLayout.addRow(QLabel("View"), self.viewSelect)
         contourControlLayout.addRow(QLabel("Hide Image"), self.imageHide)
         contourControlLayout.addRow(QLabel("Hide Contour"), self.contourHide)
         contourControlLayout.addRow(QLabel("Fill Opacity"),
@@ -663,11 +698,12 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
 
-    myImage = 150 * np.random.random((700, 700, 3))
+    myImage = 150 * np.random.random((500, 700, 13))
     myImage = myImage.astype(np.uint16)
 
     form = QContourViewerWidget()  # imageData=myImage)
     form.init_Image(myImage)
+    form.viewPick(0)
 
     # form.addROI(name='test1', color=(240, 20, 20))
     # form.addROI(name='test2', color=(20, 240, 20))
