@@ -137,6 +137,7 @@ if __name__ == "__main__":
 
     rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\output_plastimatch_Mark\sample 2'
 
+    rootTest =r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\AMANI ANONYMIZED DATA\P9\MR'
 
     form = PatientContourDrawer(PatientPath=rootTest)
     form.show()

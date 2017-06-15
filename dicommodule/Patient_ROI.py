@@ -19,12 +19,12 @@ except:
 
 class Patient_ROI_Set(object):
 
-    Name = 'ROI'
-    Color = (230, 230, 20)
-    Contour_Sequences = []
-
     def __init__(self, file=None, dcm=None, imageInfo=None,
                  *args, **kwargs):
+
+        self.Name = 'ROI'
+        self.Color = (230, 230, 20)
+        self.Contour_Sequences = []
 
         self.imageInfo = imageInfo
 
