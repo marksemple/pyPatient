@@ -13,11 +13,11 @@ except ImportError:
     from dicommodule.ContourViewer import countContourSlices
     from dicommodule.Patient import Patient as PatientObj
 try:
-    import Affine_Registration_Fcns as ARF
+    from deformableregistration import Affine_Registration_Fcns as ARF
 except ImportError:
-    pass
+    print("NO ARF")
 
-import SimpleITK as sitk
+# import SimpleITK as sitk
 
 
 class PatientContourDrawer(QContourDrawerWidget):
@@ -75,38 +75,63 @@ class PatientContourDrawer(QContourDrawerWidget):
             self.addROI(thisROI)
 
         try:
-            MRProsKey  = 'prostate'
+            MRProsKey = 'prostate'
             for key in Patient.StructureSet.ROI_byName:
                 if 'warped_mr_prostate' in key.lower():
                     MRProsKey = key.lower()
                     break
             pros = Patient.StructureSet.ROI_byName[MRProsKey]['DataVolume']
             bounds, size = ARF.findBoundingCuboid(pros)
-            self.prostateStart = bounds[0, 2]
-            self.prostateStop = bounds[1, 2]
+            print('prostate bounds', bounds)
+            self.prostateStart = bounds[0, :]
+            self.prostateStop = bounds[1, :]
 
         except:
             print("no ARF")
 
     def viewPick(self, index):
-        print(index)
-        viewBox = self.plotWidge.getViewBox()
+
         if index == 0:  # axial
-            # viewBox.setAspectLocked(lock=True, ratio=1.0)
+            if self.planeInd == 2:
+                return
             self.planeInd = 2
+
         elif index == 1:  # saggital
-            # viewBox.setAspectLocked(lock=True, ratio=7)
+            if self.planeInd == 0:
+                return
             self.planeInd = 0
 
-        info = self.Patient.Image.info
-        spacing = [info['PixelSpacing'][0],
-                   info['PixelSpacing'][1],
-                   info['SliceSpacing']]
-        ratio = spacing[2] / spacing[self.planeInd]
+        elif index == 2:  # saggital
+            if self.planeInd == 1:
+                return
+            self.planeInd = 1
+
+        try:
+            info = self.Patient.Image.info
+            spacing = [info['PixelSpacing'][0],
+                       info['PixelSpacing'][1],
+                       info['SliceSpacing']]
+
+        except AttributeError as ae:
+            print("no patient, using default spacing")
+            spacing = [1, 1, 1]
+
+        # ratio = spacing[2] / spacing[self.planeInd]
+
+        viewBox = self.plotWidge.getViewBox()
+        if index == 0:  # axial
+            ratio = spacing[0] / spacing[1]
+        elif index == 1:  # saggital
+            ratio = spacing[2] / spacing[0]
+        elif index == 2:  # coronal
+            ratio = spacing[1] / spacing[2]
+
         viewBox.setAspectLocked(lock=True, ratio=ratio)
         self.imageData = np.swapaxes(self.originalImage, self.planeInd, 2)
         self.init_Slider(self.slider)
-
+        self.updateContours(isNewSlice=True)
+        viewBox.autoRange(items=[self.imageItem, ])
+        self.viewChanged.emit(index)
 
     def sliderChanged(self, newValue):
         super().sliderChanged(newValue)

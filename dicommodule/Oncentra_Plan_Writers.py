@@ -6,6 +6,7 @@ Catheter Plan File Writers
 import os
 import sys
 import datetime
+from shutil import copy
 
 # Third-Party Modules
 import numpy as np
@@ -25,428 +26,375 @@ class Plan_Writers(object):
         self.patientName = 'semple'
         self.patientID = '#####ID'
         self.nCatheters = 2
+
         # save location
         self.root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan'
 
         self._date = datetime.datetime.now().strftime("%m/%d/%y")
         self._time = datetime.datetime.now().strftime("%H:%M:%S")
 
+    def setCatheterList(self, catheterlist):
+        self.CatheterList = catheterlist
+
+    def import_plan(self, path):
+        """ copy an exported-plan from Oncentra into my software """
+
+        self.pathDict = {}
+        for dirName, subdirList, fileList in os.walk(path):
+
+            # Validate selection
+            if len(fileList) > 13:
+                print("Too many file to import")
+                return
+
+            elif len(fileList) < 13:
+                print("Not enough files to import")
+                return
+
+            for filename in fileList:
+                fullname = os.path.join(dirName, filename)
+
+                copy(fullname, self.root)
+
+                newPath = os.path.join(self.root, filename)
+                self.pathDict[filename.split('.')[0]] = newPath
+
+
     def execute(self):
 
-        for index, fileWriter in enumerate([self.write_PLN_file,
-                                            self.write_Settings,
-                                            self.write_Patient,
-                                            self.write_Afterloader,
-                                            self.write_LiveCatheters,
+        for index, fileWriter in enumerate([self.write_LiveCatheters,
                                             self.write_LiveTemplateLoading,
                                             self.write_LiveLoading,
                                             self.write_VirtualCatheters,
                                             self.write_VirtualTemplateLoading,
-                                            self.write_VirtualLoading,
-                                            self.write_Source,
-                                            self.write_DVHS,
-                                            self.write_Markers]):
+                                            self.write_VirtualLoading]):
+                                            # self.write_Settings,
+                                            # self.write_Patient,
+                                            # self.write_Afterloader,
+                                            # self.write_Source,
+                                            # self.write_DVHS,
+                                            # self.write_Markers]):
 
-            try:
-                filepath, content = fileWriter()
-                print(index, filepath)
+            # try:
+            filepath, content = fileWriter()
+            print(index, filepath)
 
-                with open(filepath, 'w') as text_file:
-                    text_file.write(content)
+            with open(filepath, 'w') as text_file:
+                text_file.write(content)
 
-            except Exception as e:
-                print('error: ', e)
+            # except Exception as e:
+                # print('error: ', e)
 
-    def write_PLN_file(self):
-        filename = '{}.pln'.format(self.patientName)
-        filepath = os.path.join(self.root, filename)
-        content = """#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Treatment Plan Link File
-#  Oncentra Prostate (TM), Vs. 4.2.2.4, Serial 302
-#  (C)opyrights MedCom GmbH and Pi-Medical Ltd.
-#  All Rights protected
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Settings
-Patient
-Afterloader
-VirtualCatheters
-LiveCatheters
-VirtualTemplateLoading
-LiveTemplateLoading
-Source
-VirtualLoading
-LiveLoading
-DVHS
-Markers
-
-"""
-        return filepath, content
-
-    def write_Settings(self):
-        filepath = os.path.join(self.root, 'Settings.cha')
-        return filepath, ''
-
-    def write_Patient(self):
-        filepath = os.path.join(self.root, 'Patient.cha')
-        content = """#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Patient Data File
-#  Oncentra Prostate (TM), Vs. 4.2.2.4, Serial 302
-#  (C)opyrights MedCom GmbH and Pi-Medical Ltd.
-#  All Rights protected
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Date is given in mm/dd/yy
-#  Time is given in hh:mm:ss
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CHARISMA Software Version
-\t\t4.2.2.4
-Patient File Version
-\t\t4.2.2.4
-File creation date and time
-\t\t{}, {}
-
-Patient Data
-Begin
-\tName
-\t\t{} {}
-\tID
-\t\t{}
-\tBirthdate
-
-End""".format(self._date, self._time,
-              self.patientName,
-              self.patientName,
-              self.patientID)
-        return filepath, content
-
-    def write_Afterloader(self):
-        filepath = os.path.join(self.root, 'Afterloader.cha')
-        content = """#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Afterloader Data File
-#  Oncentra Prostate (TM), Vs. 4.2.2.4, Serial 302
-#  (C)opyrights MedCom GmbH and Pi-Medical Ltd.
-#  All Rights protected
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  #  All dimensions are in mm
-#  Date is given in mm/dd/yy
-#  Time is given in hh:mm:ss
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CHARISMA Software Version
-\t\t4.2.2.4
-Afterloader File Version
-\t\t4.1.0.0
-File creation date and time
-\t\t{}, {}
-
-Afterloader Data
-Begin
-\tAfterloader Type File Data
-\tBegin
-\t\tFile Name
-\t\t\tAfterloader_Type_File.cha
-\t\tFrom Date
-\t\t\t02/25/2011
-\t\tFrom Time
-\t\t\t13:00:00
-\tEnd
-\tAfterloader Type File Content
-\tBegin
-\t\tType
-\t\t\tFlexitron-HDR
-\t\tModel
-\t\t\tFlexitron
-\t\tManufacturer
-\t\t\tNucletron B.V.
-\t\tSystem Type
-\t\t\tFlexitron-HDR
-\t\tName
-\t\t\tFlexitron HDR
-\t\tSerial No
-\t\t\tTo be specified
-\t\tFirmware Software Version
-
-\t\tNumber of Sources
-\t\t\t1
-\t\tNumber of Hardware Channels
-\t\t\t40
-\t\tNumber of Software Channels
-\t\t\t40
-\t\tDetection of Catheter Tip
-\t\t\t0
-\t\tName for Channel Length
-\t\t\tSelector
-\t\tmin Channel Length
-\t\t\t1001.000000
-\t\tmax Channel Length
-\t\t\t1400.000000
-\t\tSource Movement Type
-\t\t\tSTEPWISE
-\t\tSource Stepping Data
-\t\tBegin
-\t\t\tMethod
-\t\t\t\tDISCRETE
-\t\t\tDISCRETE
-\t\t\tBegin
-\t\t\t\tNumber of Possible Step Sizes
-\t\t\t\t\t1
-\t\t\t\tStep 0
-\t\t\t\t\t1.000000
-\t\t\tEnd
-\t\t\tCONTINUOUSLY
-\t\t\tBegin
-\t\t\t\tmin Step
-\t\t\t\t\t0.500000
-\t\t\t\tmax Step
-\t\t\t\t\t15.000000
-\t\t\tEnd
-\t\t\tDefault Step
-\t\t\t\t1.000000
-\t\tEnd
-\t\tCommon Stepping for all Channels
-\t\t\tYES
-\t\tDrive Type
-\t\t\tPUSHING
-\t\tmax Number of Steps per Channel
-\t\t\t400
-\t\tTime Resolution
-\t\t\t0.10000
-\t\tmax Time
-\t\t\t999.900024
-\tEnd
-End""".format(self._date, self._time)
-
-        return filepath, content
+    #  _          _____       _______ _    _  _____
+    # | |        / ____|   /\|__   __| |  | |/ ____|
+    # | |       | |       /  \  | |  | |__| | (___
+    # | |       | |      / /\ \ | |  |  __  |\___ \
+    # | |____   | |____ / ____ \| |  | |  | |____) |
+    # |______|   \_____/_/    \_\_|  |_|  |_|_____/
 
     def write_LiveCatheters(self):
-        filepath = os.path.join(self.root, 'LiveCatheters.cha')
+        """ Construct new LiveCatheters.CHA file with our own data
+        Consists of 3 sections: Header, CatheterData, CatheterDescribingPts
+        Header we copy directly from the exported file.
+        Both CatheterData and CatheterDescribingPts sections are determined
+        from measurements, and there is one section for each cathter
+        """
+
+        filepath = self.pathDict['LiveCatheters']
+        nCaths = len(self.CatheterList)
         content = ''
 
-        # text_file.write("Catheter Data\nBegin\n")
-        for ind, cath in enumerate(self.Catheters):
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
+        with open(filepath, 'r') as textfile:
+            old_text = textfile.read()
+            index = old_text.index('Number of Catheters')
+            content += old_text[0:index]
 
-            cath_data += self.get_catheter_data(cathNum=ind + 1)
-            cath_pts += self.get_catheter_description(cathNum=ind + 1)
+        content += """Number of Catheters
+\t{}
+
+""".format(nCaths)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DATA
+        content += """Catheter Data
+Begin
+"""
+
+        for ind, catheter in enumerate(self.CatheterList):
+            content += """\tCatheter {}
+""".format(ind + 1)
+            content += self.getCathData(catheter)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DESCRIPTION
+        content += """End
+Catheter Describing Points
+Begin
+"""
+        for ind, catheter in enumerate(self.CatheterList):
+            content += """\tCatheter {}
+""".format(ind + 1)
+            content += self.getCathDescribingPts(catheter)
 
         return filepath, content
 
+    # _        _______ ______ __  __ _____  _            _______ ______
+    # | |      |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
+    # | |         | |  | |__  | \  / | |__) | |       /  \  | |  | |__
+    # | |         | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
+    # | |____     | |  | |____| |  | | |    | |____ / ____ \| |  | |____
+    # |______|    |_|  |______|_|  |_|_|    |______/_/    \_\_|  |______|
+
     def write_LiveTemplateLoading(self):
-        filepath = os.path.join(self.root, 'LiveTemplateLoading.cha')
-        content = """#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Template Loading Data File
-#  Oncentra Prostate (TM), Vs. 4.2.2.4, Serial 302
-#  (C)opyrights MedCom GmbH and Pi-Medical Ltd.
-#  All Rights protected
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Catheter Template Data:
-#       Template Coordinates
-#  Template Coordinates:
-#       X, Y
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Special case for Template Coordinates:
-#       -1 -1 if the catheter has no corresponding
-#           template position
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Notation of Teplate Dimensions and relation to the Teplate Axes
-#       Width is the X-axis
-#       Length is the Y-Axis
-#       Thickness is the Z-Axis
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Notation of Columns and Rows and realtion to the Teplate Axes
-#       Column is parallel to the Y-Axis and
-#       the Number of Columns defines the number of holes in the X-axis
-#       Row is parallel to the X-Axis and
-#       the Number of Rows defines the number of holes in the Y-axis
-# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Following numbering types are supported
-#       alphabetic: A,a,B,b,C,c,D,d,E,e,F or A,B,C,..Z
-#       numeric:    0,1,2,3,4,...N or 0,0.5,1.0,1.5,2.0,..
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Date is given in mm/dd/yyyy
-#  Time is given in hh:mm:ss
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CHARISMA Software Version
-\t\t4.2.2.4
-Life TemplateLoading File Version
 
-File creation date and time
-\t\t{}, {}
+        filepath = self.pathDict['LiveTemplateLoading']
+        nCaths = len(self.CatheterList)
+        content = ''
 
-Template Type File Data
-Begin
-\tType
-\t\t
-\tFile Name
-\t\tTemplate_Type_File.cha
-\tFrom Date
-\t\t11/13/2015
-\tFrom Time
-\t\t15:26:00
-End
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
+        with open(filepath, 'r') as textfile:
+            old_text = textfile.read()
+            index = old_text.index('Number of Catheters')
+            content += old_text[0:index]
 
-Number of Catheters
+        content += """Number of Catheters
 \t{}
 
-Template Loading Data
-Begin
-""".format(self._date, self._time, self.nCatheters)
+""".format(nCaths)
 
-        for ind in range(0, self.nCatheters):
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ LOADING DATA
+        content += """Template Loading Data
+Begin
+"""
+
+        for ind, catheter in enumerate(self.CatheterList):
             content += """\tCatheter {}
 \tBegin
 \t\tTemplate Coordinates
 \t\t\t{} {}
 \tEnd
-""".format(ind, 'A', '0')
+""".format(ind, 'B', '2.5')
+        # format(catheter.template_code())
+
+        content += """End
+"""
+
+        # Template Loading Data
+        # Begin
+        # """.format(self._date, self._time, self.nCatheters)
+
+        #         for ind in range(0, self.nCatheters):
+        #             content += """\tCatheter {}
+        # \tBegin
+        # \t\tTemplate Coordinates
+        # \t\t\t{} {}
+        # \tEnd
+        # """.format(ind, 'A', '0')
 
         return filepath, content
+
+    # _         _      ____          _____ _____ _   _  _____
+    # | |       | |    / __ \   /\   |  __ \_   _| \ | |/ ____|
+    # | |       | |   | |  | | /  \  | |  | || | |  \| | |  __
+    # | |       | |   | |  | |/ /\ \ | |  | || | | . ` | | |_ |
+    # | |____   | |___| |__| / ____ \| |__| || |_| |\  | |__| |
+    # |______|  |______\____/_/    \_\_____/_____|_| \_|\_____|
 
     def write_LiveLoading(self):
         filepath = os.path.join(self.root, 'LiveLoading.cha')
         content = ''
         return filepath, content
 
+    # __      __   _____       _______ _    _  _____
+    # \ \    / /  / ____|   /\|__   __| |  | |/ ____|
+    #  \ \  / /  | |       /  \  | |  | |__| | (___
+    #   \ \/ /   | |      / /\ \ | |  |  __  |\___ \
+    #    \  /    | |____ / ____ \| |  | |  | |____) |
+    #     \/      \_____/_/    \_\_|  |_|  |_|_____/
+
     def write_VirtualCatheters(self):
-        filepath = os.path.join(self.root, 'VirtualCatheters.cha')
-        content = """#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Reconstructed Catheters Data File
-#  Oncentra Prostate (TM), Vs. 4.2.2.4, Serial 302
-#  (C)opyrights MedCom GmbH and Pi-Medical Ltd.
-#  All Rights protected
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Catheter Describing Points:  X-, Y-, Z-
-#               Image
-#   Image:  The number of the Image [0, N-1]
-#               with N the total number of Images
-#               -1 if the Catheter Describing Point doesn't lie on a Image
-#
-#  All coordinates according to the Patient-Coordinate-System
-#  Defined in Document # 000-00004-01
-#  All dimensions are in mm
-#  Density values are given in g/cm³
-#  Date is given in mm/dd/yy
-#  Time is given in hh:mm:ss
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CHARISMA Software Version
-\t\t4.2.2.4
-Placement File Version
-\t\t
-File creation date and time
-\t\t{}, {}
+        """ Construct new VirtualCatheters.CHA file with our own data
+        Consists of 3 sections: Header, CatheterData, CatheterDescribingPts
+        Header we copy directly from the exported file.
+        Both CatheterData and CatheterDescribingPts sections are determined
+        from measurements, and there is one section for each cathter
+        """
 
-Patient Name
-\t\t{}, {}
-Patient ID
-\t\t{}
-Catheter Template Mode
-\tTemplate Pos Fixed
+        filepath = self.pathDict['VirtualCatheters']
+        nCaths = len(self.CatheterList)
+        content = ''
 
-Number of Catheters
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
+        with open(filepath, 'r') as textfile:
+            old_text = textfile.read()
+            index = old_text.index('Number of Catheters')
+            content += old_text[0:index]
+
+        content += """Number of Catheters
 \t{}
-""".format('a','b','c','d','e','f')
+
+""".format(nCaths)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DATA
+        content += """Catheter Data
+Begin
+"""
+
+        for ind, catheter in enumerate(self.CatheterList):
+            content += """\tCatheter {}
+""".format(ind + 1)
+            content += self.getCathData(catheter, virtual=True)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DESCRIPTION
+        content += """End
+Catheter Describing Points
+Begin
+"""
+        for ind, catheter in enumerate(self.CatheterList):
+            content += """\tCatheter {}
+""".format(ind + 1)
+            content += self.getCathDescribingPts(catheter, virtual=True)
 
         return filepath, content
+    # __      __  _______ ______ __  __ _____  _            _______ ______
+    # \ \    / / |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
+    #  \ \  / /     | |  | |__  | \  / | |__) | |       /  \  | |  | |__
+    #   \ \/ /      | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
+    #    \  /       | |  | |____| |  | | |    | |____ / ____ \| |  | |____
+    #     \/        |_|  |______|_|  |_|_|    |______/_/    \_\_|  |______|
 
     def write_VirtualTemplateLoading(self):
         filepath = os.path.join(self.root, 'VirtualTemplateLoading.cha')
         content = ''
         return filepath, content
 
+    # __      __   _      ____          _____ _____ _   _  _____
+    # \ \    / /  | |    / __ \   /\   |  __ \_   _| \ | |/ ____|
+    #  \ \  / /   | |   | |  | | /  \  | |  | || | |  \| | |  __
+    #   \ \/ /    | |   | |  | |/ /\ \ | |  | || | | . ` | | |_ |
+    #    \  /     | |___| |__| / ____ \| |__| || |_| |\  | |__| |
+    #     \/      |______\____/_/    \_\_____/_____|_| \_|\_____|
+
     def write_VirtualLoading(self):
         filepath = os.path.join(self.root, 'VirtualLoading.cha')
         content = ''
         return filepath, content
 
-    def write_Source(self):
-        filepath = os.path.join(self.root, 'Source.cha')
-        content = ''
-        return filepath, content
 
-    def write_DVHS(self):
-        filepath = os.path.join(self.root, 'DVHS.cha')
-        content = """#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  DVHs Data File
-#  Oncentra Prostate (TM), Vs. 4.2.2.4, Serial 302
-#  (C)opyrights MedCom GmbH and Pi-Medical Ltd.
-#  All Rights protected
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Here only the Differencial Dose Volume Histaograms are stored
-#  All doses are in Gy
-#  All coordinates according to the World-DICOM-Coordinate-System
-#  All dimensions are in mm
-#  Date is given in mm/dd/yyyy
-#  Time is given in hh:mm:ss
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CHARISMA Software Version
-\t\t4.2.2.4
-DVHS File Version
-\t\t4.2.2. 4
-File creation date and time
-\t\t{}, {}
+    def getCathData(self, catheterObj, virtual=False):
 
-Patient Name
-\t\t{}, {}
-Patient ID
-\t\t{}
-Number of DVH ROIS
-\t0
+        if virtual:
+            reconstr_len = 135
+            depth = 4
+            free_len = 240 - reconstr_len
+            retr_len = depth - 6
+        else:
+            reconstr_len = catheterObj.calculateLength()
+            depth = 4
+            free_len = 240 - reconstr_len
+            retr_len = depth - 6
 
-DVH Data
-Begin
-\tType
-\t\tCUMULATIVE
-\tNormalisation Dose Value
-\t\t1500.000000
-\tDose Units
-\t\tRELATIVE
-\tDose Type
-\t\tPHYSICAL
-\tDose Scaling
-\t\t1.00
-\tVolume Units
-\t\tPERCENT
-End
-""".format(self._date, self._time,
-           self.patientName,
-           self.patientName,
-           self.patientID)
-        return filepath, content
+        Cath_Data = """\tBegin
+\t\tCategory
+\t\t\t0
+\t\tCathStatus
+\t\t\t2
+\t\tLocked
+\t\t\t4
+\t\tName
+\t\t\tProGuide 6F Trocar L=240mm Flexitron
+\t\tType
+\t\t\tFLEXIBLE
+\t\tMaterial
+\t\t\tPlastic
+\t\tDensity
+\t\t\t1.400000
+\t\tOuter Diameter
+\t\t\t1.980000
+\t\tInner Diameter
+\t\t\t1.480000
+\t\tLength
+\t\t\t240.000000
+\t\tmin Free Length
+\t\t\t50.000000
+\t\tDistance Tip 1st Source Position
+\t\t\t6.000000
+\t\tChannel Length
+\t\t\t1234.000000
+\t\tDistance 1st Reconstructed Point Tip
+\t\t\t0.000
+\t\tReconstructed Length
+\t\t\t{:.6f}
+\t\tFree Length
+\t\t\t{:.6f}
+\t\tRetraction Length
+\t\t\t{:.6f}
+\t\tDepth
+\t\t\t{:.6f}
+\tEnd\n""".format(reconstr_len, free_len, retr_len, depth)
+        return Cath_Data
 
-    def write_Markers(self):
-        filepath = os.path.join(self.root, 'Markers.cha')
-        content = """#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  Marker Data File
-#  Oncentra Prostate (TM), Vs. 4.2.2.4, Serial 302
-#  (C)opyrights MedCom GmbH and Pi-Medical Ltd.
-#  All Rights protected
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#  All coordinates according to the World-DICOM-Coordinate-System
-#  All dimensions are in mm
-#  Date is given in mm/dd/yyyy
-#  Time is given in hh:mm:ss
-#  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CHARISMA Software Version
-\t\t4.2.2.4
-Marker File Version
-\t\t4.2.2. 4
-File creation date and time
-\t\t{}, {}
+    def getCathDescribingPts(self, catheter, virtual=False):
+        if virtual:
+            points = catheter.getVirtualPoints()
+            nPts = 4
 
-Patient Name
-\t\t{}, {}
-Patient ID
-\t\t{}
-Number of Markers
-\t0
-Marker Data
-Begin
-End
-""".format(self._date, self._time,
-           self.patientName,
-           self.patientName,
-           self.patientID)
-        return filepath, content
+        else:
+            points = catheter.pointList
+            nPts = len(points)
+
+        row, col = catheter.getPointCoordinate()
+
+        Cath_Description = """\tBegin
+\t\tTemplate Row
+\t\t\t{}
+\t\tTemplate Column
+\t\t\t{}
+\t\tNumber of Points
+\t\t\t{}
+""".format(row, col, nPts)
+
+        for index, point in enumerate(points):
+
+            # Point Type: 0, 2, 3, 4
+            if (index + 1) <= (len(points) - 3):
+                ptType = 0
+            elif (index + 1) == (len(points) - 2):
+                ptType = 2
+            elif (index + 1) == (len(points) - 1):
+                ptType = 3
+            elif (index + 1) == len(points):
+                ptType = 4
+
+            Cath_Description += """\t\tPoint {}
+\t\tBegin
+\t\t\tCoordinates
+\t\t\t\t{:.6f}, {:.6f}, {:.6f}
+\t\t\tType
+\t\t\t\t{}
+\t\tEnd
+""".format(index, point[0], point[1], point[2], ptType)
+
+        Cath_Description += """\tEnd
+"""
+        return Cath_Description
 
 
 if __name__ == "__main__":
     writer = Plan_Writers()
+
+    from dicommodule.Patient_Catheter import CatheterObj
+    cathList = []
+
+    for i in range(0, 5):
+        newCath = CatheterObj()
+        newCath.addMeasurements(np.random.random((5, 3)))
+        newCath.setTemplatePosition(row=4, col='b')
+        cathList.append(newCath)
+
+    writer.setCatheterList(cathList)
+
+    exported_plan_path = r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\exported sample plan'
+
+    writer.import_plan(exported_plan_path)
+
     writer.execute()

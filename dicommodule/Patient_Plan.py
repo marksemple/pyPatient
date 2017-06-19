@@ -32,8 +32,6 @@ class Patient_Plan_Set(object):
 
 
 
-
-
     def get_header(self, lastName='last',
                    firstName='first',
                    pat_ID='#####',

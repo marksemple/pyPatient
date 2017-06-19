@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                              QGroupBox, QCheckBox, QFormLayout, QSplitter,
                              QComboBox,)
 from PyQt5.QtGui import (QBrush, QColor,)
-from PyQt5.QtCore import (Qt,)
+from PyQt5.QtCore import (Qt, pyqtSignal)
 import pyqtgraph as pg
 import numpy as np
 import cv2
@@ -33,6 +33,8 @@ except ImportError:
 class QContourViewerWidget(QWidget):
     """ Used to Display A Slice of 3D Image Data; plus ROI contour data"""
     # contOpacity = 0.20
+
+    viewChanged = pyqtSignal(int)
 
     def __init__(self, imageData=None, ROIs=[], modality='image',
                  *args, **kwargs):
@@ -215,13 +217,13 @@ class QContourViewerWidget(QWidget):
         if not self.hasImageData:
             return
         self.thisSlice = int(newValue)
-        try:
-            self.sliceNumLabel.setText("%d / %d" % (newValue,
-                                                    self.imageData.shape[2]-1))
-            self.updateContours(isNewSlice=True)
-            self.plotWidge.setFocus()
-        except:
-            pass
+        # try:
+        self.sliceNumLabel.setText("%d / %d" % (newValue,
+                                                self.imageData.shape[2]-1))
+        self.updateContours(isNewSlice=True)
+        self.plotWidge.setFocus()
+        # except:
+            # print("errrrr from slider change")
 
     def updateEntireTable(self):
         for ROI in self.ROIs:
@@ -230,16 +232,16 @@ class QContourViewerWidget(QWidget):
     def updateTableFields(self, ROI, contours=[]):
         """ """
 
-        return
+        # return
 
         nConts = 0
         ROI_Index = ROI['tableInd']
         # print('present ROI_index', ROI_Index)
         # print(ROI['ROIName'], ROI['ROINumber'])
-        if bool(contours):
-            for contour in contours:
-                nConts += 1
-            ROI['sliceCount'][self.thisSlice] = nConts
+        # if bool(contours):
+        #     for contour in contours:
+        #         nConts += 1
+        #     ROI['sliceCount'][self.thisSlice] = nConts
 
         Nbools = sum([bool(entry) for entry in ROI['sliceCount']])
 
@@ -347,8 +349,6 @@ class QContourViewerWidget(QWidget):
         result in something different being shown on the axes;
         ie. draw new ROI, or change slice to be shown"""
 
-        print(self.imageData.shape, ', ', self.thisSlice)
-
         if self.hideImage is False:
             self.imageItem.show()
             medicalIm = self.imageData[:, :, self.thisSlice].copy()
@@ -449,19 +449,28 @@ class QContourViewerWidget(QWidget):
                                              y=vect[0, :] + 0.5)
 
     def viewPick(self, index):
-        print(index)
+        if index == self.planeInd:
+            return
+
         viewBox = self.plotWidge.getViewBox()
+
         if index == 0:  # axial
             viewBox.setAspectLocked(lock=True, ratio=1.0)
             self.planeInd = 2
+
         elif index == 1:  # saggital
             viewBox.setAspectLocked(lock=True, ratio=7)
             self.planeInd = 0
 
+        elif index == 2:  # coronal
+            viewBox.setAspectLocked(lock=True, ratio=(1 / 7))
+            self.planeInd = 1
+
         self.imageData = np.swapaxes(self.originalImage, self.planeInd, 2)
         self.init_Slider(self.slider)
-        # self.
-
+        self.updateContours(isNewSlice=True)
+        viewBox.autoRange(items=[self.imageItem, ])
+        self.viewChanged.emit(index)
 
     def applyLayout(self):
         """ Definition of WIDGET Layout"""
@@ -527,6 +536,7 @@ class QContourViewerWidget(QWidget):
         self.viewSelect.activated.connect(self.viewPick)
         self.viewSelect.addItem('Axial View')
         self.viewSelect.addItem('Saggital View')
+        self.viewSelect.addItem('Coronal View')
 
         self.imageHide = QCheckBox()
         self.imageHide.stateChanged.connect(self.hideImageFcn)
