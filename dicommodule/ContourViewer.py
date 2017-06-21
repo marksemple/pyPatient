@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtGui import (QBrush, QColor,)
 from PyQt5.QtCore import (Qt, pyqtSignal)
 import pyqtgraph as pg
+pg.setConfigOptions(antialias=True)
 import numpy as np
 import cv2
 
@@ -143,7 +144,7 @@ class QContourViewerWidget(QWidget):
                           'FrameRef_UID': RefUID,
                           'DataVolume': data,
                           'id': uuid.uuid4(),
-                          'vector': [pg.PlotDataItem()],
+                          'vector': [pg.PlotDataItem(antialias=True)],
                           'sliceCount': counter,
                           'lineWidth': lineWidth,
                           'polyCompression': 0.7,
@@ -435,7 +436,7 @@ class QContourViewerWidget(QWidget):
             Vs = len(ROI['vector'])
             Cs = len(contours)
             for ind in range(0, (Cs - Vs)):
-                ROI['vector'].append(pg.PlotDataItem())
+                ROI['vector'].append(pg.PlotDataItem(antialias=True))
                 self.plotWidge.addItem(ROI['vector'][-1])
 
         for vector in ROI['vector']:

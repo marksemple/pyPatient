@@ -1,19 +1,26 @@
 #
-
 """
+    Object Representation for a CATHETER object
 """
 
 import numpy as np
 
 
 class CatheterObj(object):
-    def __init__(self):
+    def __init__(self, row=None, col=None):
         super().__init__()
 
-        self.templateCols = ['A', 'a', 'B', 'b', 'C', 'c', 'D', 'd',
+        self.templateCols = ['A', 'a', 'B', 'b',
+                             'C', 'c', 'D', 'd',
                              'E', 'e', 'F', 'f', 'G']
-        self.templateRows = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5,
+
+        self.templateRows = [1, 1.5, 2, 2.5,
+                             3, 3.5, 4, 4.5,
                              5, 5.5, 6, 6.5, 7]
+
+        if type(col) == str:
+            if col in self.templateCols
+
 
     def addMeasurements(self, measurements):
         self.pointList = measurements.tolist()
@@ -40,6 +47,9 @@ class CatheterObj(object):
                          [x_0, y_0, -117.5],
                          [x_0, y_0, -131.0],
                          [x_0, y_0, -236.0]])
+
+    def getVirtualInterpolatedPoints(self, spacing):
+        return interpolateMeasurements(self.virtual_measurements, spacing)
 
     def getInterpolatedPoints(self, spacing):
         return interpolateMeasurements(self.measurement, spacing)

@@ -4,13 +4,13 @@ Catheter Plan File Writers
 
 # Built-In Modules
 import os
-import sys
-import datetime
+# import sys
+# import datetime
 from shutil import copy
 
 # Third-Party Modules
 import numpy as np
-import cv2
+# import cv2
 
 try:
     import dicom as dicom
@@ -22,17 +22,7 @@ class Plan_Writers(object):
     def __init__(self, info={}, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # patient name
-        self.patientName = 'semple'
-        self.patientID = '#####ID'
-        self.nCatheters = 2
-
-        # save location
-        # self.root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan'
-        self.root = r'C:\Users\Mark\Documents\Sunnybrook\sample_plan'
-
-        self._date = datetime.datetime.now().strftime("%m/%d/%y")
-        self._time = datetime.datetime.now().strftime("%H:%M:%S")
+        self.root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan'
 
     def setCatheterList(self, catheterlist):
         self.CatheterList = catheterlist
@@ -60,405 +50,253 @@ class Plan_Writers(object):
                 newPath = os.path.join(self.root, filename)
                 self.pathDict[filename.split('.')[0]] = newPath
 
-
     def execute(self):
+        """ Do the heavy-lifting component, calculate data, populate ascii """
 
-        for index, fileWriter in enumerate([self.write_LiveCatheters,
-                                            self.write_LiveTemplateLoading,
-                                            self.write_LiveLoading,
-                                            self.write_VirtualCatheters,
-                                            self.write_VirtualTemplateLoading,
-                                            self.write_VirtualLoading]):
-                                            # self.write_Settings,
-                                            # self.write_Patient,
-                                            # self.write_Afterloader,
-                                            # self.write_Source,
-                                            # self.write_DVHS,
-                                            # self.write_Markers]):
+        for virtualBool in [True, False]:
+            for index, fileWriter in enumerate([self.write_Catheters,
+                                                self.write_TemplateLoading,
+                                                self.write_Loading]):
 
-            # try:
-            filepath, content = fileWriter()
-            print(index, filepath)
+                print(fileWriter)
+                filepath, content = fileWriter(virtual=virtualBool)
 
-            with open(filepath, 'w') as text_file:
-                text_file.write(content)
+                with open(filepath, 'w') as text_file:
+                    text_file.write(content)
 
-            # except Exception as e:
-                # print('error: ', e)
+    #   _____       _______ _    _  _____
+    #  / ____|   /\|__   __| |  | |/ ____|
+    # | |       /  \  | |  | |__| | (___
+    # | |      / /\ \ | |  |  __  |\___ \
+    # | |____ / ____ \| |  | |  | |____) |
+    #  \_____/_/    \_\_|  |_|  |_|_____/
 
-    #  _          _____       _______ _    _  _____
-    # | |        / ____|   /\|__   __| |  | |/ ____|
-    # | |       | |       /  \  | |  | |__| | (___
-    # | |       | |      / /\ \ | |  |  __  |\___ \
-    # | |____   | |____ / ____ \| |  | |  | |____) |
-    # |______|   \_____/_/    \_\_|  |_|  |_|_____/
-
-    def write_LiveCatheters(self):
-        """ Construct new LiveCatheters.CHA file with our own data
-        Consists of 3 sections: Header, CatheterData, CatheterDescribingPts
-        Header we copy directly from the exported file.
-        Both CatheterData and CatheterDescribingPts sections are determined
-        from measurements, and there is one section for each cathter
-        """
-
-        filepath = self.pathDict['LiveCatheters']
-        nCaths = len(self.CatheterList)
-        content = ''
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
-        with open(filepath, 'r') as textfile:
-            old_text = textfile.read()
-            index = old_text.index('Number of Catheters')
-            content += old_text[0:index]
-
-        content += """Number of Catheters
-\t{}
-
-""".format(nCaths)
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DATA
-        content += """Catheter Data
-Begin
-"""
-
-        for ind, catheter in enumerate(self.CatheterList):
-            content += """\tCatheter {}
-""".format(ind + 1)
-            content += self.getCathData(catheter)
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DESCRIPTION
-        content += """End
-Catheter Describing Points
-Begin
-"""
-        for ind, catheter in enumerate(self.CatheterList):
-            content += """\tCatheter {}
-""".format(ind + 1)
-            content += self.getCathDescribingPts(catheter)
-
-        content += """End
-"""
-
-        return filepath, content
-
-    # __      __   _____       _______ _    _  _____
-    # \ \    / /  / ____|   /\|__   __| |  | |/ ____|
-    #  \ \  / /  | |       /  \  | |  | |__| | (___
-    #   \ \/ /   | |      / /\ \ | |  |  __  |\___ \
-    #    \  /    | |____ / ____ \| |  | |  | |____) |
-    #     \/      \_____/_/    \_\_|  |_|  |_|_____/
-
-    def write_VirtualCatheters(self):
-        """ Construct new VirtualCatheters.CHA file with our own data
-        Consists of 3 sections: Header, CatheterData, CatheterDescribingPts
-        Header we copy directly from the exported file.
-        Both CatheterData and CatheterDescribingPts sections are determined
-        from measurements, and there is one section for each cathter
-        """
-
-        filepath = self.pathDict['VirtualCatheters']
-        nCaths = len(self.CatheterList)
-        content = ''
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
-        with open(filepath, 'r') as textfile:
-            old_text = textfile.read()
-            index = old_text.index('Number of Catheters')
-            content += old_text[0:index]
-
-        content += """Number of Catheters
-\t{}
-
-""".format(nCaths)
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DATA
-        content += """Catheter Data
-Begin
-"""
-
-        for ind, catheter in enumerate(self.CatheterList):
-            content += """\tCatheter {}
-""".format(ind + 1)
-            content += self.getCathData(catheter, virtual=True)
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DESCRIPTION
-        content += """End
-Catheter Describing Points
-Begin
-"""
-        for ind, catheter in enumerate(self.CatheterList):
-            content += """\tCatheter {}
-""".format(ind + 1)
-            content += self.getCathDescribingPts(catheter, virtual=True)
-
-        return filepath, content
-    #  _        _______ ______ __  __ _____  _            _______ ______
-    # | |      |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
-    # | |         | |  | |__  | \  / | |__) | |       /  \  | |  | |__
-    # | |         | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
-    # | |____     | |  | |____| |  | | |    | |____ / ____ \| |  | |____
-    # |______|    |_|  |______|_|  |_|_|    |______/_/    \_\_|  |______|
-
-    def write_LiveTemplateLoading(self):
-
-        filepath = self.pathDict['LiveTemplateLoading']
-        nCaths = len(self.CatheterList)
-        content = ''
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
-        with open(filepath, 'r') as textfile:
-            old_text = textfile.read()
-            index = old_text.index('Number of Catheters')
-            content += old_text[0:index]
-
-        content += """Number of Catheters
-\t{}
-
-""".format(nCaths)
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ LOADING DATA
-        content += """Template Loading Data
-Begin
-"""
-
-        for ind, catheter in enumerate(self.CatheterList):
-            content += """\tCatheter {}
-\tBegin
-\t\tTemplate Coordinates
-\t\t\t{} {}
-\tEnd
-""".format(ind, 'B', '2.5')
-        # format(catheter.template_code())
-
-        content += """End
-"""
-
-        # Template Loading Data
-        # Begin
-        # """.format(self._date, self._time, self.nCatheters)
-
-        #         for ind in range(0, self.nCatheters):
-        #             content += """\tCatheter {}
-        # \tBegin
-        # \t\tTemplate Coordinates
-        # \t\t\t{} {}
-        # \tEnd
-        # """.format(ind, 'A', '0')
-
-        return filepath, content
-
-    # __      __  _______ ______ __  __ _____  _            _______ ______
-    # \ \    / / |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
-    #  \ \  / /     | |  | |__  | \  / | |__) | |       /  \  | |  | |__
-    #   \ \/ /      | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
-    #    \  /       | |  | |____| |  | | |    | |____ / ____ \| |  | |____
-    #     \/        |_|  |______|_|  |_|_|    |______/_/    \_\_|  |______|
-
-    def write_VirtualTemplateLoading(self):
-        filepath = os.path.join(self.root, 'VirtualTemplateLoading.cha')
-        content = ''
-        return filepath, content
-
-    #  _         _      ____          _____ _____ _   _  _____
-    # | |       | |    / __ \   /\   |  __ \_   _| \ | |/ ____|
-    # | |       | |   | |  | | /  \  | |  | || | |  \| | |  __
-    # | |       | |   | |  | |/ /\ \ | |  | || | | . ` | | |_ |
-    # | |____   | |___| |__| / ____ \| |__| || |_| |\  | |__| |
-    # |______|  |______\____/_/    \_\_____/_____|_| \_|\_____|
-
-    def write_LiveLoading(self):
-        filepath = self.pathDict['LiveLoading']
-        nCaths = len(self.CatheterList)
-        content = ''
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
-        with open(filepath, 'r') as textfile:
-            old_text = textfile.read()
-            index = old_text.index('Number of Catheters')
-            content += old_text[0:index]
-
-        content += """Number of Catheters
-\t{}
-
-""".format(nCaths)
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ SOURCE STEP
-        content += """Source Step
-Begin
-"""
-        for ind, catheter in enumerate(self.CatheterList):
-            content += """\tCatheter {}
-\tBegin
-\t\tActive Source Step
-\t\t\t{:.6f}
-\t\tInactive Source Step
-\t\t\t{:.6f}
-\tEnd
-""".format(ind + 1, 1.0, 1.0)
-
-        content += """End
-"""
-
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ SOURCE POSITIONS
-
-        content += """Source Positions
-Begin
-"""
-        for ind, catheter in enumerate(self.CatheterList):
-            content += """\tCatheter {}
-""".format(ind + 1)
-
-            content += self.getSourcePositions(catheter, virtual=False)
-
-        content += """End
-"""
-
-        return filepath, content
-
-    # __      __   _      ____          _____ _____ _   _  _____
-    # \ \    / /  | |    / __ \   /\   |  __ \_   _| \ | |/ ____|
-    #  \ \  / /   | |   | |  | | /  \  | |  | || | |  \| | |  __
-    #   \ \/ /    | |   | |  | |/ /\ \ | |  | || | | . ` | | |_ |
-    #    \  /     | |___| |__| / ____ \| |__| || |_| |\  | |__| |
-    #     \/      |______\____/_/    \_\_____/_____|_| \_|\_____|
-
-    def write_VirtualLoading(self):
-        filepath = os.path.join(self.root, 'VirtualLoading.cha')
-        content = ''
-        return filepath, content
-
-
-
-    def getCathData(self, catheterObj, virtual=False):
+    def write_Catheters(self, virtual=False):
+        ''' used for both LIVE and VIRTUAL catheters '''
 
         if virtual:
-            reconstr_len = 135
-            depth = 4
-            free_len = 240 - reconstr_len
-            retr_len = depth - 6
+            filepath = self.pathDict['VirtualCatheters']
         else:
-            reconstr_len = catheterObj.length
-            depth = 4
-            free_len = 240 - reconstr_len
-            retr_len = depth - 6
+            filepath = self.pathDict['LiveCatheters']
 
-        Cath_Data = """\tBegin
-\t\tCategory
-\t\t\t0
-\t\tCathStatus
-\t\t\t2
-\t\tLocked
-\t\t\t4
-\t\tName
-\t\t\tProGuide 6F Trocar L=240mm Flexitron
-\t\tType
-\t\t\tFLEXIBLE
-\t\tMaterial
-\t\t\tPlastic
-\t\tDensity
-\t\t\t1.400000
-\t\tOuter Diameter
-\t\t\t1.980000
-\t\tInner Diameter
-\t\t\t1.480000
-\t\tLength
-\t\t\t240.000000
-\t\tmin Free Length
-\t\t\t50.000000
-\t\tDistance Tip 1st Source Position
-\t\t\t6.000000
-\t\tChannel Length
-\t\t\t1234.000000
-\t\tDistance 1st Reconstructed Point Tip
-\t\t\t0.000
-\t\tReconstructed Length
-\t\t\t{:.6f}
-\t\tFree Length
-\t\t\t{:.6f}
-\t\tRetraction Length
-\t\t\t{:.6f}
-\t\tDepth
-\t\t\t{:.6f}
-\tEnd\n""".format(reconstr_len, free_len, retr_len, depth)
-        return Cath_Data
+        nCaths = len(self.CatheterList)
+        content = ''
 
-    def getCathDescribingPts(self, catheter, virtual=False):
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY ~~~~~~~~~~~~~~~~~~~~~~~~
+        with open(filepath, 'r') as textfile:
+            old_text = textfile.read()
+            index = old_text.index('Number of Catheters')
+            content += old_text[0:index]
+
+        content += "Number of Catheters\n\t{}\n\n".format(nCaths)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DATA ~~~~~~~~~~~~~~~~~~~~~~~~
+        content += "Catheter Data\nBegin\n"
+
+        for ind, catheter in enumerate(self.CatheterList):
+            content += "\tCatheter {}\n".format(ind + 1)
+            content += getCathData(catheter, virtual=virtual)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DESCRIPTION
+        content += "End\nCatheter Describing Points\nBegin\n"
+
+        for ind, catheter in enumerate(self.CatheterList):
+            content += "\tCatheter {}\n".format(ind + 1)
+            content += getCathDescribingPts(catheter)
+
+        content += "End\n"
+
+        return filepath, content
+
+    #  _______ ______ __  __ _____  _            _______ ______
+    # |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
+    #    | |  | |__  | \  / | |__) | |       /  \  | |  | |__
+    #    | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
+    #    | |  | |____| |  | | |    | |____ / ____ \| |  | |____
+    #    |_|  |______|_|  |_|_|    |______/_/    \_\_|  |______|
+
+    def write_TemplateLoading(self, virtual=False):
+        ''' does __ '''
         if virtual:
-            points = catheter.getVirtualPoints()
-            nPts = 4
-
+            filepath = self.pathDict['VirtualTemplateLoading']
         else:
-            points = catheter.pointList
-            nPts = len(points)
+            filepath = self.pathDict['LiveTemplateLoading']
 
-        row, col = catheter.getPointCoordinate()
+        nCaths = len(self.CatheterList)
+        content = ''
 
-        Cath_Description = """\tBegin
-\t\tTemplate Row
-\t\t\t{}
-\t\tTemplate Column
-\t\t\t{}
-\t\tNumber of Points
-\t\t\t{}
-""".format(row, col, nPts)
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY ~~~~~~~~~~~~~~~~~~~~~~~~
+        with open(filepath, 'r') as textfile:
+            old_text = textfile.read()
+            index = old_text.index('Number of Catheters')
+            content += old_text[0:index]
 
-        for index, point in enumerate(points):
+        content += "Number of Catheters\n\t{}\n\n".format(nCaths)
 
-            # Point Type: 0, 2, 3, 4
-            if (index + 1) <= (len(points) - 3):
-                ptType = 0
-            elif (index + 1) == (len(points) - 2):
-                ptType = 2
-            elif (index + 1) == (len(points) - 1):
-                ptType = 3
-            elif (index + 1) == len(points):
-                ptType = 4
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ LOADING DATA ~~~~~~~~~~~~~~~~~~~~~~~~
+        content += "Template Loading Data\nBegin\n"
 
-            Cath_Description += """\t\tPoint {}
-\t\tBegin
-\t\t\tCoordinates
-\t\t\t\t{:.6f} {:.6f} {:.6f}
-\t\t\tType
-\t\t\t\t{}
-\t\tEnd
-""".format(index, point[0], point[1], point[2], ptType)
+        for ind, catheter in enumerate(self.CatheterList):
+            content += "\tCatheter {}\n\tBegin\n\t\tTemplate Coordinates\n"
+            content += "\t\t\t{} {}\n\tEnd\n".format(ind, 'B', '2.5')
 
-        Cath_Description += """\tEnd
-"""
-        return Cath_Description
+        content += "End\n"
+
+        return filepath, content
+
+    #  _      ____          _____ _____ _   _  _____
+    # | |    / __ \   /\   |  __ \_   _| \ | |/ ____|
+    # | |   | |  | | /  \  | |  | || | |  \| | |  __
+    # | |   | |  | |/ /\ \ | |  | || | | . ` | | |_ |
+    # | |___| |__| / ____ \| |__| || |_| |\  | |__| |
+    # |______\____/_/    \_\_____/_____|_| \_|\_____|
+
+    def write_Loading(self, virtual=False):
+        ''' does __ '''
+        if virtual:
+            filepath = self.pathDict['VirtualLoading']
+        else:
+            filepath = self.pathDict['LiveLoading']
+
+        nCaths = len(self.CatheterList)
+        content = ''
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY ~~~~~~~~~~~~~~~~~~~~~~~~
+        with open(filepath, 'r') as textfile:
+            old_text = textfile.read()
+            index = old_text.index('Number of Catheters')
+            content += old_text[0:index]
+
+        content += "Number of Catheters\n\t{}\n\n".format(nCaths)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ SOURCE STEP ~~~~~~~~~~~~~~~~~~~~~~~~
+        content += "Source Step\nBegin\n"
+
+        for ind, catheter in enumerate(self.CatheterList):
+            content += "\tCatheter {}\n\tBegin\n".format(ind + 1)
+            content += "\t\tActive Source Step\n"
+            content += "\t\t\t{:.6f}\n".format(1.0)
+            content += "\t\tInactive Source Step\n"
+            content += "\t\t\t{:.6f}\n\tEnd\n".format(1.0)
+
+        content += "End\n"
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ SOURCE POSITIONS ~~~~~~~~~~~~~~~~~~~~~~~~
+        content += "Source Positions\nBegin\n"
+
+        for ind, catheter in enumerate(self.CatheterList):
+            content += "\tCatheter {}\n".format(ind + 1)
+            content += getSourcePositions(catheter, virtual=virtual)
+
+        content += "End\n"
+
+        return filepath, content
 
 
-    def getSourcePositions(self, catheter, virtual=False):
-        sourcePosn = """\tBegin
-\t\tNumber of Points
-\t\t\t{}
+def getCathData(catheterObj, virtual=False):
+    """ Populates Catheter Data into Oncetra ASCII format """
+    if virtual:
+        reconstr_len = 135
+        depth = 4
+        free_len = 240 - reconstr_len
+        retr_len = depth - 6
+    else:
+        reconstr_len = catheterObj.length
+        depth = 4
+        free_len = 240 - reconstr_len
+        retr_len = depth - 6
 
-""".format(len(catheter.interpolatedPts))
+    CD = "\tBegin\n"
+    CD += "\t\tCategory\n\t\t\t0\n"
+    CD += "\t\tCathStatus\n\t\t\t2\n"
+    CD += "\t\tLocked\n\t\t\t4\n"
+    CD += "\t\tName\n\t\t\tProGuide 6F Trocar L=240mm Flexitron\n"
+    CD += "\t\tType\n\t\t\tFLEXIBLE\n"
+    CD += "\t\tMaterial\n\t\t\tPlastic\n"
+    CD += "\t\tDensity\n\t\t\t1.400000\n"
+    CD += "\t\tOuter Diameter\n\t\t\t1.980000\n"
+    CD += "\t\tInner Diameter\n\t\t\t1.480000\n"
+    CD += "\t\tLength\n\t\t\t240.000000\n"
+    CD += "\t\tmin Free Length\n\t\t\t50.000000\n"
+    CD += "\t\tDistance Tip 1st Source Position\n\t\t\t6.000000\n"
+    CD += "\t\tChannel Length\n\t\t\t1234.000000\n"
+    CD += "\t\tDistance 1st Reconstructed Point Tip\n\t\t\t0.000\n"
+    CD += "\t\tReconstructed Length\n\t\t\t{:.6f}\n".format(reconstr_len)
+    CD += "\t\tFree Length\n\t\t\t{:.6f}\n".format(free_len)
+    CD += "\t\tRetraction Length\n\t\t\t{:.6f}\n".format(retr_len)
+    CD += "\t\tDepth\n\t\t\t{:.6f}\n".format(depth)
+    CD += "\tEnd\n"
 
-        for index, point in enumerate(catheter.interpolatedPts):
-            if (index % 3) == 0:
-                status = 'Active'
-                weight = 1.0
-            else:
-                status = 'Inactive'
-                weight = 0.0
-            sourcePosn += """\t\tPoint {}
-\t\tBegin
-\t\t\tCoordinates
-\t\t\t\t{:.3f}000 {:.3f}000 {:.3f}000
-\t\t\tStatus
-\t\t\t\t{}
-\t\t\tWeight
-\t\t\t\t{:.6f}
-\t\t\tIndex
-\t\t\t\t{}
-\t\tEnd
-""".format(index, point[0], point[1], point[2], status, weight, 0)
+    return CD
 
-        sourcePosn += """\tEnd
-"""
 
-        return sourcePosn
+def getCathDescribingPts(catheter, virtual=False):
+    if virtual:
+        points = catheter.getVirtualPoints()
+        nPts = 4
+
+    else:
+        points = catheter.pointList
+        nPts = len(points)
+
+    row, col = catheter.getPointCoordinate()
+    CD = "\tBegin\n\t\tTemplate Row\n\t\t\t{}\n".format(row)
+    CD += "\t\tTemplate Column\n\t\t\t{}\n".format(col)
+    CD += "\t\tNumber of Points\n\t\t\t{}\n".format(nPts)
+
+    for index, point in enumerate(points):
+        # Point Type: 0, 2, 3, 4
+        if (index + 1) <= (len(points) - 3):
+            ptType = 0
+        elif (index + 1) == (len(points) - 2):
+            ptType = 2
+        elif (index + 1) == (len(points) - 1):
+            ptType = 3
+        elif (index + 1) == len(points):
+            ptType = 4
+
+        CD += "\t\tPoint {}\n\t\tBegin\n\t\t\tCoordinates\n".format(index)
+        CD += "\t\t\t\t{:.6f} {:.6f} {:.6f}\n".format(point[0],
+                                                      point[1],
+                                                      point[2])
+        CD += "\t\t\tType\n\t\t\t\t{}\n\t\tEnd\n".format(ptType)
+
+    CD += "\tEnd\n"
+
+    return CD
+
+
+def getSourcePositions(catheter, virtual=False):
+
+    if virtual:
+        myPoints = catheter.getVirtualInterpolatedPoints(spacing=1.0)
+    else:
+        myPoints = catheter.getInterpolatedPoints(spacing=1.0)
+
+    nPts = len(myPoints)
+    sourcePosn = "\tBegin\n\t\tNumber of Points\n\t\t\t{}\n\n".format(nPts)
+
+    for index, point in enumerate(myPoints):
+
+        if (index % 3) == 0:
+            status = 'Active'
+            weight = 1.0
+        else:
+            status = 'Inactive'
+            weight = 0.0
+
+        sourcePosn += "\t\tPoint {}\n\t\tBegin\n".format(index)
+        sourcePosn += "\t\t\tCoordinates\n\t\t\t\t"
+        sourcePosn += "{:.3f}000 {:.3f}000 {:.3f}000\n".format(point[0],
+                                                               point[1],
+                                                               point[2])
+        sourcePosn += "\t\t\tStatus\n\t\t\t\t{}\n".format(status)
+        sourcePosn += "\t\t\tWeight\n\t\t\t\t{:.6f}\n".format(weight)
+        sourcePosn += "\t\t\tIndex\n\t\t\t\t{}\n\t\tEnd\n".format(0)
+
+    sourcePosn += "\tEnd\n"
+
+    return sourcePosn
 
 
 if __name__ == "__main__":
@@ -497,8 +335,8 @@ if __name__ == "__main__":
 
     writer.setCatheterList(cathList)
 
-    exported_plan_path = r'C:\Users\Mark\Documents\Sunnybrook\semple'
-    # exported_plan_path = r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\exported sample plan'
+    # exported_plan_path = r'C:\Users\Mark\Documents\Sunnybrook\semple'
+    exported_plan_path = r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\exported sample plan'
 
     writer.import_plan(exported_plan_path)
 
