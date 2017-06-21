@@ -18,13 +18,9 @@ class CatheterObj(object):
     def addMeasurements(self, measurements):
         self.pointList = measurements.tolist()
         self.measurement = measurements
-        self.length = self.calculateLength()
+        self.length = calculateLength(measurements)
 
-    def calculateLength(self):
-        rolled = np.roll(self.measurement, axis=0, shift=1)
-        diff = self.measurement - rolled
-        length = np.sum(np.linalg.norm(diff[1:], axis=1))
-        return length
+        self.interpolatedPts = self.getInterpolatedPoints(spacing=1)
 
     def setTemplatePosition(self, row=1, col='A'):
         self.templateCode = [col, str(row)]
@@ -45,10 +41,10 @@ class CatheterObj(object):
                          [x_0, y_0, -131.0],
                          [x_0, y_0, -236.0]])
 
-    def resampleMeasurements(self, factor):
-        pass
+    def getInterpolatedPoints(self, spacing):
+        return interpolateMeasurements(self.measurement, spacing)
 
-    def interpolateMeasurements(self, spacing):
+    def resampleMeasurements(self, factor):
         pass
 
     def template_code(self):
@@ -56,7 +52,53 @@ class CatheterObj(object):
         pass
 
 
-    # def format_catheter_Data_str(self):
-        # pass
+def calculateLength(pointlist):
+        rolled = np.roll(pointlist, axis=0, shift=1)
+        diff = pointlist - rolled
+        length = np.sum(np.linalg.norm(diff[1:], axis=1))
+        return length
 
-    # def format()
+
+def interpolateMeasurements(pointlist, spacing):
+    """ Linear interpolation between catheter key points """
+    rolled = np.roll(pointlist, axis=0, shift=1)
+    vects = (pointlist - rolled)[1:]
+    lengths = np.linalg.norm(vects, axis=1)
+    unitVects = np.divide(vects.T, lengths).T
+    interpolated_points = []
+
+    for ind, point in enumerate(pointlist):
+        if ind == 0:
+            # first point
+            startingPt = point + 6 * unitVects[ind]
+            remainder = 0
+            print('FIRST POINT')
+        elif ind == (len(pointlist) - 1):
+            # last point
+            if remainder > 0:
+                print("SOME LEFTOVER")
+                lastPt = interpolated_points[-1] + spacing * unitVects[-1]
+                interpolated_points.append(lastPt)
+            print('LAST POINT')
+            print('Total of {} points in this segment'.format(len(interpolated_points)))
+            # print('Remainder:', remainder)
+            print('total length:', calculateLength(interpolated_points))
+            return interpolated_points
+
+        else:
+            startingPt = point + unitVects[ind] * (spacing - remainder)
+
+        interpolated_points.append(startingPt)
+        targetPt = pointlist[ind + 1]
+        residualLen = np.linalg.norm(targetPt - startingPt)
+        nPts = int((residualLen / spacing))
+        remainder = (residualLen / spacing) - nPts
+
+        for pt in range(0, nPts):
+            thisPt = interpolated_points[-1]
+            newPt = thisPt + unitVects[ind] * spacing
+            interpolated_points.append(newPt)
+
+    print("this should never be printedd...")
+    # return interpolated_points
+

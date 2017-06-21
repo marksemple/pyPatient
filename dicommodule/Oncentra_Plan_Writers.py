@@ -28,7 +28,8 @@ class Plan_Writers(object):
         self.nCatheters = 2
 
         # save location
-        self.root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan'
+        # self.root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan'
+        self.root = r'C:\Users\Mark\Documents\Sunnybrook\sample_plan'
 
         self._date = datetime.datetime.now().strftime("%m/%d/%y")
         self._time = datetime.datetime.now().strftime("%H:%M:%S")
@@ -135,9 +136,63 @@ Begin
 """.format(ind + 1)
             content += self.getCathDescribingPts(catheter)
 
+        content += """End
+"""
+
         return filepath, content
 
-    # _        _______ ______ __  __ _____  _            _______ ______
+    # __      __   _____       _______ _    _  _____
+    # \ \    / /  / ____|   /\|__   __| |  | |/ ____|
+    #  \ \  / /  | |       /  \  | |  | |__| | (___
+    #   \ \/ /   | |      / /\ \ | |  |  __  |\___ \
+    #    \  /    | |____ / ____ \| |  | |  | |____) |
+    #     \/      \_____/_/    \_\_|  |_|  |_|_____/
+
+    def write_VirtualCatheters(self):
+        """ Construct new VirtualCatheters.CHA file with our own data
+        Consists of 3 sections: Header, CatheterData, CatheterDescribingPts
+        Header we copy directly from the exported file.
+        Both CatheterData and CatheterDescribingPts sections are determined
+        from measurements, and there is one section for each cathter
+        """
+
+        filepath = self.pathDict['VirtualCatheters']
+        nCaths = len(self.CatheterList)
+        content = ''
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ HEADER COPY
+        with open(filepath, 'r') as textfile:
+            old_text = textfile.read()
+            index = old_text.index('Number of Catheters')
+            content += old_text[0:index]
+
+        content += """Number of Catheters
+\t{}
+
+""".format(nCaths)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DATA
+        content += """Catheter Data
+Begin
+"""
+
+        for ind, catheter in enumerate(self.CatheterList):
+            content += """\tCatheter {}
+""".format(ind + 1)
+            content += self.getCathData(catheter, virtual=True)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DESCRIPTION
+        content += """End
+Catheter Describing Points
+Begin
+"""
+        for ind, catheter in enumerate(self.CatheterList):
+            content += """\tCatheter {}
+""".format(ind + 1)
+            content += self.getCathDescribingPts(catheter, virtual=True)
+
+        return filepath, content
+    #  _        _______ ______ __  __ _____  _            _______ ______
     # | |      |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
     # | |         | |  | |__  | \  / | |__) | |       /  \  | |  | |__
     # | |         | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
@@ -192,7 +247,19 @@ Begin
 
         return filepath, content
 
-    # _         _      ____          _____ _____ _   _  _____
+    # __      __  _______ ______ __  __ _____  _            _______ ______
+    # \ \    / / |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
+    #  \ \  / /     | |  | |__  | \  / | |__) | |       /  \  | |  | |__
+    #   \ \/ /      | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
+    #    \  /       | |  | |____| |  | | |    | |____ / ____ \| |  | |____
+    #     \/        |_|  |______|_|  |_|_|    |______/_/    \_\_|  |______|
+
+    def write_VirtualTemplateLoading(self):
+        filepath = os.path.join(self.root, 'VirtualTemplateLoading.cha')
+        content = ''
+        return filepath, content
+
+    #  _         _      ____          _____ _____ _   _  _____
     # | |       | |    / __ \   /\   |  __ \_   _| \ | |/ ____|
     # | |       | |   | |  | | /  \  | |  | || | |  \| | |  __
     # | |       | |   | |  | |/ /\ \ | |  | || | | . ` | | |_ |
@@ -200,26 +267,7 @@ Begin
     # |______|  |______\____/_/    \_\_____/_____|_| \_|\_____|
 
     def write_LiveLoading(self):
-        filepath = os.path.join(self.root, 'LiveLoading.cha')
-        content = ''
-        return filepath, content
-
-    # __      __   _____       _______ _    _  _____
-    # \ \    / /  / ____|   /\|__   __| |  | |/ ____|
-    #  \ \  / /  | |       /  \  | |  | |__| | (___
-    #   \ \/ /   | |      / /\ \ | |  |  __  |\___ \
-    #    \  /    | |____ / ____ \| |  | |  | |____) |
-    #     \/      \_____/_/    \_\_|  |_|  |_|_____/
-
-    def write_VirtualCatheters(self):
-        """ Construct new VirtualCatheters.CHA file with our own data
-        Consists of 3 sections: Header, CatheterData, CatheterDescribingPts
-        Header we copy directly from the exported file.
-        Both CatheterData and CatheterDescribingPts sections are determined
-        from measurements, and there is one section for each cathter
-        """
-
-        filepath = self.pathDict['VirtualCatheters']
+        filepath = self.pathDict['LiveLoading']
         nCaths = len(self.CatheterList)
         content = ''
 
@@ -234,37 +282,37 @@ Begin
 
 """.format(nCaths)
 
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DATA
-        content += """Catheter Data
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ SOURCE STEP
+        content += """Source Step
 Begin
 """
-
         for ind, catheter in enumerate(self.CatheterList):
             content += """\tCatheter {}
-""".format(ind + 1)
-            content += self.getCathData(catheter, virtual=True)
+\tBegin
+\t\tActive Source Step
+\t\t\t{:.6f}
+\t\tInactive Source Step
+\t\t\t{:.6f}
+\tEnd
+""".format(ind + 1, 1.0, 1.0)
 
-        # ~~~~~~~~~~~~~~~~~~~~~~~~ CATHETER DESCRIPTION
         content += """End
-Catheter Describing Points
+"""
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~ SOURCE POSITIONS
+
+        content += """Source Positions
 Begin
 """
         for ind, catheter in enumerate(self.CatheterList):
             content += """\tCatheter {}
 """.format(ind + 1)
-            content += self.getCathDescribingPts(catheter, virtual=True)
 
-        return filepath, content
-    # __      __  _______ ______ __  __ _____  _            _______ ______
-    # \ \    / / |__   __|  ____|  \/  |  __ \| |        /\|__   __|  ____|
-    #  \ \  / /     | |  | |__  | \  / | |__) | |       /  \  | |  | |__
-    #   \ \/ /      | |  |  __| | |\/| |  ___/| |      / /\ \ | |  |  __|
-    #    \  /       | |  | |____| |  | | |    | |____ / ____ \| |  | |____
-    #     \/        |_|  |______|_|  |_|_|    |______/_/    \_\_|  |______|
+            content += self.getSourcePositions(catheter, virtual=False)
 
-    def write_VirtualTemplateLoading(self):
-        filepath = os.path.join(self.root, 'VirtualTemplateLoading.cha')
-        content = ''
+        content += """End
+"""
+
         return filepath, content
 
     # __      __   _      ____          _____ _____ _   _  _____
@@ -280,6 +328,7 @@ Begin
         return filepath, content
 
 
+
     def getCathData(self, catheterObj, virtual=False):
 
         if virtual:
@@ -288,7 +337,7 @@ Begin
             free_len = 240 - reconstr_len
             retr_len = depth - 6
         else:
-            reconstr_len = catheterObj.calculateLength()
+            reconstr_len = catheterObj.length
             depth = 4
             free_len = 240 - reconstr_len
             retr_len = depth - 6
@@ -368,7 +417,7 @@ Begin
             Cath_Description += """\t\tPoint {}
 \t\tBegin
 \t\t\tCoordinates
-\t\t\t\t{:.6f}, {:.6f}, {:.6f}
+\t\t\t\t{:.6f} {:.6f} {:.6f}
 \t\t\tType
 \t\t\t\t{}
 \t\tEnd
@@ -379,21 +428,77 @@ Begin
         return Cath_Description
 
 
+    def getSourcePositions(self, catheter, virtual=False):
+        sourcePosn = """\tBegin
+\t\tNumber of Points
+\t\t\t{}
+
+""".format(len(catheter.interpolatedPts))
+
+        for index, point in enumerate(catheter.interpolatedPts):
+            if (index % 3) == 0:
+                status = 'Active'
+                weight = 1.0
+            else:
+                status = 'Inactive'
+                weight = 0.0
+            sourcePosn += """\t\tPoint {}
+\t\tBegin
+\t\t\tCoordinates
+\t\t\t\t{:.3f}000 {:.3f}000 {:.3f}000
+\t\t\tStatus
+\t\t\t\t{}
+\t\t\tWeight
+\t\t\t\t{:.6f}
+\t\t\tIndex
+\t\t\t\t{}
+\t\tEnd
+""".format(index, point[0], point[1], point[2], status, weight, 0)
+
+        sourcePosn += """\tEnd
+"""
+
+        return sourcePosn
+
+
 if __name__ == "__main__":
     writer = Plan_Writers()
 
     from dicommodule.Patient_Catheter import CatheterObj
     cathList = []
 
-    for i in range(0, 5):
+    measurements = []
+    measurements.append(np.array([[37.712040, 59.296495, -0.624802],
+                                  [40.674661, 59.296495, -26.441921],
+                                  [44.429288, 59.262438, -52.932415],
+                                  [44.329114, 58.750000, -117.750000],
+                                  [44.329114, 58.750000, -131.000000],
+                                  [44.329114, 58.750000, -240.188489]]))
+
+    measurements.append(np.array([[95.769797, 43.011019, 3.208849],
+                                  [90.757262, 45.965823, -14.097856],
+                                  [84.681462, 47.232167, -30.138217],
+                                  [82.403037, 48.498511, -45.967521],
+                                  [82.151345, 48.671564, -59.242360],
+                                  [89.329114, 48.750000, -117.750000],
+                                  [89.329114, 48.750000, -131.000000],
+                                  [89.329114, 48.750000, -234.024971]]))
+
+    measurements.append(np.array([[79.329114, 33.750000, 4.000000],
+                                  [79.329114, 33.750000, -117.750000],
+                                  [79.329114, 33.750000, -131.000000],
+                                  [79.329114, 33.750000, -236.000000]]))
+
+    for i in range(0, 3):
         newCath = CatheterObj()
-        newCath.addMeasurements(np.random.random((5, 3)))
+        newCath.addMeasurements(measurements[i])
         newCath.setTemplatePosition(row=4, col='b')
         cathList.append(newCath)
 
     writer.setCatheterList(cathList)
 
-    exported_plan_path = r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\exported sample plan'
+    exported_plan_path = r'C:\Users\Mark\Documents\Sunnybrook\semple'
+    # exported_plan_path = r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\exported sample plan'
 
     writer.import_plan(exported_plan_path)
 
