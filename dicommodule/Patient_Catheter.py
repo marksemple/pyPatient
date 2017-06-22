@@ -7,8 +7,12 @@ import numpy as np
 
 
 class CatheterObj(object):
-    def __init__(self, row=None, col=None):
+    def __init__(self, rowInt=None, colLetter=None,
+                 rowIndex=None, colIndex=None):
         super().__init__()
+
+        self.measurements = None
+        self.template_index2location = calculateTemplateTransform()
 
         self.templateCols = ['A', 'a', 'B', 'b',
                              'C', 'c', 'D', 'd',
@@ -18,55 +22,85 @@ class CatheterObj(object):
                              3, 3.5, 4, 4.5,
                              5, 5.5, 6, 6.5, 7]
 
-        if type(col) == str:
-            if col in self.templateCols
-
+        if rowInt is not None and colLetter is not None:
+            self.setTemplatePosition(row=rowInt, col=colLetter)
 
     def addMeasurements(self, measurements):
-        self.pointList = measurements.tolist()
-        self.measurement = measurements
+        # let measurements *just* be all points north of the template
+        # we then add our corresponding template points, and our free end
+        tx = self.template_X
+        ty = self.template_Y
+        templatePoints = np.array([[tx, ty, -117.75],
+                                   [tx, ty, -131.00]])
+        measurements = np.vstack((measurements, templatePoints))
         self.length = calculateLength(measurements)
-
-        self.interpolatedPts = self.getInterpolatedPoints(spacing=1)
+        self.depth = measurements[0, 2]
+        freeLength = getFreeLength(measurements)
+        freePosn = measurements[-1, 2] - freeLength
+        lastPt = np.array([[tx, ty, freePosn]])
+        measurements = np.vstack((measurements, lastPt))
+        self.measurement = measurements
 
     def setTemplatePosition(self, row=1, col='A'):
-        self.templateCode = [col, str(row)]
-        colInd = self.templateCols.index(col)
-        rowInd = self.templateRows.index(row)
+        self.templateCode = [col, row]
+        try:
+            colInd = self.templateCols.index(col)
+            rowInd = self.templateRows.index(row)
+        except ValueError as ve:
+            print(ve)
+            return -1
         self.templateCoordinates = [rowInd, colInd]
+        indexCoords = np.array([colInd, rowInd, 1])
+        tempCoords = self.template_index2location.dot(indexCoords)
+        self.template_X = tempCoords[0]
+        self.template_Y = tempCoords[1]
 
     def getPointCoordinate(self):
         return self.templateCoordinates
 
+    def getPointList(self):
+        if self.measurements is None:
+            self.addMeasurements(np.array([[self.template_X,
+                                            self.template_Y,
+                                            4.0]]))
+        return self.measurement.tolist()
+
     def getVirtualPoints(self):
-        # x_0 = self.coordinatePose
-        # y_0 =
-        x_0 = 45.329114
-        y_0 = 58.75
+        x_0 = self.template_X
+        y_0 = self.template_Y
         return np.array([[x_0, y_0, 4.0],
                          [x_0, y_0, -117.5],
                          [x_0, y_0, -131.0],
                          [x_0, y_0, -236.0]])
 
     def getVirtualInterpolatedPoints(self, spacing):
-        return interpolateMeasurements(self.virtual_measurements, spacing)
+        if self.measurements is None:
+            self.addMeasurements(np.array([[self.template_X,
+                                            self.template_Y,
+                                            4.0]]))
+        pts = self.getVirtualPoints()
+        return interpolateMeasurements(pts, spacing)
 
     def getInterpolatedPoints(self, spacing):
-        return interpolateMeasurements(self.measurement, spacing)
+        if self.measurements is None:
+            self.addMeasurements(np.array([[self.template_X,
+                                            self.template_Y,
+                                            4.0]]))
+        pts = interpolateMeasurements(self.measurement, spacing)
+        return pts
 
-    def resampleMeasurements(self, factor):
-        pass
 
-    def template_code(self):
-        # return 'A a B b C c D d E e F f G g ' + '1 1.5 2 2.5 3 3.5 4 4.5 ...'
-        pass
+def getFreeLength(measurement):
+    length = calculateLength(measurement)
+    freeLength = 240 - length
+    return freeLength
 
 
 def calculateLength(pointlist):
-        rolled = np.roll(pointlist, axis=0, shift=1)
-        diff = pointlist - rolled
-        length = np.sum(np.linalg.norm(diff[1:], axis=1))
-        return length
+    rolled = np.roll(pointlist, axis=0, shift=1)
+    diff = pointlist - rolled
+    length = np.sum(np.linalg.norm(diff[1:], axis=1))
+    return length
 
 
 def interpolateMeasurements(pointlist, spacing):
@@ -79,20 +113,15 @@ def interpolateMeasurements(pointlist, spacing):
 
     for ind, point in enumerate(pointlist):
         if ind == 0:
-            # first point
+
             startingPt = point + 6 * unitVects[ind]
             remainder = 0
-            print('FIRST POINT')
+
         elif ind == (len(pointlist) - 1):
-            # last point
             if remainder > 0:
-                print("SOME LEFTOVER")
                 lastPt = interpolated_points[-1] + spacing * unitVects[-1]
                 interpolated_points.append(lastPt)
-            print('LAST POINT')
-            print('Total of {} points in this segment'.format(len(interpolated_points)))
-            # print('Remainder:', remainder)
-            print('total length:', calculateLength(interpolated_points))
+
             return interpolated_points
 
         else:
@@ -110,5 +139,24 @@ def interpolateMeasurements(pointlist, spacing):
             interpolated_points.append(newPt)
 
     print("this should never be printedd...")
-    # return interpolated_points
 
+
+def calculateTemplateTransform(indCoord1=np.array([0, 4]),
+                               indCoord2=np.array([12, 12]),
+                               location1=np.array([34.329114, 28.75]),
+                               location2=np.array([94.329114, 68.75])):
+
+    scale = (location2 - location1) / (indCoord2 - indCoord1)
+    scaleMat = np.array([[scale[0], 0],
+                         [0, scale[1]]])
+    translation = location1 - scaleMat.dot(indCoord1)
+    T = np.eye(3)
+    T[0, 2] = translation[0]
+    T[1, 2] = translation[1]
+    T[0:2, 0:2] = scaleMat
+
+    return T
+
+
+if __name__ == "__main__":
+    pass

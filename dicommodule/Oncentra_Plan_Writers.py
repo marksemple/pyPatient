@@ -102,7 +102,7 @@ class Plan_Writers(object):
 
         for ind, catheter in enumerate(self.CatheterList):
             content += "\tCatheter {}\n".format(ind + 1)
-            content += getCathDescribingPts(catheter)
+            content += getCathDescribingPts(catheter, virtual=virtual)
 
         content += "End\n"
 
@@ -137,8 +137,11 @@ class Plan_Writers(object):
         content += "Template Loading Data\nBegin\n"
 
         for ind, catheter in enumerate(self.CatheterList):
-            content += "\tCatheter {}\n\tBegin\n\t\tTemplate Coordinates\n"
-            content += "\t\t\t{} {}\n\tEnd\n".format(ind, 'B', '2.5')
+            colLetter = catheter.templateCode[0]
+            rowIntegr = catheter.templateCode[1]
+            content += "\tCatheter {}\n\tBegin\n".format(ind)
+            content += "\t\tTemplate Coordinates\n"
+            content += "\t\t\t{} {}\n\tEnd\n".format(colLetter, rowIntegr)
 
         content += "End\n"
 
@@ -199,12 +202,14 @@ def getCathData(catheterObj, virtual=False):
         reconstr_len = 135
         depth = 4
         free_len = 240 - reconstr_len
-        retr_len = depth - 6
+        retr_len = [0, 0, depth - 6]
     else:
         reconstr_len = catheterObj.length
-        depth = 4
+        depth = catheterObj.depth
         free_len = 240 - reconstr_len
-        retr_len = depth - 6
+        dp1 = catheterObj.measurement[1, :] - catheterObj.measurement[0, :]
+        unitdp1 = dp1 / np.linalg.norm(dp1)
+        retr_len = catheterObj.measurement[0, :] + unitdp1 * 6
 
     CD = "\tBegin\n"
     CD += "\t\tCategory\n\t\t\t0\n"
@@ -223,7 +228,7 @@ def getCathData(catheterObj, virtual=False):
     CD += "\t\tDistance 1st Reconstructed Point Tip\n\t\t\t0.000\n"
     CD += "\t\tReconstructed Length\n\t\t\t{:.6f}\n".format(reconstr_len)
     CD += "\t\tFree Length\n\t\t\t{:.6f}\n".format(free_len)
-    CD += "\t\tRetraction Length\n\t\t\t{:.6f}\n".format(retr_len)
+    CD += "\t\tRetraction Length\n\t\t\t{:.3f}000\n".format(retr_len[2])
     CD += "\t\tDepth\n\t\t\t{:.6f}\n".format(depth)
     CD += "\tEnd\n"
 
@@ -236,7 +241,7 @@ def getCathDescribingPts(catheter, virtual=False):
         nPts = 4
 
     else:
-        points = catheter.pointList
+        points = catheter.getPointList()
         nPts = len(points)
 
     row, col = catheter.getPointCoordinate()
@@ -300,37 +305,53 @@ def getSourcePositions(catheter, virtual=False):
 
 
 if __name__ == "__main__":
+
     writer = Plan_Writers()
 
     from dicommodule.Patient_Catheter import CatheterObj
     cathList = []
 
-    measurements = []
-    measurements.append(np.array([[37.712040, 59.296495, -0.624802],
-                                  [40.674661, 59.296495, -26.441921],
-                                  [44.429288, 59.262438, -52.932415],
-                                  [44.329114, 58.750000, -117.750000],
-                                  [44.329114, 58.750000, -131.000000],
-                                  [44.329114, 58.750000, -240.188489]]))
+    # measurements = []
+    # measurements.append(np.array([[37.712040, 59.296495, -0.624802],
+    #                               [40.674661, 59.296495, -26.441921],
+    #                               [44.429288, 59.262438, -52.932415]]))
+    #                               # [44.329114, 58.750000, -117.750000],
+    #                               # [44.329114, 58.750000, -131.000000],
+    #                               # [44.329114, 58.750000, -240.188489]]))
 
-    measurements.append(np.array([[95.769797, 43.011019, 3.208849],
-                                  [90.757262, 45.965823, -14.097856],
-                                  [84.681462, 47.232167, -30.138217],
-                                  [82.403037, 48.498511, -45.967521],
-                                  [82.151345, 48.671564, -59.242360],
-                                  [89.329114, 48.750000, -117.750000],
-                                  [89.329114, 48.750000, -131.000000],
-                                  [89.329114, 48.750000, -234.024971]]))
+    # measurements.append(np.array([[95.769797, 43.011019, 3.208849],
+    #                               [90.757262, 45.965823, -14.097856],
+    #                               [84.681462, 47.232167, -30.138217],
+    #                               [82.403037, 48.498511, -45.967521],
+    #                               [82.151345, 48.671564, -59.242360]]))
+    #                               # [89.329114, 48.750000, -117.750000],
+    #                               # [89.329114, 48.750000, -131.000000],
+    #                               # [89.329114, 48.750000, -234.024971]]))
 
-    measurements.append(np.array([[79.329114, 33.750000, 4.000000],
-                                  [79.329114, 33.750000, -117.750000],
-                                  [79.329114, 33.750000, -131.000000],
-                                  [79.329114, 33.750000, -236.000000]]))
+    # measurements.append(np.array([[79.329114, 33.750000, 4.000000]]))
+    #                               # [79.329114, 33.750000, -117.750000],
+    #                               # [79.329114, 33.750000, -131.000000],
+    #                               # [79.329114, 33.750000, -236.000000]]))
 
-    for i in range(0, 3):
-        newCath = CatheterObj()
-        newCath.addMeasurements(measurements[i])
-        newCath.setTemplatePosition(row=4, col='b')
+    # measurements.append(np.array([[40.0, 20.0, 4.0]]))
+
+    # colLetters = ['B', 'f', 'e', 'B']
+    # rowInts = [6, 5, 3.5, 2]
+
+    colLetters = ['B', 'b', 'C',
+                  'c', 'D', 'd',
+                  'E', 'e', 'F',
+                  'C', 'C', 'E', 'E']
+    rowInts = [3, 2.5, 2,
+               2, 2, 2,
+               2, 2.5, 3,
+               5, 5.5, 5, 5.5]
+
+
+    for ind, colLetter in enumerate(colLetters):
+        newCath = CatheterObj(rowInt=rowInts[ind], colLetter=colLetter)
+        # newCath.addMeasurements(measurements[ind])
+        # newCath.setTemplatePosition(row=4, col='b')
         cathList.append(newCath)
 
     writer.setCatheterList(cathList)
