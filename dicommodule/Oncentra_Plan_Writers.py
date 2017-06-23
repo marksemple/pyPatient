@@ -22,7 +22,14 @@ class Plan_Writers(object):
     def __init__(self, info={}, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan'
+        # self.root =
+        self.setOutputPath(r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan')
+
+    def setInputPath(self, input_path):
+        self.inputPath = input_path
+
+    def setOutputPath(self, output_path):
+        self.outputPath = output_path
 
     def setCatheterList(self, catheterlist):
         self.CatheterList = catheterlist
@@ -31,6 +38,12 @@ class Plan_Writers(object):
         """ copy an exported-plan from Oncentra into my software """
 
         self.pathDict = {}
+        self.ReadPaths = {}
+        self.WritePaths = {}
+
+        if not os.path.exists(self.outputPath):
+            os.mkdir(self.outputPath)
+
         for dirName, subdirList, fileList in os.walk(path):
 
             # Validate selection
@@ -44,11 +57,10 @@ class Plan_Writers(object):
 
             for filename in fileList:
                 fullname = os.path.join(dirName, filename)
-
-                copy(fullname, self.root)
-
-                newPath = os.path.join(self.root, filename)
-                self.pathDict[filename.split('.')[0]] = newPath
+                copy(fullname, self.outputPath)
+                newPath = os.path.join(self.outputPath, filename)
+                shortname = filename.split('.')[0]
+                self.pathDict[shortname] = newPath
 
     def execute(self):
         """ Do the heavy-lifting component, calculate data, populate ascii """
@@ -207,9 +219,9 @@ def getCathData(catheterObj, virtual=False):
         reconstr_len = catheterObj.length
         depth = catheterObj.depth
         free_len = 240 - reconstr_len
-        dp1 = catheterObj.measurement[1, :] - catheterObj.measurement[0, :]
+        dp1 = catheterObj.measurements[1, :] - catheterObj.measurements[0, :]
         unitdp1 = dp1 / np.linalg.norm(dp1)
-        retr_len = catheterObj.measurement[0, :] + unitdp1 * 6
+        retr_len = catheterObj.measurements[0, :] + unitdp1 * 6
 
     CD = "\tBegin\n"
     CD += "\t\tCategory\n\t\t\t0\n"

@@ -11,19 +11,21 @@ class CatheterObj(object):
                  rowIndex=None, colIndex=None):
         super().__init__()
 
-        self.measurements = None
-        self.template_index2location = calculateTemplateTransform()
-
         self.templateCols = ['A', 'a', 'B', 'b',
                              'C', 'c', 'D', 'd',
                              'E', 'e', 'F', 'f', 'G']
-
         self.templateRows = [1, 1.5, 2, 2.5,
                              3, 3.5, 4, 4.5,
                              5, 5.5, 6, 6.5, 7]
 
+        self.measurements = None
+        self.template_index2location = calculateTemplateTransform()
+
         if rowInt is not None and colLetter is not None:
-            self.setTemplatePosition(row=rowInt, col=colLetter)
+            self.setTemplatePosition_byCode(row=rowInt, col=colLetter)
+
+        elif rowIndex is not None and colIndex is not None:
+            self.setTemplateCoords(rowIndex, colIndex)
 
     def addMeasurements(self, measurements):
         # let measurements *just* be all points north of the template
@@ -32,6 +34,10 @@ class CatheterObj(object):
         ty = self.template_Y
         templatePoints = np.array([[tx, ty, -117.75],
                                    [tx, ty, -131.00]])
+
+        print("MEAS TYPE: {}".format(type(measurements)))
+        print("MEAS SHAPE: {}".format(measurements.shape))
+
         measurements = np.vstack((measurements, templatePoints))
         self.length = calculateLength(measurements)
         self.depth = measurements[0, 2]
@@ -39,18 +45,23 @@ class CatheterObj(object):
         freePosn = measurements[-1, 2] - freeLength
         lastPt = np.array([[tx, ty, freePosn]])
         measurements = np.vstack((measurements, lastPt))
-        self.measurement = measurements
+        self.measurements = measurements
 
-    def setTemplatePosition(self, row=1, col='A'):
+    def setTemplatePosition_byCode(self, row=1, col='A'):
+        # TRANSLATE ALPHA-NUMERIC TEMPLATE CODE INTO ARRAY COORDINATES
         self.templateCode = [col, row]
+
         try:
             colInd = self.templateCols.index(col)
             rowInd = self.templateRows.index(row)
         except ValueError as ve:
             print(ve)
             return -1
-        self.templateCoordinates = [rowInd, colInd]
-        indexCoords = np.array([colInd, rowInd, 1])
+        self.setTemplateCoords(rowInd, colInd)
+
+    def setTemplateCoords(self, rowIndex, colIndex):
+        self.templateCoordinates = [rowIndex, colIndex]
+        indexCoords = np.array([colIndex, rowIndex, 1])
         tempCoords = self.template_index2location.dot(indexCoords)
         self.template_X = tempCoords[0]
         self.template_Y = tempCoords[1]
@@ -63,7 +74,7 @@ class CatheterObj(object):
             self.addMeasurements(np.array([[self.template_X,
                                             self.template_Y,
                                             4.0]]))
-        return self.measurement.tolist()
+        return self.measurements.tolist()
 
     def getVirtualPoints(self):
         x_0 = self.template_X
@@ -86,7 +97,7 @@ class CatheterObj(object):
             self.addMeasurements(np.array([[self.template_X,
                                             self.template_Y,
                                             4.0]]))
-        pts = interpolateMeasurements(self.measurement, spacing)
+        pts = interpolateMeasurements(self.measurements, spacing)
         return pts
 
 

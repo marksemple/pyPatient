@@ -12,12 +12,13 @@ except:
     import pydicom as dicom
 
 # Locals
-try:
-    from Patient_ROI import Patient_ROI_Set
-    from Patient_Image import Patient_Image
-except ImportError:
-    from dicommodule.Patient_ROI import Patient_ROI_Set
-    from dicommodule.Patient_Image import Patient_Image
+# try:
+    # from Patient_ROI import Patient_ROI_Set
+    # from Patient_Image import Patient_Image
+# except ImportError:
+from dicommodule.Patient_ROI import Patient_ROI_Set
+from dicommodule.Patient_Image import Patient_Image
+from dicommodule.Patient_Plan import Patient_Plan
 
 # from Image import Image
 # from Contour import contour
@@ -33,23 +34,25 @@ class Patient(object):
 
     def __init__(self, patientPath, reverse_rotation=False):
         super().__init__()
+
         self.hasImage = False
         self.hasROI = False
+        self.hasPlan = False
 
-        # Scan given patient folder for dicom image files,
-        # return dict by modality
+        self.Image = Patient_Image()
+        self.ROI = Patient_ROI_Set()
+        self.Plan = Patient_Plan()
 
         self.reverseRotation = reverse_rotation
 
+        # Scan given patient folder for dicom image files,
+        # return dict by modality
         dcmFiles = self.scanPatientFolder(patientPath)
-        if not bool(dcmFiles):
-            raise Exception("No DICOM Files Found!")
 
-        # Load medical data from found dicom files
         if bool(dcmFiles):
             self.loadPatientData(dcmFiles)
         else:
-            self.createPatientData()
+            print("No DICOM Files Found at {}".format(patientPath))
 
         # print("Image Position Patient")
         # self.Image.prettyFormatIPP()
@@ -112,11 +115,6 @@ class Patient(object):
             self.StructureSet = Patient_ROI_Set(file=dcmFiles['unknown'][0],
                                                 imageInfo=self.Image.info)
             self.hasROI = True
-
-    def createPatientData(self):
-        # self.Image = Patient_Image()
-        # self.StructureSet = Patient_ROI_set()
-        pass
 
     def getPatient_specific_data(self):
         pass

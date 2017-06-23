@@ -25,9 +25,7 @@ class Patient_Image(object):
         UID2IPP
     """
 
-
-
-    def __init__(self, fileList, revRot=False):
+    def __init__(self, fileList=None, revRot=False):
 
         # must have fileList attribute
         # must all belong to same reference set
@@ -42,41 +40,80 @@ class Patient_Image(object):
                      'Ind2UID': {},
                      'Ind2Loc': {}}
 
+        self.revRot = revRot
+
         # print(self.info)
 
         if bool(fileList):
-            info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
 
-            print("MR IOP: {}".format(info['IOP']))
+            self.setImageData(fileList=fileList)
 
-            info['NSlices'] = len(fileList)
-            self.get_sliceVariable_Properties(fileList)
-            self.data = self.get_pixel_data()
+            # info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
 
-            info['R'] = info['ImageOrientationPatient']
-            info['RT'] = info['ImageOrientationPatient'].T
+            # print("MR IOP: {}".format(info['IOP']))
 
-            print("REVROT:", revRot)
-            if not revRot:
-                info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
-                info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
-                info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
-                info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
-            else:
-                info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
-                info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
-                info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
-                info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
+            # info['NSlices'] = len(fileList)
+            # self.get_sliceVariable_Properties(fileList)
+            # self.data = self.get_pixel_data()
 
-            # print("PAT2PIX", info['Pat2Pix_R'])
+            # info['R'] = info['ImageOrientationPatient']
+            # info['RT'] = info['ImageOrientationPatient'].T
 
-            print("Image Scaling: ", info['PixelSpacing'][0],
-                  info['PixelSpacing'][1], info['SliceSpacing'])
+            # print("REVROT:", revRot)
+            # if not revRot:
+            #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
+            #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
+            #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
+            #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
+            # else:
+            #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
+            #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
+            #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
+            #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
 
-            print("going with R of:\n{}".format(info['Pat2Pix_R']))
+            # # print("PAT2PIX", info['Pat2Pix_R'])
+
+            # print("Image Scaling: ", info['PixelSpacing'][0],
+            #       info['PixelSpacing'][1], info['SliceSpacing'])
+
+            # print("going with R of:\n{}".format(info['Pat2Pix_R']))
 
         # else:
         # self.createProps()
+
+    def setImageData(self, fileList):
+
+        info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
+
+        print("MR IOP: {}".format(info['IOP']))
+
+        info['NSlices'] = len(fileList)
+        self.get_sliceVariable_Properties(fileList)
+        self.data = self.get_pixel_data()
+
+        info['R'] = info['ImageOrientationPatient']
+        info['RT'] = info['ImageOrientationPatient'].T
+
+        if not self.revRot:
+            info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
+            info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
+            info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
+            info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
+        else:
+            info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
+            info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
+            info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
+            info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
+
+        # print("PAT2PIX", info['Pat2Pix_R'])
+
+        print("Image Scaling: ", info['PixelSpacing'][0],
+              info['PixelSpacing'][1], info['SliceSpacing'])
+
+        print("R =:\n{}".format(info['Pat2Pix_R']))
+
+        # else:
+
 
     def __str__(self):
         strang = "Image Object: {} slices".format(self.info['NSlices'])
