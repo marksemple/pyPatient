@@ -94,23 +94,30 @@ class Patient_Image(object):
         info['R'] = info['ImageOrientationPatient']
         info['RT'] = info['ImageOrientationPatient'].T
 
+        # if not self.revRot:
+        #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
+        #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
+        #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
+        #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
+        # else:
+        #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
+        #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
+        #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
+        #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
+
         if not self.revRot:
-            info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
-            info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
-            info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
-            info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
+            info['Pat2Pix'] = self.GetPatient2Pixels(info['R'])
+            info['Pix2Pat'] = self.GetPixels2Patient(info['RT'])
         else:
-            info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
-            info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
-            info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
-            info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
+            info['Pat2Pix'] = self.GetPatient2Pixels(info['RT'])
+            info['Pix2Pat'] = self.GetPixels2Patient(info['R'])
 
         # print("PAT2PIX", info['Pat2Pix_R'])
 
         print("Image Scaling: ", info['PixelSpacing'][0],
               info['PixelSpacing'][1], info['SliceSpacing'])
 
-        print("R =:\n{}".format(info['Pat2Pix_R']))
+        print("R =:\n{}".format(info['Pat2Pix']))
 
         # else:
 

@@ -4,13 +4,14 @@
 """
 
 import numpy as np
-
+from rdp import rdp  # Ramer-Douglas-Peucker algorithm
 
 class CatheterObj(object):
     def __init__(self, rowInt=None, colLetter=None,
                  rowIndex=None, colIndex=None):
         super().__init__()
 
+        self.editable = True
         self.templateCols = ['A', 'a', 'B', 'b',
                              'C', 'c', 'D', 'd',
                              'E', 'e', 'F', 'f', 'G']
@@ -18,7 +19,7 @@ class CatheterObj(object):
                              3, 3.5, 4, 4.5,
                              5, 5.5, 6, 6.5, 7]
 
-        self.measurements = None
+        self.measurements = []
         self.template_index2location = calculateTemplateTransform()
 
         if rowInt is not None and colLetter is not None:
@@ -27,25 +28,49 @@ class CatheterObj(object):
         elif rowIndex is not None and colIndex is not None:
             self.setTemplateCoords(rowIndex, colIndex)
 
-    def addMeasurements(self, measurements):
+    def addDescribingPoint(self, pointCoordinates):
+        if not self.editable:
+            print("this Catheter can no longer be edited")
+            return
+        self.measurements.append(pointCoordinates)
+
+    def finishMeasuring(self, compress=True):
         # let measurements *just* be all points north of the template
         # we then add our corresponding template points, and our free end
+        if not self.editable:
+            print("this Catheter can no longer be edited")
+            return
+
         tx = self.template_X
         ty = self.template_Y
         templatePoints = np.array([[tx, ty, -117.75],
                                    [tx, ty, -131.00]])
 
-        print("MEAS TYPE: {}".format(type(measurements)))
-        print("MEAS SHAPE: {}".format(measurements.shape))
+        if compress is True:
+            self.simplifyPoints(epsilon=0.5)
 
-        measurements = np.vstack((measurements, templatePoints))
-        self.length = calculateLength(measurements)
-        self.depth = measurements[0, 2]
-        freeLength = getFreeLength(measurements)
-        freePosn = measurements[-1, 2] - freeLength
+        final_measurements = np.vstack((self.measurements, templatePoints))
+        self.length = calculateLength(final_measurements)
+        self.depth = final_measurements[0, 2]
+        freeLength = getFreeLength(final_measurements)
+        freePosn = final_measurements[-1, 2] - freeLength
         lastPt = np.array([[tx, ty, freePosn]])
-        measurements = np.vstack((measurements, lastPt))
-        self.measurements = measurements
+        final_measurements = np.vstack((final_measurements, lastPt))
+        self.measurements = final_measurements
+
+        self.editable = False
+
+    def simplifyPoints(self, epsilon=0.5):
+        # using Ramer Douglar Peucker Algorithm for Poly-Compression
+        if not self.editable:
+            print("this Catheter can no longer be edited")
+            return
+
+        input_meas = np.asarray(self.measurements)
+        compr = rdp(input_meas, epsilon=epsilon)
+        print("Compressed from {} to {}".format(input_meas.shape,
+                                                compr.shape))
+        self.measurements = compr
 
     def setTemplatePosition_byCode(self, row=1, col='A'):
         # TRANSLATE ALPHA-NUMERIC TEMPLATE CODE INTO ARRAY COORDINATES

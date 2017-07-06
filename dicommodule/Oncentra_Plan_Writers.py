@@ -23,7 +23,7 @@ class Plan_Writers(object):
         super().__init__(*args, **kwargs)
 
         # self.root =
-        self.setOutputPath(r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_plan')
+        self.setOutputPath(r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\modified sample plan')
 
     def setInputPath(self, input_path):
         self.inputPath = input_path
@@ -323,46 +323,46 @@ if __name__ == "__main__":
     from dicommodule.Patient_Catheter import CatheterObj
     cathList = []
 
-    # measurements = []
-    # measurements.append(np.array([[37.712040, 59.296495, -0.624802],
-    #                               [40.674661, 59.296495, -26.441921],
-    #                               [44.429288, 59.262438, -52.932415]]))
-    #                               # [44.329114, 58.750000, -117.750000],
-    #                               # [44.329114, 58.750000, -131.000000],
-    #                               # [44.329114, 58.750000, -240.188489]]))
+    measurements = []
+    measurements.append(np.array([[37.712040, 59.296495, -0.624802],
+                                  [40.674661, 59.296495, -26.441921],
+                                  [44.429288, 59.262438, -52.932415]]))
+                                  # [44.329114, 58.750000, -117.750000],
+                                  # [44.329114, 58.750000, -131.000000],
+                                  # [44.329114, 58.750000, -240.188489]]))
 
-    # measurements.append(np.array([[95.769797, 43.011019, 3.208849],
-    #                               [90.757262, 45.965823, -14.097856],
-    #                               [84.681462, 47.232167, -30.138217],
-    #                               [82.403037, 48.498511, -45.967521],
-    #                               [82.151345, 48.671564, -59.242360]]))
-    #                               # [89.329114, 48.750000, -117.750000],
-    #                               # [89.329114, 48.750000, -131.000000],
-    #                               # [89.329114, 48.750000, -234.024971]]))
+    measurements.append(np.array([[95.769797, 43.011019, 3.208849],
+                                  [90.757262, 45.965823, -14.097856],
+                                  [84.681462, 47.232167, -30.138217],
+                                  [82.403037, 48.498511, -45.967521],
+                                  [82.151345, 48.671564, -59.242360]]))
+                                  # [89.329114, 48.750000, -117.750000],
+                                  # [89.329114, 48.750000, -131.000000],
+                                  # [89.329114, 48.750000, -234.024971]]))
 
-    # measurements.append(np.array([[79.329114, 33.750000, 4.000000]]))
-    #                               # [79.329114, 33.750000, -117.750000],
-    #                               # [79.329114, 33.750000, -131.000000],
-    #                               # [79.329114, 33.750000, -236.000000]]))
+    measurements.append(np.array([[79.329114, 33.750000, 4.000000]]))
+                                  # [79.329114, 33.750000, -117.750000],
+                                  # [79.329114, 33.750000, -131.000000],
+                                  # [79.329114, 33.750000, -236.000000]]))
 
     # measurements.append(np.array([[40.0, 20.0, 4.0]]))
 
-    # colLetters = ['B', 'f', 'e', 'B']
-    # rowInts = [6, 5, 3.5, 2]
+    colLetters = ['B', 'f', 'e']
+    rowInts = [6, 5, 3.5]
 
-    colLetters = ['B', 'b', 'C',
-                  'c', 'D', 'd',
-                  'E', 'e', 'F',
-                  'C', 'C', 'E', 'E']
-    rowInts = [3, 2.5, 2,
-               2, 2, 2,
-               2, 2.5, 3,
-               5, 5.5, 5, 5.5]
+    # colLetters = ['B', 'b', 'C',
+    #               'c', 'D', 'd',
+    #               'E', 'e', 'F',
+    #               'C', 'C', 'E', 'E']
+    # rowInts = [3, 2.5, 2,
+    #            2, 2, 2,
+    #            2, 2.5, 3,
+    #            5, 5.5, 5, 5.5]
 
 
     for ind, colLetter in enumerate(colLetters):
         newCath = CatheterObj(rowInt=rowInts[ind], colLetter=colLetter)
-        # newCath.addMeasurements(measurements[ind])
+        newCath.addMeasurements(measurements[ind])
         # newCath.setTemplatePosition(row=4, col='b')
         cathList.append(newCath)
 

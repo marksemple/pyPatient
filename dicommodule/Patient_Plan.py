@@ -31,16 +31,14 @@ class Patient_Plan(object):
         self.Exporter = Plan_Writers()
         self.CatheterList = []
 
-    def addCatheter(self,
-                    rowInt=None, colLetter=None,
-                    rowIndex=None, colIndex=None):
-
-        newCath = CatheterObj(rowInt=rowInt, colLetter=colLetter,
-                              rowIndex=rowIndex, colIndex=colIndex)
-        # newCath.addMeasurements(measurements=np.asarray(dataSeries))
-        self.CatheterList.append(newCath)
-
-        return newCath
+    def addCatheter(self, catheter=None):
+        print('adding catheter')
+        if type(catheter) is CatheterObj:
+            if catheter.editable:
+                print("still editable")
+                return
+            self.CatheterList.append(catheter)
+            return
 
     def export_as_CHA(self, sourcePath, destPath):
         # self.plan_exporter. DO THING ()
@@ -48,4 +46,11 @@ class Patient_Plan(object):
 
 
 if __name__ == "__main__":
-    myPlan = Patient_Plan_Set()
+    myPlan = Patient_Plan()
+    myCath = CatheterObj()
+    myCath.setTemplatePosition_byCode(row=4, col='B')
+    myCath.addDescribingPoint([44, 39, -40])
+    myCath.finishMeasuring()
+    myPlan.addCatheter(myCath)
+
+    print(myPlan.CatheterList[0].measurements)
