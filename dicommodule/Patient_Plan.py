@@ -3,22 +3,17 @@ Catheters
 """
 
 # Built-In Modules
-import os
-import sys
+# import os
+# import sys
 # import datetime
 
 # Third-Party Modules
-import numpy as np
+# import numpy as np
 # import cv2
 
 # Local Modules
 from dicommodule.Oncentra_Plan_Writers import Plan_Writers
 from dicommodule.Patient_Catheter import CatheterObj
-
-try:
-    import dicom as dicom
-except:
-    import pydicom as dicom
 
 
 class Patient_Plan(object):
@@ -26,8 +21,6 @@ class Patient_Plan(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # self.path = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module'
-        # self.Catheters = [0, 1]
         self.Exporter = Plan_Writers()
         self.CatheterList = []
 

@@ -8,113 +8,108 @@ from multiprocessing.pool import ThreadPool
 # Third-parties
 try:
     import dicom as dicom
-except:
+except ImportError:
     import pydicom as dicom
 
 # Locals
-# try:
-    # from Patient_ROI import Patient_ROI_Set
-    # from Patient_Image import Patient_Image
-# except ImportError:
-from dicommodule.Patient_ROI import Patient_ROI_Set
+from dicommodule.Patient_StructureSet import Patient_StructureSet
 from dicommodule.Patient_Image import Patient_Image
 from dicommodule.Patient_Plan import Patient_Plan
 
-# from Image import Image
-# from Contour import contour
-# from VolumeViewer import QVolumeViewerWidget
-
 
 class Patient(object):
-    """ container class responsible for reading and writing DCM to file """
+    """ Primary container class responsible for reading and writing DCM
+            to file. Can have image data, ROI data, and Plan/Catheter data.
+        Initialize with the filepath to the patient's dicom files.
+        It will automatically crawl the folder and sort the various data files.
+    """
 
-    # Name = None
-    # DOB = None
-    # Position = None
-
-    def __init__(self, patientPath, reverse_rotation=False):
+    def __init__(self, patientPath=None, reverse_rotation=False):
         super().__init__()
 
-        self.hasImage = False
-        self.hasROI = False
-        self.hasPlan = False
+        # self.hasImage = False
+        # self.hasROI = False
+        # self.hasPlan = False
 
-        self.Image = Patient_Image()
-        self.ROI = Patient_ROI_Set()
-        self.Plan = Patient_Plan()
+        self.patientContents = {'image': False,
+                                'ROI': False,
+                                'plan': False}
 
         self.reverseRotation = reverse_rotation
 
-        # Scan given patient folder for dicom image files,
-        # return dict by modality
-        dcmFiles = self.scanPatientFolder(patientPath)
+        self.Image = Patient_Image(revRot=reverse_rotation)
+        self.StructureSet = Patient_StructureSet()
+        self.Plan = Patient_Plan()
+        self.add_data(patientPath)
 
-        if bool(dcmFiles):
-            self.loadPatientData(dcmFiles)
+    def __str__(self):
+        if True in self.patientContents.values():
+            strang = "Patient Object with: "
+            for datatype in self.patientContents:
+                if self.patientContents[datatype]:
+                    strang += '{}, '.format(datatype)
         else:
-            print("No DICOM Files Found at {}".format(patientPath))
+            strang = 'Empty patient object'
 
-        # print("Image Position Patient")
-        # self.Image.prettyFormatIPP()
-        # print("Image Orientation Patient")
-        # print(self.Image.info['ImageOrientationPatient'])
+        return strang
 
-    def scanPatientFolder(self, patient_directory):
-        """ Scan directory for dicom files """
-        # myFiles = find_DCM_files_parallel(patient_directory)
+    def add_data(self, patientPath):
+        if patientPath is not None:
+            dcmFiles = find_DCM_files_serial(patientPath)
+            for key in dcmFiles.keys():
+                print('Patient has {}'.format(key))
 
-        dcmFiles = []
-        print(patient_directory)
-        for root, dirs, files in os.walk(patient_directory):
-            for file in files:
-                if file.endswith('.dcm'):
-                    dcmFiles.append(file)
+            if bool(dcmFiles):
+                self.loadPatientData(dcmFiles)
+            else:
+                print("No DICOM Files Found at {}".format(patientPath))
 
-        if len(dcmFiles) == 0:
-            print('NO FILES')
-            raise IOError
+    def hasData(self):
+        if True in self.patientContents.values():
+            return True
+        else:
+            return False
 
-        myFiles = find_DCM_files_serial(patient_directory)
+    def hasImage(self):
+        return self.patientContents['image']
 
-        for key in myFiles.keys():
-            print('Patient has %s' % key)
-        return myFiles
+    def hasROI(self):
+        return self.patientContents['ROI']
+
+    def hasPlan(self):
+        return self.patientContents['plan']
 
     def loadPatientData(self, dcmFiles={}):
         # print(dcmFiles)
         # MR = 'MR Image Storage'
         # RTST = 'RT Structure Set Storage'
+
         MR = '1.2.840.10008.5.1.4.1.1.4'
         RTST = '1.2.840.10008.5.1.4.1.1.481.3'
         US = '1.2.840.10008.5.1.4.1.1.6.1'
         CT = '1.2.840.10008.5.1.4.1.1.2'
 
-        # print(dcmFiles)
-
         if MR in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles[MR],
-                                       revRot=self.reverseRotation)
-            self.hasImage = True
+            self.Image.setData(fileList=dcmFiles[MR])
+            self.patientContents['image'] = True
 
         elif US in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles[US],
-                                       revRot=self.reverseRotation)
-            self.hasImage = True
+            self.Image.setData(fileList=dcmFiles[US])
+            self.patientContents['image'] = True
 
         elif CT in dcmFiles.keys():
-            self.Image = Patient_Image(dcmFiles[CT],
-                                       revRot=self.reverseRotation)
-            self.hasImage = True
+            self.Image.setData(fileList=dcmFiles[CT])
+            self.patientContents['image'] = True
 
         if RTST in dcmFiles.keys():
-            self.StructureSet = Patient_ROI_Set(file=dcmFiles[RTST][0],
-                                                imageInfo=self.Image.info)
-            self.hasROI = True
+            self.StructureSet.setData(filePath=dcmFiles[RTST][0],
+                                      imageInfo=self.Image.info)
+            self.patientContents['ROI'] = True
 
         if 'unknown' in dcmFiles.keys():
-            self.StructureSet = Patient_ROI_Set(file=dcmFiles['unknown'][0],
-                                                imageInfo=self.Image.info)
-            self.hasROI = True
+            self.StructureSet.setData(filePath=dcmFiles['unknown'][0],
+                                      imageInfo=self.Image.info)
+            self.patientContents['ROI'] = True
 
     def getPatient_specific_data(self):
         pass
@@ -179,21 +174,19 @@ def find_DCM_files_serial(rootpath=None):
 
     if len(dcmList) > 300:
         print('Too many files!')
-        return
+        return {}
 
     for fullpath in dcmList:
         try:
             modality = dicom.read_file(fullpath, force=True).SOPClassUID
-        except:
+        except AttributeError:
             modality = 'unknown'
         if modality not in dcmDict:
             dcmDict[modality] = []
 
         dcmDict[modality].append(fullpath)
 
-    print("serial took %.2fs to sort DCMS for %s" % (time.time() - time_zero,
-                                                     modality))
-    return(dcmDict)
+    return dcmDict
 
 
 def backupFile_finder(path):
@@ -218,55 +211,41 @@ def backupFile_finder(path):
                 print("THIS THE US")
                 US = fullfolder
 
-
     if MR is not None:
         for root, dirs, files in os.walk(MR):
             print(files)
-
 
     if US is not None:
         for root, dirs, files in os.walk(US):
             print(files)
 
 
-
 if __name__ == "__main__":
 
-    print('pass')
-    pass
+    emptyRoot = r'P:\USERS\PUBLIC\Mark Semple\volumecapture\volumecapture\res'
 
+    MRRoot = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\MR2US_Study_Data_Anonymized\P1\MR'
+
+    MRRoot2 = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\2016-07_Studies_practice_GYN_DCM\2016-07__Studies (same data, shorter names)'
+
+    USRoot = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\MR2US_Study_Data_Anonymized\P1\US'
+
+    noneRoot = None
+
+    patient = Patient(patientPath=USRoot)
+    print(patient)
+    print("has data:", patient.hasData())
     # rootTest = r'X:\MR_to_US_Fusion\Curran_John'
-
     # backupFile_finder(rootTest)
-
-
-    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (as will appear)'
-
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
-
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\2017-03-09 --- offset in US contours\WH Fx1 TEST DO NOT USE\MRtemp'
-
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData\MR'
-
-    # rootTest = r'P:\USERS\PUBLIC\Amir K\MR2USRegistartionProject\Sample Data\TroubleData\RTStructureSet'
-
-    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\test_out_1.6.4'
-
-    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\EM Navigation\Practice DICOM Sets\EM test\2016-07__Studies (HFS)'
-
     # patient = Patient('')  #patientPath=rootTest)
-
     # # print(patient.Image.info['UID2IPP'].values())
     # # ippVals = list(patient.Image.info['UID2IPP'].values())
     # # print(patient.Image.info['ImageOrientationPatient'])
     # # print(patient.Image)
     # # print(patient.StructureSet)
-
     # from PyQt5.QtWidgets import QApplication
     # from ContourDrawer import QContourDrawerWidget
     # import sys
-
-
     # app = QApplication(sys.argv)
     # # myImage = np.random.randint(0, 128, (750, 750, 20), dtype=np.uint8)
     # # myImage = np.zeros((512, 512, 20), dtype=np.uint8)
@@ -275,7 +254,5 @@ if __name__ == "__main__":
     #     form.addROI(name=thisROI['ROIName'],
     #                 color=thisROI['ROIColor'],
     #                 data=thisROI['DataVolume'])
-
-
     # form.show()
     # sys.exit(app.exec_())

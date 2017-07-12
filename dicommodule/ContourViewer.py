@@ -18,17 +18,14 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtGui import (QBrush, QColor,)
 from PyQt5.QtCore import (Qt, pyqtSignal)
 import pyqtgraph as pg
-pg.setConfigOptions(antialias=True)
 import numpy as np
 import cv2
 
-try:
-    from new_ROI_dialog import newROIDialog  # , scaleColor, getContours
-    from Patient_ROI import CVContour2VectorArray
+from dicommodule.new_ROI_dialog import newROIDialog
+from dicommodule.Patient_ROI import CVContour2VectorArray
+from dicommodule.Patient_StructureSet import Patient_StructureSet
 
-except ImportError:
-    from dicommodule.new_ROI_dialog import newROIDialog
-    from dicommodule.Patient_ROI import CVContour2VectorArray
+pg.setConfigOptions(antialias=True)
 
 
 class QContourViewerWidget(QWidget):
@@ -66,8 +63,7 @@ class QContourViewerWidget(QWidget):
 
         # Data Items
         self.imageItem = pg.ImageItem()
-        self.ROIs = []
-        self.ROIs_byName = {}
+        self.StructureSet = Patient_StructureSet()
 
         # Widget parts
         self.applyLayout()
@@ -92,6 +88,9 @@ class QContourViewerWidget(QWidget):
         self.nRows, self.nCols, self.nSlices = self.imageData.shape
         self.backgroundIm = np.array((self.nRows, self.nCols))
         self.imageItem.setImage(self.imageData[:, :, 0], autoLevels=True)
+        self.StructureSet.setImageInfo({'Cols': self.nCols,
+                                        'Rows': self.nRows,
+                                        'NSlices': self.nSlices})
         self.init_Slider(self.slider)
         self.morphSize = int(self.nCols / 50)
         self.plotWidge.getViewBox().autoRange(padding=-0.05)
@@ -100,9 +99,9 @@ class QContourViewerWidget(QWidget):
     def init_ROIs(self, ROIs):
         """ adds all ROIs from a list;
         ROIs must be have a name and a color, in the least """
-        self.ROIs = ROIs
+        # self.ROIs = ROIs
         for ROI in ROIs:
-            self.addROI(name=ROI.name, color=ROI.color)
+            self.StructureSet.add_ROI()
 
     def init_Slider(self, slider):
         """ Sets slider range and step based on dimensions of image volume """
@@ -111,12 +110,9 @@ class QContourViewerWidget(QWidget):
         self.sliceNumLabel.setText("1 / {}".format(self.nSlices))
         # self.sliceDistLabel = QLabel("0.00")
 
-    def addROI(self, event=None, name=None, color=None, num=-1,
+    def addROI(self, event=None, name=None, color=None,
                data=None, RefUID=uuid.uuid4(), lineWidth=1, *args):
         """ Registers a new ROI """
-
-        # if num == -1:
-        num = len(self.ROIs)
 
         # First, name and choose color for ROI
         if name is None or color is None:
@@ -133,30 +129,16 @@ class QContourViewerWidget(QWidget):
         if data is None:
             data = np.zeros((self.nRows, self.nCols, self.nSlices),
                             dtype=np.uint8)
-        counter = countContourSlices(data)
 
-        # self.ROIs.append()
+        new_ROI = self.StructureSet.add_ROI(name=name,
+                                            color=color,
+                                            enablePlotting=True)
 
-        # add make ROI object
-        self.ROIs.append({'ROINumber': num,
-                          'ROIName': name,
-                          'ROIColor': color[0:3],
-                          'FrameRef_UID': RefUID,
-                          'DataVolume': data,
-                          'id': uuid.uuid4(),
-                          'vector': [pg.PlotDataItem(antialias=True)],
-                          'sliceCount': counter,
-                          'lineWidth': lineWidth,
-                          'polyCompression': 0.7,
-                          'hidden': False})
+        self.register_ROI(new_ROI)
 
-        self.ROIs_byName[name] = self.ROIs[-1]
-
-        self.ROIs[-1]['vector'][-1].setPen(color=color[0:3], width=lineWidth)
-        self.plotWidge.addItem(self.ROIs[-1]['vector'][-1])
-
-        self.add_ROI_to_Table(self.ROIs[-1])
-        self.changeROI(ROI_ind=len(self.ROIs) - 1)
+    def register_ROI(self, new_ROI):
+        self.plotWidge.addItem(new_ROI.vector[-1])
+        self.add_ROI_to_Table(new_ROI)
         self.hasContourData = True
         self.plotWidge.setFocus()
 
@@ -176,7 +158,7 @@ class QContourViewerWidget(QWidget):
     def hideContoursFcn(self, val):
         """ """
         for ROI in self.ROIs:
-            ROI['hidden'] = bool(val)
+            ROI.hidden = bool(val)
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
@@ -193,7 +175,7 @@ class QContourViewerWidget(QWidget):
     def thicknessChange(self, thicknessValue):
         """ Fcn called upon motion of the "LINE WIDTH" slider;
         adjusts the thickness of the outline for the Active Contour"""
-        self.thisROI['lineWidth'] = thicknessValue
+        self.StructureSet.activeROI.linewidth = thicknessValue
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
@@ -208,7 +190,8 @@ class QContourViewerWidget(QWidget):
         """ Fcn called upon motion of the "LINE SIMPLIFICATION" slider;
         adjusts how much 'epsilon' to include in the Douglas-Peucker
         polynomial simplification algorithm for the contour line """
-        self.thisROI['polyCompression'] = float(compressionValue) / 10
+        newComp = float(compressionValue) / 10
+        self.StructureSet.activeROI.polyCompression = newComp
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
@@ -218,13 +201,10 @@ class QContourViewerWidget(QWidget):
         if not self.hasImageData:
             return
         self.thisSlice = int(newValue)
-        # try:
         self.sliceNumLabel.setText("%d / %d" % (newValue,
-                                                self.imageData.shape[2]-1))
+                                                self.imageData.shape[2] - 1))
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
-        # except:
-            # print("errrrr from slider change")
 
     def updateEntireTable(self):
         for ROI in self.ROIs:
@@ -233,27 +213,23 @@ class QContourViewerWidget(QWidget):
     def updateTableFields(self, ROI, contours=[]):
         """ """
 
-        # return
-
         nConts = 0
-        ROI_Index = ROI['tableInd']
+        ROI_Index = ROI.Number
         # print('present ROI_index', ROI_Index)
         # print(ROI['ROIName'], ROI['ROINumber'])
         # if bool(contours):
         #     for contour in contours:
         #         nConts += 1
         #     ROI['sliceCount'][self.thisSlice] = nConts
+        # Nbools = sum([bool(entry) for entry in ROI.sliceCount)
+        # self.TableSliceCount[ROI_Index].setText(str(Nbools))
 
-        Nbools = sum([bool(entry) for entry in ROI['sliceCount']])
-
-        self.TableSliceCount[ROI_Index].setText(str(Nbools))
-
-        if ROI['hidden']:
+        if ROI.hidden:
             self.TableHideCheck[ROI_Index].setText('Hidden')
         else:
             self.TableHideCheck[ROI_Index].setText('Shown')
 
-        qCol = QBrush(QColor(*ROI['ROIColor'][0:3]))
+        qCol = QBrush(QColor(*ROI.Color[0:3]))
         self.tablePicker.item(ROI_Index, 1).setBackground(qCol)
 
         # self.TableContCount[ROI['ROINumber']].setText(str(nConts))
@@ -264,13 +240,13 @@ class QContourViewerWidget(QWidget):
         different cells have different functions; organized here """
 
         self.changeROI(ROI_ind=row)
-
+        thisROI = self.StructureSet.activeROI
         if col == 0:  # NAME
             pass
 
         elif col == 1:  # COLOR
             color = self.chooseColor()
-            self.thisROI['ROIColor'] = color[0:3]
+            thisROI.Color = color[0:3]
             qCol = QBrush(QColor(*color[0:3]))
             myItem = self.tablePicker.item(row, col)
             myItem.setBackground(qCol)
@@ -279,10 +255,9 @@ class QContourViewerWidget(QWidget):
             pass
 
         elif col == 3:  # VISIBLE
-            self.thisROI['hidden'] = not self.thisROI['hidden']
+            thisROI.hidden = not thisROI.hidden
 
         self.updateContours(isNewSlice=True)
-        self.roiText.setHtml(formatHTML(self.thisROI))
         self.plotWidge.setFocus()
 
     def chooseColor(self):
@@ -292,38 +267,37 @@ class QContourViewerWidget(QWidget):
         return color.getRgb()
 
     def changeROI(self, ROI_ind):
-        ROI = self.ROIs[ROI_ind]
-        self.thisROI = ROI
-        newWidth = int(ROI['lineWidth'])
-        newComp = 10 * int(ROI['polyCompression'])
+        ROI = self.StructureSet.ROI_List[ROI_ind]
+        self.StructureSet.select_ROI(number=ROI_ind)
+        newWidth = int(ROI.linewidth)
+        newComp = 10 * int(ROI.polyCompression)
         self.contourEdgeThickness.setSliderPosition(newWidth)
         self.contourEdgeCompression.setSliderPosition(newComp)
         self.updateContours(isNewSlice=True)
         self.roiText.setHtml(formatHTML(ROI))
-        return ROI
 
     def add_ROI_to_Table(self, ROI):
 
         row = self.tablePicker.rowCount()
         self.tablePicker.insertRow(row)
-        ROI['tableInd'] = row
+        ROI.Number = row
 
         # ROI NAME
-        name = QTableWidgetItem(ROI['ROIName'])
+        name = QTableWidgetItem(ROI.Name)
         name.setFlags(Qt.ItemIsEnabled)
         self.tablePicker.setItem(row, 0, name)
 
         # ROI COLOR (clickable)
         color = QTableWidgetItem(' ')
         color.setFlags(Qt.ItemIsEnabled)
-        color.setBackground(QBrush(QColor(*ROI['ROIColor'])))
+        color.setBackground(QBrush(QColor(*ROI.Color)))
         self.tablePicker.setItem(row, 1, color)
 
         # ROI Slice Count
-        sliceCount = QTableWidgetItem(str(sum(ROI['sliceCount'])))
-        sliceCount.setFlags(Qt.ItemIsEnabled)
-        self.TableSliceCount.append(sliceCount)
-        self.tablePicker.setItem(row, 2, sliceCount)
+        # sliceCount = QTableWidgetItem(str(sum(ROI['sliceCount'])))
+        # sliceCount.setFlags(Qt.ItemIsEnabled)
+        # self.TableSliceCount.append(sliceCount)
+        # self.tablePicker.setItem(row, 2, sliceCount)
 
         # Show/Hide ROI
         visibleCheck = QTableWidgetItem("Shown")
@@ -359,7 +333,7 @@ class QContourViewerWidget(QWidget):
             medicalIm = np.zeros(self.imageData[:, :, self.thisSlice].shape,
                                  dtype=imDtype)
 
-        if self.hideContours or not bool(self.ROIs):
+        if self.hideContours or not bool(self.StructureSet):
             self.imageItem.setImage(medicalIm, autoLevels=False)
             return
 
@@ -367,27 +341,27 @@ class QContourViewerWidget(QWidget):
             if len(medicalIm.shape) == 2:
                 medicalIm = cv2.cvtColor(medicalIm, cv2.COLOR_GRAY2BGR)
 
-            for ROI in self.ROIs:
+            for ROI in self.StructureSet.ROI_List:
 
-                if ROI['hidden']:
-                    for vector in ROI['vector']:
+                if ROI.hidden:
+                    for vector in ROI.vector:
                         vector.setData(x=[], y=[])
                     continue
 
-                if ROI['id'] == self.thisROI['id']:
+                if ROI is self.StructureSet.activeROI:
                     continue
 
                 # roiDataVolume = np.swapaxes(myROI_self.planeInd)
 
-                myROI = np.swapaxes(ROI['DataVolume'], self.planeInd, 2)
+                myROI = np.swapaxes(ROI.DataVolume, self.planeInd, 2)
                 contBinaryIm = myROI[:, :, self.thisSlice].copy()
                 contours, hi = getContours(inputImage=contBinaryIm,
-                                           compression=ROI['polyCompression'])
+                                           compression=ROI.polyCompression)
 
                 self.updateOutlines(ROI,
                                     contours,
-                                    ROI['lineWidth'],
-                                    ROI['ROIColor'])
+                                    ROI.linewidth,
+                                    ROI.Color)
 
                 self.updateTableFields(ROI, contours)
 
@@ -398,56 +372,59 @@ class QContourViewerWidget(QWidget):
         if len(backgroundIm.shape) == 2:
             backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
 
-        activeColor = scaleColor(self.thisROI['ROIColor'],
-                                 self.imageItem.levels)
-        myROI = np.swapaxes(self.thisROI['DataVolume'], self.planeInd, 2)
-        contBinaryIm = myROI[:, :, self.thisSlice].copy()
-        activeCompression = self.thisROI['polyCompression']
-        activeCont, hierarchy = getContours(inputImage=contBinaryIm,
-                                            compression=activeCompression)
+        if self.StructureSet.activeROI is not None:
+            thisROI = self.StructureSet.activeROI
 
-        if not self.thisROI['hidden']:
-            activeContourIm = cv2.drawContours(image=backgroundIm.copy(),
-                                               contours=activeCont,
-                                               contourIdx=-1,
-                                               color=activeColor,
-                                               thickness=-1,
-                                               lineType=cv2.LINE_AA)  # 8
+            activeColor = scaleColor(thisROI.Color, self.imageItem.levels)
+            myROI = np.swapaxes(thisROI.DataVolume, self.planeInd, 2)
+            contBinaryIm = myROI[:, :, self.thisSlice].copy()
+            activeCompression = thisROI.polyCompression
+            activeCont, hierarchy = getContours(inputImage=contBinaryIm,
+                                                compression=activeCompression)
 
-            alph = self.contOpacity
-            waterMarkedIm = backgroundIm.copy()
-            cv2.addWeighted(backgroundIm, 1 - alph,
-                            activeContourIm, alph,
-                            0, waterMarkedIm)
+            if not thisROI.hidden:
+                activeContourIm = cv2.drawContours(image=backgroundIm.copy(),
+                                                   contours=activeCont,
+                                                   contourIdx=-1,
+                                                   color=activeColor,
+                                                   thickness=-1,
+                                                   lineType=cv2.LINE_AA)  # 8
 
-            backgroundIm = waterMarkedIm
+                alph = self.contOpacity
+                waterMarkedIm = backgroundIm.copy()
+                cv2.addWeighted(backgroundIm, 1 - alph,
+                                activeContourIm, alph,
+                                0, waterMarkedIm)
 
-            self.updateOutlines(self.thisROI,
-                                activeCont,
-                                self.thisROI['lineWidth'],
-                                self.thisROI['ROIColor'])
+                backgroundIm = waterMarkedIm
+
+                self.updateOutlines(thisROI,
+                                    activeCont,
+                                    thisROI.linewidth,
+                                    thisROI.Color)
+
+            self.updateTableFields(thisROI, activeCont)
 
         self.imageItem.setImage(backgroundIm, autoLevels=False)
-        self.updateTableFields(self.thisROI, activeCont)
 
     def updateOutlines(self, ROI, contours, thickness, color):
         """ """
-        if len(ROI['vector']) < len(contours):
-            Vs = len(ROI['vector'])
+        if len(ROI.vector) < len(contours):
+            Vs = len(ROI.vector)
             Cs = len(contours)
             for ind in range(0, (Cs - Vs)):
-                ROI['vector'].append(pg.PlotDataItem(antialias=True))
-                self.plotWidge.addItem(ROI['vector'][-1])
+                ROI.vector.append(pg.PlotDataItem(antialias=True))
+                self.plotWidge.addItem(ROI.vector[-1])
 
-        for vector in ROI['vector']:
+        for vector in ROI.vector:
             vector.setData([], [])
 
         if bool(contours):
             for index, contour in enumerate(contours):
-                ROI['vector'][index].setPen(color=color, width=thickness)
+                ROI.vector[index].setPen(color=color, width=thickness)
                 vect = CVContour2VectorArray(contour, 0)
-                ROI['vector'][index].setData(x=vect[1, :] + 0.5,
-                                             y=vect[0, :] + 0.5)
+                ROI.vector[index].setData(x=vect[1, :] + 0.5,
+                                          y=vect[0, :] + 0.5)
 
     def viewPick(self, index):
         if index == self.planeInd:
@@ -644,9 +621,9 @@ def scaleColor(color, levels):
 
 
 def formatHTML(ROI):
-    htmlOpener = '<font size="6" color=%s>' % ColorDec2Hex(ROI['ROIColor'])
+    htmlOpener = '<font size="6" color=%s>' % ColorDec2Hex(ROI.Color)
     htmlCloser = '</font>'
-    htmlString = htmlOpener + ROI['ROIName'] + htmlCloser
+    htmlString = htmlOpener + ROI.Name + htmlCloser
     return htmlString
 
 

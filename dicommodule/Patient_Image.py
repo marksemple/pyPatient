@@ -25,7 +25,7 @@ class Patient_Image(object):
         UID2IPP
     """
 
-    def __init__(self, fileList=None, revRot=False):
+    def __init__(self, fileList=[], revRot=False):
 
         # must have fileList attribute
         # must all belong to same reference set
@@ -42,46 +42,11 @@ class Patient_Image(object):
 
         self.revRot = revRot
 
-        # print(self.info)
-
         if bool(fileList):
+            self.setData(fileList=fileList)
 
-            self.setImageData(fileList=fileList)
 
-            # info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
-
-            # print("MR IOP: {}".format(info['IOP']))
-
-            # info['NSlices'] = len(fileList)
-            # self.get_sliceVariable_Properties(fileList)
-            # self.data = self.get_pixel_data()
-
-            # info['R'] = info['ImageOrientationPatient']
-            # info['RT'] = info['ImageOrientationPatient'].T
-
-            # print("REVROT:", revRot)
-            # if not revRot:
-            #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
-            #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
-            #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
-            #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
-            # else:
-            #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
-            #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
-            #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
-            #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
-
-            # # print("PAT2PIX", info['Pat2Pix_R'])
-
-            # print("Image Scaling: ", info['PixelSpacing'][0],
-            #       info['PixelSpacing'][1], info['SliceSpacing'])
-
-            # print("going with R of:\n{}".format(info['Pat2Pix_R']))
-
-        # else:
-        # self.createProps()
-
-    def setImageData(self, fileList):
+    def setData(self, fileList):
 
         info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
 
@@ -94,17 +59,6 @@ class Patient_Image(object):
         info['R'] = info['ImageOrientationPatient']
         info['RT'] = info['ImageOrientationPatient'].T
 
-        # if not self.revRot:
-        #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['R'])
-        #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['R'])
-        #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['RT'])
-        #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['RT'])
-        # else:
-        #     info['Pat2Pix_R'] = self.GetPatient2Pixels(info['RT'])
-        #     info['Pix2Pat_R'] = self.GetPixels2Patient(info['RT'])
-        #     info['Pat2Pix_RT'] = self.GetPatient2Pixels(info['R'])
-        #     info['Pix2Pat_RT'] = self.GetPixels2Patient(info['R'])
-
         if not self.revRot:
             info['Pat2Pix'] = self.GetPatient2Pixels(info['R'])
             info['Pix2Pat'] = self.GetPixels2Patient(info['RT'])
@@ -112,22 +66,14 @@ class Patient_Image(object):
             info['Pat2Pix'] = self.GetPatient2Pixels(info['RT'])
             info['Pix2Pat'] = self.GetPixels2Patient(info['R'])
 
-        # print("PAT2PIX", info['Pat2Pix_R'])
-
         print("Image Scaling: ", info['PixelSpacing'][0],
               info['PixelSpacing'][1], info['SliceSpacing'])
 
         print("R =:\n{}".format(info['Pat2Pix']))
 
-        # else:
-
-
     def __str__(self):
         strang = "Image Object: {} slices".format(self.info['NSlices'])
         return strang
-
-    # def createProps(self):
-        # self.info = {Patie}
 
     def get_sliceVariable_Properties(self, imFileList):
         """ a dictionary to map UID to property dictionary"""
@@ -151,8 +97,6 @@ class Patient_Image(object):
             self.dataDict[thisUID] = entry
             info['UID2Loc'][thisUID] = entry['SliceLocation']
             info['UID2IPP'][thisUID] = entry['ImagePositionPatient']
-
-        # print(tempUIDList)
 
         order = [i[0] for i in sorted(enumerate(tempLocList),
                                       key=lambda x:x[1])]
@@ -255,7 +199,7 @@ def getStaticDicomSizeProps(imFile, staticProps={}):
     staticProps['ImageOrientationPatient'] = getImOrientationMatrix(di)
     try:
         staticProps['IOP'] = di.ImageOrientationPatient
-    except:
+    except AttributeError:
         staticProps['IOP'] = [1, 0, 0, 0, 1, 0]
     # print("IOP: ", staticProps['ImageOrientationPatient'])
     staticProps['Rows'] = di.Rows
@@ -264,7 +208,7 @@ def getStaticDicomSizeProps(imFile, staticProps={}):
     try:
         staticProps['PatientPosition'] = di.PatientPosition
         print("Patient Position: {}".format(di.PatientPosition))
-    except:
+    except AttributeError:
         print("No Patient Position field")
         staticProps['PatientPosition'] = ''
     return staticProps

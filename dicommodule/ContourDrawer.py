@@ -12,10 +12,7 @@ import pyqtgraph as pg
 import numpy as np
 import cv2
 
-try:
-    from ContourViewer import QContourViewerWidget # , scaleColor, getContours
-except ImportError:
-    from dicommodule.ContourViewer import QContourViewerWidget
+from dicommodule.ContourViewer import QContourViewerWidget
 
 
 class QContourDrawerWidget(QContourViewerWidget):
@@ -59,8 +56,9 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.plotWidge.keyReleaseEvent = lambda x: self.PlotKeyRelease(x)
 
     def changeROI(self, ROI_ind):
-        ROI = super().changeROI(ROI_ind)
-        modifyBrushStyle(self.circle, ROI['ROIColor'], 2, 'additive')
+        super().changeROI(ROI_ind)
+        thisROI = self.StructureSet.activeROI
+        modifyBrushStyle(self.circle, thisROI.Color, 2, 'additive')
 
     def hideControls(self, val):
         super().hideControls(val)
@@ -106,12 +104,14 @@ class QContourDrawerWidget(QContourViewerWidget):
 
     def primeToFill(self):
         self.fill = 255
-        modifyBrushStyle(self.circle, self.thisROI['ROIColor'],
+        thisROI = self.StructureSet.activeROI
+        modifyBrushStyle(self.circle, thisROI.Color,
                          self.contThickness, 'additive')
 
     def primeToWipe(self):
         self.fill = 0
-        modifyBrushStyle(self.circle, self.thisROI['ROIColor'],
+        thisROI = self.StructureSet.activeROI
+        modifyBrushStyle(self.circle, thisROI.Color,
                          self.contThickness, 'subtractive')
 
     def PaintClickEvent(self, event):
@@ -128,18 +128,18 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.tempCoordList.append([[y, x]])
 
         # see if any contours exist on this slice
-        oldIm = self.thisROI['DataVolume'][:, :, ts]
-        isEmpty = checkEmpty(oldIm)
+        oldImVol = self.StructureSet.activeROI.DataVolume
+        isEmpty = checkEmpty(oldImVol[:, :, ts])
 
         if isEmpty or self.inContour:
             self.primeToFill()
         else:
             self.primeToWipe()
 
-        self.thisROI['DataVolume'][:, :, ts] = paintCircle(image=oldIm,
-                                                           fill=self.fill,
-                                                           x=y, y=x,
-                                                           radius=self.radius)
+        oldImVol[:, :, ts] = paintCircle(image=oldImVol[:, :, ts],
+                                         fill=self.fill,
+                                         x=y, y=x,
+                                         radius=self.radius)
         self.updateContours(isNewSlice=True)
 
     def PaintReleaseEvent(self, event):
@@ -149,7 +149,8 @@ class QContourDrawerWidget(QContourViewerWidget):
 
         self.editingFlag = False
 
-        if checkEmpty(self.thisROI['DataVolume'][:, :, self.thisSlice]):
+        if checkEmpty(self.StructureSet.activeROI.DataVolume[:, :,
+                                                             self.thisSlice]):
             self.primeToFill()
 
     def scrollWheelEvent(self, event):
@@ -172,6 +173,7 @@ class QContourDrawerWidget(QContourViewerWidget):
 
         try:
             x, y = (int(event.pos().x()), int(event.pos().y()))
+            thisROI = self.StructureSet.activeROI
 
             if event.isEnter():
                 self.circle.show()
@@ -184,7 +186,7 @@ class QContourDrawerWidget(QContourViewerWidget):
 
             if not self.editingFlag:  # mouse motion without click
 
-                binaryContIm = self.thisROI['DataVolume'][:, :, self.thisSlice]
+                binaryContIm = thisROI.DataVolume[:, :, self.thisSlice]
                 NowInContour = inContourCheck((x, y), binaryContIm)
 
                 if NowInContour is True and self.prevInContour is not True:
@@ -201,10 +203,10 @@ class QContourDrawerWidget(QContourViewerWidget):
             else:  # mouse motion yes click
 
                 ts = self.thisSlice
-                oldIm = self.thisROI['DataVolume'][:, :, ts]
+                oldIm = thisROI.DataVolume[:, :, ts]
                 self.tempCoordList.append([[y, x]])
                 pts = [np.array(self.tempCoordList).astype(np.int32)]
-                thisVol = self.thisROI['DataVolume']
+                thisVol = thisROI.DataVolume
                 thisVol[:, :, ts] = cv2.polylines(img=oldIm.copy(),
                                                   pts=pts,
                                                   isClosed=False,
@@ -240,9 +242,12 @@ class QContourDrawerWidget(QContourViewerWidget):
         if event.key() == 90:  # 'Z' -- reverse one slice
             self.slider.setSliderPosition(self.thisSlice - 1)
 
-        if bool(self.ROIs):
+        if bool(self.StructureSet.ROI_List):
 
-            keyList = [49 + i[0] for i in enumerate(self.ROIs)]
+            ss = self.StructureSet
+            thisROI = ss.activeROI
+
+            keyList = [49 + i[0] for i in enumerate(ss.ROI_List)]
             if event.key() in keyList:  # 1-9 ROI HotKeys
                 ind = keyList.index(event.key())
                 self.changeROI(ROI_ind=ind)
@@ -252,17 +257,17 @@ class QContourDrawerWidget(QContourViewerWidget):
                 return
 
             if event.key() == 83:  # s -- copy superior slice ROI
-                self.unionNeighbourSlice(self.thisROI, -1)
+                self.unionNeighbourSlice(thisROI, -1)
             if event.key() == 88:  # x -- copy inferior slice ROI
-                self.unionNeighbourSlice(self.thisROI, 1)
+                self.unionNeighbourSlice(thisROI, 1)
             if event.key() == 68:  # d -- dilate ROI
-                self.dilate_erode_ROI(self.thisROI, 1)
+                self.dilate_erode_ROI(thisROI, 1)
             if event.key() == 69:  # e -- erode ROI
-                self.dilate_erode_ROI(self.thisROI, -1)
+                self.dilate_erode_ROI(thisROI, -1)
             if event.key() == 32:  # SPACE -- Rotate through ROIs
-                indList = [ROI['id'] for ROI in self.ROIs]
-                ind = indList.index(self.thisROI['id'])
-                newInd = (ind + 1) % len(self.ROIs)
+                indList = [ROI.id for ROI in ss.ROI_List]
+                ind = indList.index(thisROI.id)
+                newInd = (ind + 1) % len(ss.ROI_List)
                 self.changeROI(ROI_ind=newInd)
 
             if event.key() == 16777249:  # CTRL -- Invert Painters
@@ -277,7 +282,7 @@ class QContourDrawerWidget(QContourViewerWidget):
             self.updateContours()
 
     def PlotKeyRelease(self, event):
-        if bool(self.ROIs):
+        if bool(self.StructureSet.ROI_List):
 
             if not self.paintingEnabled:
                 return
@@ -292,7 +297,8 @@ class QContourDrawerWidget(QContourViewerWidget):
                 self.enablePaintingControls()
 
     def doControlModifier(self):
-        oldIm = self.thisROI['DataVolume'][:, :, self.thisSlice]
+        thisROI = self.StructureSet.activeROI
+        oldIm = thisROI.DataVolume[:, :, self.thisSlice]
         if checkEmpty(oldIm) or self.prevInContour:
             self.primeToWipe()
         else:
@@ -305,7 +311,8 @@ class QContourDrawerWidget(QContourViewerWidget):
         self.ctrlModifier = True
 
     def undoControlModifier(self):
-        oldIm = self.thisROI['DataVolume'][:, :, self.thisSlice]
+        thisROI = self.StructureSet.activeROI
+        oldIm = thisROI.DataVolume[:, :, self.thisSlice]
         if checkEmpty(oldIm) or self.prevInContour:
             self.primeToFill()
         else:
@@ -328,10 +335,10 @@ class QContourDrawerWidget(QContourViewerWidget):
             print("already at top!")
             return
 
-        neighbIm = roi['DataVolume'][:, :, slice0 + direction].copy()
-        thisIm = roi['DataVolume'][:, :, slice0].copy()
+        neighbIm = roi.DataVolume[:, :, slice0 + direction].copy()
+        thisIm = roi.DataVolume[:, :, slice0].copy()
 
-        roi['DataVolume'][:, :, slice0] = neighbIm + thisIm
+        roi.DataVolume[:, :, slice0] = neighbIm + thisIm
 
         # ~~~~~~~~~~~~~~~ TABLE Section
     def dilate_erode_ROI(self, roi, direction):
@@ -339,12 +346,12 @@ class QContourDrawerWidget(QContourViewerWidget):
         # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
                                            (self.morphSize, self.morphSize))
-        im = roi['DataVolume'][:, :, slice0].copy()
+        im = roi.DataVolume[:, :, slice0].copy()
         if direction > 0:
 
-            roi['DataVolume'][:, :, slice0] = cv2.dilate(im, kernel)
+            roi.DataVolume[:, :, slice0] = cv2.dilate(im, kernel)
         elif direction < 0:
-            roi['DataVolume'][:, :, slice0] = cv2.erode(im, kernel)
+            roi.DataVolume[:, :, slice0] = cv2.erode(im, kernel)
         self.updateContours()
 
 
@@ -411,7 +418,7 @@ if __name__ == "__main__":
     myImage = 55 * np.ones((700, 700, 20), dtype=np.uint16)
     form = QContourDrawerWidget() #imageData=myImage)
     form.init_Image(imageData=myImage)
-    # form.addROI(name='test1', color=(240, 240, 20))
+    form.addROI(name='test1', color=(240, 240, 20))
     # form.addROI(name='test2', color=(20, 240, 240))
     form.show()
     sys.exit(app.exec_())
