@@ -5,17 +5,20 @@
 import os
 
 # Third-Party Modules
-import numpy as np
-import cv2
 
 try:
     import dicom as dicom
 except ImportError:
     import pydicom as dicom
 
-import pyqtgraph as pg
+from dicommodule.Patient_ROI import (Patient_ROI_Obj, mkNewROIObs_dataset,
+                                     mkNewContour,
+                                     PatientArray2ContourData,
+                                     Vector2PatientArray,
+                                     CVContour2VectorArray,
+                                     ImageArray2CVContour)
 
-from dicommodule.Patient_ROI import Patient_ROI_Obj
+
 # from dicommodule.Patient_Catheter import CatheterObj
 
 
@@ -66,6 +69,7 @@ class Patient_StructureSet(object):
         for index, contour in enumerate(di.ROIContourSequence):
             try:
                 structure = di.StructureSetROISequence[index]
+                self.FrameRef_UID = structure.ReferencedFrameOfReferenceUID
             except AttributeError as ae:
                 structure = 0
             self.add_ROI(structure=structure, contour=contour,
@@ -73,12 +77,12 @@ class Patient_StructureSet(object):
 
         return True
 
-    def create_ROI(self):
-        self.Patient_ROI_obj()
+    # def create_ROI(self, **kwargs):
+    #     ROI = Patient_ROI_Obj(**kwargs)
 
     def add_ROI(self, **kwargs):
         num = len(self.ROI_List)
-        new_ROI = Patient_ROI_Obj(**kwargs, number=num)
+        new_ROI = Patient_ROI_Obj(number=num, **kwargs)
         print("Adding {} ROI {}".format(new_ROI.Name, new_ROI))
         self.ROI_List.append(new_ROI)
         self.ROI_byName[new_ROI.Name] = new_ROI
@@ -92,7 +96,7 @@ class Patient_StructureSet(object):
         ind2loc = self.imageInfo['Ind2Loc']
 
         for ROI in self.ROI_List:
-            print('{}: {}'.format(ROI['ROINumber'], ROI['ROIName']))
+            print('{}: {}'.format(ROI.Number, ROI.Name))
 
         ROInames_in_file = []
         for SSROISeq in self.di.StructureSetROISequence:
@@ -110,7 +114,7 @@ class Patient_StructureSet(object):
             self.di.RTROIObservationsSequence.append(ROIObsSeq)
 
             SSROI = mkNewStructureSetROI_dataset(thisROI,
-                                                 self.FrameOfReferenceUID)
+                                                 self.FrameRef_UID)
             self.di.StructureSetROISequence.append(SSROI)
 
             ROIContour = mkNewROIContour_dataset(thisROI)
@@ -134,8 +138,8 @@ def mkNewROIContour_dataset(ROI):
     # Create a new DataSet for the RT ROI OBSERVATIONS SEQUENCE
 
     ROIContour = dicom.dataset.Dataset()
-    ROIContour.ROIDisplayColor = [str(x) for x in ROI['ROIColor']]
-    ROIContour.ReferencedROINumber = ROI['ROINumber']
+    ROIContour.ROIDisplayColor = [str(x) for x in ROI.Color]
+    ROIContour.ReferencedROINumber = ROI.Number
     # ROIContour.ContourSequence = dicom.sequence.Sequence()
     return ROIContour
 
@@ -144,10 +148,10 @@ def mkNewStructureSetROI_dataset(ROI, FrameOfRefUID):
     # Create a new DataSet for the Structure Set ROI Sequence
 
     SSROI = dicom.dataset.Dataset()
-    SSROI.ROINumber = ROI['ROINumber']
+    SSROI.ROINumber = ROI.Number
     SSROI.ReferencedFrameOfReferenceUID = str(FrameOfRefUID)
-    SSROI.ROIName = ROI['ROIName']
-    SSROI.ROIDescription = ROI['ROIName']
+    SSROI.ROIName = ROI.Name
+    SSROI.ROIDescription = ROI.Name
     SSROI.ROIGenerationAlgorithm = 'WARPED_MR'
 
     return SSROI
@@ -160,14 +164,13 @@ def mkNewContour_Sequence(ROI, index2location, pix2patTForm):
     contourCount = 0
 
     # iterate through slices of image volume
-    for sliceIndex in range(0, ROI['DataVolume'].shape[2]):
+    for sliceIndex in range(0, ROI.DataVolume.shape[2]):
 
-        if 'polyCompression' in ROI:
-            compression = ROI['polyCompression']
-        else:
-            compression = 0
+        compression = ROI.polyCompression
+        # else:
+        #     compression = 0
 
-        CvContour = ImageArray2CVContour(ROI['DataVolume'][:, :, sliceIndex].T,
+        CvContour = ImageArray2CVContour(ROI.DataVolume[:, :, sliceIndex].T,
                                          compression)
 
         if not bool(CvContour):
@@ -190,7 +193,6 @@ def mkNewContour_Sequence(ROI, index2location, pix2patTForm):
         # print(Contour)
 
     return contourSequence
-
 
 
 if __name__ == "__main__":

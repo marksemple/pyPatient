@@ -4,7 +4,9 @@
 """
 
 import numpy as np
+import pyqtgraph as pg
 from rdp import rdp  # Ramer-Douglas-Peucker algorithm
+
 
 class CatheterObj(object):
     def __init__(self, rowInt=None, colLetter=None,
@@ -18,6 +20,10 @@ class CatheterObj(object):
         self.templateRows = [1, 1.5, 2, 2.5,
                              3, 3.5, 4, 4.5,
                              5, 5.5, 6, 6.5, 7]
+
+        self.plottable = {}
+        self.Color = (255, 0, 255)
+        self.linewidth = 4
 
         self.measurements = []
         self.template_index2location = calculateTemplateTransform()
@@ -41,22 +47,23 @@ class CatheterObj(object):
             print("this Catheter can no longer be edited")
             return
 
-        tx = self.template_X
-        ty = self.template_Y
-        templatePoints = np.array([[tx, ty, -117.75],
-                                   [tx, ty, -131.00]])
+        # tx = self.template_X
+        # ty = self.template_Y
+        # templatePoints = np.array([[tx, ty, -117.75],
+        #                            [tx, ty, -131.00]])
+        # print("Finished measuring. points {}".format(self.measurements))
 
         if compress is True:
             self.simplifyPoints(epsilon=0.5)
 
-        final_measurements = np.vstack((self.measurements, templatePoints))
-        self.length = calculateLength(final_measurements)
-        self.depth = final_measurements[0, 2]
-        freeLength = getFreeLength(final_measurements)
-        freePosn = final_measurements[-1, 2] - freeLength
-        lastPt = np.array([[tx, ty, freePosn]])
-        final_measurements = np.vstack((final_measurements, lastPt))
-        self.measurements = final_measurements
+        # final_measurements = np.vstack((self.measurements, templatePoints))
+        # self.length = calculateLength(final_measurements)
+        # self.depth = final_measurements[0, 2]
+        # freeLength = getFreeLength(final_measurements)
+        # freePosn = final_measurements[-1, 2] - freeLength
+        # lastPt = np.array([[tx, ty, freePosn]])
+        # final_measurements = np.vstack((final_measurements, lastPt))
+        # self.measurements = final_measurements
 
         self.editable = False
 
@@ -124,6 +131,64 @@ class CatheterObj(object):
                                             4.0]]))
         pts = interpolateMeasurements(self.measurements, spacing)
         return pts
+
+    def getNearestPoint(self, posn, idx=2):
+        measArray = np.asarray(self.measurements)
+
+        # if its an exact match:
+        if posn[idx] in measArray[:, idx]:
+            outIdx = np.where(measArray[:, idx] == posn[idx])[0][0]
+            return measArray[outIdx, :]
+
+        # SORT by idx-th column
+        measArray = measArray[measArray[:, idx].argsort()]
+        pos = measArray[(measArray[:, idx] - posn[idx]) >= 0, :]
+        neg = measArray[(measArray[:, idx] - posn[idx]) < 0, :]
+
+        # If we are past the boundaries
+        if neg.size == 0:  # NO POINTS MORE NEGATIVE THAN MINE, empty
+            return np.array([])
+        elif pos.size == 0:  # NO POINTS MORE POSITIVE THAN MIND, empty
+            return np.array([])
+
+        # do linear interpolation:
+        bound1 = neg[-1, :]
+        bound2 = pos[0, :]
+        R = (bound2[idx] - posn[idx]) / (bound2[idx] - bound1[idx])
+        nearestPt = bound2 + R * (bound1 - bound2)
+
+        return nearestPt
+
+    def makePlottable(self):
+
+        axial = pg.PlotDataItem([], [],
+                                antialias=True,
+                                pen=None,
+                                symbol='o',
+                                symbolBrush=None,
+                                symbolSize=15,
+                                symbolPen=pg.mkPen(color=self.Color,
+                                                   width=self.linewidth))
+
+        pen = pg.mkPen(color=self.Color, width=self.linewidth)
+        saggi = pg.PlotDataItem([], [],
+                                antialias=True,
+                                pen=pen,
+                                shadowPen=pg.mkPen(color=self.Color,
+                                                   width=self.linewidth),
+                                connect='finite',
+                                symbol=None)
+
+        self.plottable['axial'] = axial
+        self.plottable['saggital'] = saggi
+
+    def updatePlottable(self, view, currentPosn):
+        nearPt = self.getNearestPoint(currentPosn, 2)
+        if nearPt.size > 0:
+            self.plottable[view].setData(x=[nearPt[0], ],
+                                         y=[nearPt[1], ])
+        else:
+            self.plottable[view].setData(x=[], y=[])
 
 
 def getFreeLength(measurement):
@@ -195,4 +260,26 @@ def calculateTemplateTransform(indCoord1=np.array([0, 4]),
 
 
 if __name__ == "__main__":
-    pass
+
+    aa = CatheterObj(rowInt=1, colLetter='b')
+
+    aa.addDescribingPoint([0, 0, 0])
+    aa.addDescribingPoint([-1, 0, 1])
+    aa.addDescribingPoint([-2, 1, 2])
+    aa.addDescribingPoint([-3, 2, 3])
+    aa.addDescribingPoint([-4, 3, 4])
+    aa.addDescribingPoint([-5, 4, 5])
+
+    bb = aa.getNearestPoint([0, 0, 1.75], idx=2)
+
+    print("my returned point {}".format(bb))
+
+
+
+
+
+
+
+
+
+

@@ -26,11 +26,13 @@ class Patient_ROI_Obj(object):
                  name='ROI_Name',
                  number=None,
                  color=(0, 0, 0),
-                 linewidth=1,
+                 linewidth=2,
                  frameRef_UID=None,
                  structure=None,
                  contour=None,
+                 hidden=False,
                  enablePlotting=False,
+                 dataVolume=np.zeros([10, 10, 10]),
                  imageInfo=None):
 
         self.Name = name
@@ -38,11 +40,11 @@ class Patient_ROI_Obj(object):
         self.Color = color
         self.linewidth = linewidth
         self.FrameRef_UID = frameRef_UID
-        self.hidden = False
+        self.hidden = hidden
         self.id = uuid.uuid4()
         self.polyCompression = 0.7
         self.vector = []  # list of plottable items
-        self.DataVolume = np.zeros([10, 10, 10])
+        self.DataVolume = dataVolume
 
         if enablePlotting:
             self.makePlottable()
@@ -88,17 +90,21 @@ class Patient_ROI_Obj(object):
                 self.DataVolume[:, :, ind] += ImSlice.copy()
 
     def makePlottable(self):
-        self.vector.append(pg.PlotDataItem(antialias=True))
+        plottable = pg.PlotDataItem(antialias=True,
+                                    pen=pg.mkPen(color=self.Color,
+                                                 width=self.linewidth))
+        self.vector.append(plottable)
         # pass
+
 
 
 def mkNewROIObs_dataset(ROI):
     # Create a new DataSet for the RT ROI OBSERVATIONS SEQUENCE
 
     ROIObsSeq = dicom.dataset.Dataset()
-    ROIObsSeq.ObservationNumber = ROI['ROINumber']
-    ROIObsSeq.ReferencedROINumber = ROI['ROINumber']
-    ROIObsSeq.ROIObservationDescription = ROI['ROIName']
+    ROIObsSeq.ObservationNumber = ROI.Number
+    ROIObsSeq.ReferencedROINumber = ROI.Number
+    ROIObsSeq.ROIObservationDescription = ROI.Name
     ROIObsSeq.RTROIInterpretedType = 'REGION_OF_INTEREST'
     ROIObsSeq.ROIInterpreter = 'admin'
 
@@ -229,9 +235,9 @@ def CVContour2ImageArray(CVContour, rows, cols):
                                        contourIdx=-1,
                                        color=(255, 255, 255),
                                        thickness=-1,
-                                       lineType=cv2.LINE_AA).astype(np.uint8).T
+                                       lineType=cv2.LINE_AA).astype(np.uint8)
 
-    return contourImageOut
+    return contourImageOut.T
 
 
 def ImageArray2CVContour(ImageArray, compression=0):

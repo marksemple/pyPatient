@@ -25,13 +25,16 @@ class Patient_Plan(object):
         self.CatheterList = []
 
     def addCatheter(self, catheter=None):
-        print('adding catheter')
+        if type(catheter) is tuple:
+            catheter = catheter[0]
+        print("cathType {}".format(type(catheter)))
         if type(catheter) is CatheterObj:
             if catheter.editable:
                 print("still editable")
                 return
             self.CatheterList.append(catheter)
-            return
+            print('adding catheter {} {}'.format(len(self.CatheterList),
+                                                 self.CatheterList))
 
     def export_as_CHA(self, sourcePath, destPath):
         # self.plan_exporter. DO THING ()

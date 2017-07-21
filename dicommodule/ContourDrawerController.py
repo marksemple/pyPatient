@@ -1,46 +1,37 @@
 """ Integrate Contour Editing with Patient Data """
 
 import sys
-import uuid
 import numpy as np
-import pyqtgraph as pg
-try:
-    from ContourDrawer import QContourDrawerWidget
-    from ContourViewer import countContourSlices
-    from Patient import Patient as PatientObj
-except ImportError:
-    from dicommodule.ContourDrawer import QContourDrawerWidget
-    from dicommodule.ContourViewer import countContourSlices
-    from dicommodule.Patient import Patient as PatientObj
+from dicommodule.ContourDrawer import QContourDrawerWidget
+# from dicommodule.ContourViewer import countContourSlices
+from dicommodule.Patient import Patient as PatientObj
+
 try:
     from deformableregistration import Affine_Registration_Fcns as ARF
 except ImportError:
     print("NO ARF")
 
-# import SimpleITK as sitk
-
 
 class PatientContourDrawer(QContourDrawerWidget):
-
     def __init__(self, Patient=None, PatientPath=None, *args, **kwargs):
-
         # give either: a Patient Object
         # OR
         # A path to a patient directory: then do the patient-making
         # OR
         # nothing
-
         super().__init__(*args, **kwargs)
 
+        # FIRST: Create a patient, if necessary
         if PatientPath is not None:
             Patient = PatientObj(patientPath=PatientPath)
             Patient.StructureSet.makePlottable()
 
+        # SECOND: Register patient with Editor
         if Patient is not None:
             self.patient2Editor(Patient)
 
         self.addROIbttn.hide()
-
+        self.hideControls(True)
 
     def patient2Editor(self, Patient):
         self.Patient = Patient
@@ -48,21 +39,16 @@ class PatientContourDrawer(QContourDrawerWidget):
         self.StructureSet = Patient.StructureSet
         for thisROI in self.StructureSet.ROI_List:
             self.register_ROI(thisROI)
-
-        try:
-            MRProsKey = 'prostate'
-            for key in self.StructureSet.ROI_byName:
-                if 'warped_mr_prostate' in key.lower():
-                    MRProsKey = key.lower()
-                    break
-            pros = self.StructureSet.ROI_byName[MRProsKey].DataVolume
-            bounds, size = ARF.findBoundingCuboid(pros)
-            print('prostate bounds', bounds)
-            self.prostateStart = bounds[0, :]
-            self.prostateStop = bounds[1, :]
-
-        except:
-            print("no ARF")
+        MRProsKey = 'prostate'
+        for key in self.StructureSet.ROI_byName:
+            if 'warped_mr_prostate' in key.lower():
+                MRProsKey = key.lower()
+                break
+        pros = self.StructureSet.ROI_byName[MRProsKey].DataVolume
+        bounds, size = ARF.findBoundingCuboid(pros)
+        print('prostate bounds', bounds)
+        self.prostateStart = bounds[0, :]
+        self.prostateStop = bounds[1, :]
 
     def viewPick(self, index):
 
@@ -75,11 +61,13 @@ class PatientContourDrawer(QContourDrawerWidget):
             if self.planeInd == 0:
                 return
             self.planeInd = 0
+            self.enableMotionControls()
 
         elif index == 2:  # saggital
             if self.planeInd == 1:
                 return
             self.planeInd = 1
+            self.enableMotionControls()
 
         try:
             info = self.Patient.Image.info
@@ -123,9 +111,12 @@ class PatientContourDrawer(QContourDrawerWidget):
 if __name__ == "__main__":
 
     from PyQt5.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
 
-    rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\MR2US_Study_Data_Anonymized\P1\US'
+    # rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\MR2US_Study_Data_Anonymized\P1\US'
+
+    rootTest = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\MR2US_Study_Data_Anonymized\P3\RTStructure'
 
     form = PatientContourDrawer(PatientPath=rootTest)
 

@@ -58,7 +58,7 @@ class QContourViewerWidget(QWidget):
         # Lists
         self.TableSliceCount = []
         self.TableHideCheck = []
-        self.tableHeaders = ['ROI', 'Color', 'Slices', 'Show']
+        self.tableHeaders = ['ROI', 'Color', 'Show']
         self.modality = modality
 
         # Data Items
@@ -137,6 +137,9 @@ class QContourViewerWidget(QWidget):
         self.register_ROI(new_ROI)
 
     def register_ROI(self, new_ROI):
+        if not bool(new_ROI.vector):
+            new_ROI.makePlottable()
+
         self.plotWidge.addItem(new_ROI.vector[-1])
         self.add_ROI_to_Table(new_ROI)
         self.hasContourData = True
@@ -207,8 +210,9 @@ class QContourViewerWidget(QWidget):
         self.plotWidge.setFocus()
 
     def updateEntireTable(self):
-        for ROI in self.ROIs:
-            self.updateTableFields(ROI=ROI)
+        # for ROI in self.ROIs:
+            # self.updateTableFields(ROI=ROI)
+        pass
 
     def updateTableFields(self, ROI, contours=[]):
         """ """
@@ -251,10 +255,10 @@ class QContourViewerWidget(QWidget):
             myItem = self.tablePicker.item(row, col)
             myItem.setBackground(qCol)
 
-        elif col == 2:  # SLICES
+        elif col == 3:  # SLICES
             pass
 
-        elif col == 3:  # VISIBLE
+        elif col == 2:  # VISIBLE
             thisROI.hidden = not thisROI.hidden
 
         self.updateContours(isNewSlice=True)
@@ -303,7 +307,7 @@ class QContourViewerWidget(QWidget):
         visibleCheck = QTableWidgetItem("Shown")
         visibleCheck.setFlags(Qt.ItemIsEnabled)
         self.TableHideCheck.append(visibleCheck)
-        self.tablePicker.setItem(row, 3, visibleCheck)
+        self.tablePicker.setItem(row, 2, visibleCheck)
 
         # ROI COntours-On-Slice Count
         # contCount = QTableWidgetItem()
@@ -468,7 +472,6 @@ class QContourViewerWidget(QWidget):
         viewBox.invertY(True)
         viewBox.setAspectLocked(ratio=1.0)
         viewBox.setBackgroundColor('#DDDDDD')
-        # viewBox.setBackgroundColor('#888888')
         viewBox.state['autoRange'] = [False, False]
         viewBox.sigStateChanged.connect(self.on_VB_Resize)
         htmlOpener = '<font size="12" color="white"><b>'

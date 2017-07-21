@@ -27,10 +27,6 @@ class Patient(object):
     def __init__(self, patientPath=None, reverse_rotation=False):
         super().__init__()
 
-        # self.hasImage = False
-        # self.hasROI = False
-        # self.hasPlan = False
-
         self.patientContents = {'image': False,
                                 'ROI': False,
                                 'plan': False}

@@ -40,7 +40,7 @@ class QContourDrawerWidget(QContourViewerWidget):
                                                     self.radius * 2)
         self.circle.hide()
         self.plotWidge.addItem(self.circle)
-        # self.enablePaintingControls()
+        self.enablePaintingControls()
         # self.collapseControls.click()
         self.enteredContour.connect(self.primeToFill)
         self.leftContour.connect(self.primeToWipe)
@@ -62,7 +62,6 @@ class QContourDrawerWidget(QContourViewerWidget):
 
     def hideControls(self, val):
         super().hideControls(val)
-        # print(val)
         if val:
             # print("enabling motion controls")
             self.enableMotionControls()
