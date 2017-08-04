@@ -32,7 +32,7 @@ class Patient_ROI_Obj(object):
                  contour=None,
                  hidden=False,
                  enablePlotting=False,
-                 dataVolume=np.zeros([10, 10, 10]),
+                 dataVolume=None,
                  imageInfo=None):
 
         self.Name = name
@@ -50,7 +50,7 @@ class Patient_ROI_Obj(object):
             self.makePlottable()
 
         self.setImageInfo(imageInfo)
-        self.setData(structure, contour)
+        self.setData(structure=structure, contour=contour)
 
     def __str__(self):
         return "Region of Interest {}: {}".format(self.Number, self.Name)
@@ -59,10 +59,13 @@ class Patient_ROI_Obj(object):
         if not bool(imageInfo):
             return
 
+        # print('ROI {} image info {}'.format(self.Name, imageInfo))
+
         self.imageInfo = imageInfo
         self.volSize = (self.imageInfo['Cols'], self.imageInfo['Rows'],
                         self.imageInfo['NSlices'])
-        self.DataVolume = np.zeros(self.volSize)
+        if self.DataVolume is None:
+            self.DataVolume = np.zeros(self.volSize)
 
     def setData(self, structure, contour):
         if structure is not None:
@@ -88,6 +91,8 @@ class Patient_ROI_Obj(object):
                                                self.volSize[0])
                 ind = int(np.around(VA[2, 0]))
                 self.DataVolume[:, :, ind] += ImSlice.copy()
+
+            self.DataVolume[self.DataVolume > 0] = 1
 
     def makePlottable(self):
         plottable = pg.PlotDataItem(antialias=True,
@@ -161,12 +166,6 @@ def Patient2VectorArray(PatientArray, transform):
 
     vectorArray = transform.dot(PatientArray)
     vectorArray = np.around(vectorArray, decimals=2)
-
-    # dummy = np.ones((1, vectorArray.shape[1])) * vectorArray[2, 0]
-    # same = np.allclose(vectorArray[2, :], dummy)
-
-    # if same is not True:
-        # raise Exception
 
     return vectorArray
 

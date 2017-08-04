@@ -160,7 +160,7 @@ class QContourViewerWidget(QWidget):
 
     def hideContoursFcn(self, val):
         """ """
-        for ROI in self.ROIs:
+        for ROI in self.StructureSet.ROI_List:
             ROI.hidden = bool(val)
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
@@ -328,6 +328,8 @@ class QContourViewerWidget(QWidget):
         result in something different being shown on the axes;
         ie. draw new ROI, or change slice to be shown"""
 
+        autoLevs = False
+
         if self.hideImage is False:
             self.imageItem.show()
             medicalIm = self.imageData[:, :, self.thisSlice].copy()
@@ -338,7 +340,7 @@ class QContourViewerWidget(QWidget):
                                  dtype=imDtype)
 
         if self.hideContours or not bool(self.StructureSet):
-            self.imageItem.setImage(medicalIm, autoLevels=False)
+            self.imageItem.setImage(medicalIm, autoLevels=autoLevs)
             return
 
         if isNewSlice:  # create new Background Im
@@ -409,7 +411,7 @@ class QContourViewerWidget(QWidget):
 
             self.updateTableFields(thisROI, activeCont)
 
-        self.imageItem.setImage(backgroundIm, autoLevels=False)
+        self.imageItem.setImage(backgroundIm, autoLevels=autoLevs)
 
     def updateOutlines(self, ROI, contours, thickness, color):
         """ """
@@ -689,11 +691,24 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
 
-    myImage = 150 * np.random.random((500, 700, 13))
-    myImage = myImage.astype(np.uint16)
+    # myImage = 150 * np.random.random((500, 700, 13))
+    # myImage = myImage.astype(np.uint16)
+
+    import pickle
+
+    staplefile = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\STAPLE_contours\P1\Staple 0.5.dat'
+
+    with open(staplefile, 'rb') as filepath:
+        StapleContour = pickle.load(filepath)
+
+
+    print('StapleContour')
+    print(StapleContour.shape)
+    print(np.amax(StapleContour))
+
 
     form = QContourViewerWidget()  # imageData=myImage)
-    form.init_Image(myImage)
+    form.init_Image(StapleContour.astype(np.uint16) * 255)
     form.viewPick(0)
 
     # form.addROI(name='test1', color=(240, 20, 20))

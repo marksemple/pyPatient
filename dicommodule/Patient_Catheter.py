@@ -6,11 +6,13 @@
 import numpy as np
 import pyqtgraph as pg
 from rdp import rdp  # Ramer-Douglas-Peucker algorithm
+import uuid
 
 
 class CatheterObj(object):
     def __init__(self, rowInt=None, colLetter=None,
-                 rowIndex=None, colIndex=None):
+                 rowIndex=None, colIndex=None,
+                 parent=None):
         super().__init__()
 
         self.editable = True
@@ -21,11 +23,16 @@ class CatheterObj(object):
                              3, 3.5, 4, 4.5,
                              5, 5.5, 6, 6.5, 7]
 
+        self.uid = uuid.uuid4()
+        self.label = "{} {}".format(colLetter, rowInt)
+
+        self.setParent(parent)
         self.plottable = {}
         self.Color = (255, 0, 255)
         self.linewidth = 4
 
         self.measurements = []
+        self.interp_measurements = []
         self.template_index2location = calculateTemplateTransform()
 
         if rowInt is not None and colLetter is not None:
@@ -33,6 +40,9 @@ class CatheterObj(object):
 
         elif rowIndex is not None and colIndex is not None:
             self.setTemplateCoords(rowIndex, colIndex)
+
+    def setParent(self, parent):
+        self.parent = parent
 
     def addDescribingPoint(self, pointCoordinates):
         if not self.editable:
@@ -44,17 +54,23 @@ class CatheterObj(object):
         # let measurements *just* be all points north of the template
         # we then add our corresponding template points, and our free end
         if not self.editable:
-            print("this Catheter can no longer be edited")
+            print("this Catheter is already finished")
             return
 
-        # tx = self.template_X
-        # ty = self.template_Y
-        # templatePoints = np.array([[tx, ty, -117.75],
-        #                            [tx, ty, -131.00]])
-        # print("Finished measuring. points {}".format(self.measurements))
-
         if compress is True:
-            self.simplifyPoints(epsilon=0.5)
+            self.simplifyPoints(epsilon=2.0)
+
+        self.interp_measurements = interpolateMeasurements(self.measurements,
+                                                           1)
+
+        tx = self.template_X
+        ty = self.template_Y
+        templatePoints = np.array([[tx, ty, -117.75],
+                                   [tx, ty, -131.00]])
+
+        patientCoordinates = self.toPatientCoordinates(self.measurements)
+
+        alt_pat_coords = self.alt_toPatientCoordinates(self.measurements)
 
         # final_measurements = np.vstack((self.measurements, templatePoints))
         # self.length = calculateLength(final_measurements)
@@ -65,7 +81,35 @@ class CatheterObj(object):
         # final_measurements = np.vstack((final_measurements, lastPt))
         # self.measurements = final_measurements
 
+        final_measurements = np.vstack((patientCoordinates, templatePoints))
+        self.length = calculateLength(final_measurements)
+        self.depth = final_measurements[0, 2]
+        freeLength = getFreeLength(final_measurements)
+        freePosn = final_measurements[-1, 2] - freeLength
+        lastPt = np.array([[tx, ty, freePosn]])
+        final_measurements = np.vstack((final_measurements, lastPt))
+        # self.measurements = final_measurements
+
+        print("New Catheter at {}: \nL = {}".format(self.label, self.length))
+
         self.editable = False
+        print('final_measurements \n', final_measurements)
+        print('alt meas:\n', alt_pat_coords)
+
+    def toPatientCoordinates(self, PixCoords):
+        rows, cols = PixCoords.shape
+        info = self.parent.patient.Image.info
+        tempMeas = np.hstack((PixCoords, np.ones((rows, 1))))
+        return info['Pix2Pat'].dot(tempMeas.T).T[:, 0:3]
+
+    def alt_toPatientCoordinates(self, PixCoords):
+        rows, cols = PixCoords.shape
+        info = self.parent.patient.Image.info
+        tempMeas = np.hstack((PixCoords, np.ones((rows, 1))))
+        # altMeas = tempMeas.dot(info['Pix2Pat'])[:, 0:3]
+        altMeas = info['Pix2Pat'].dot(tempMeas.T).T[:, 0:3]
+        return altMeas
+
 
     def simplifyPoints(self, epsilon=0.5):
         # using Ramer Douglar Peucker Algorithm for Poly-Compression
@@ -132,8 +176,46 @@ class CatheterObj(object):
         pts = interpolateMeasurements(self.measurements, spacing)
         return pts
 
+    def makePlottable(self):
+        pen = pg.mkPen(color=self.Color, width=self.linewidth)
+
+        axial = pg.PlotDataItem([], [],
+                                antialias=True,
+                                pen=None,
+                                symbol='o',
+                                symbolBrush=pg.mkBrush(color=(255, 255, 255)),
+                                symbolSize=15,
+                                symbolPen=pen)
+        axial.setZValue(3)
+
+        saggi = pg.PlotDataItem([], [],
+                                antialias=True,
+                                pen=pg.mkPen(color=(255, 255, 255),
+                                             width=3),
+                                shadowPen=pg.mkPen(color=self.Color,
+                                                   width=7),
+                                connect='finite',
+                                symbol=None)
+
+        self.plottable['axial'] = axial
+        self.plottable['saggital'] = saggi
+
+    def updatePlottable(self, view, currentPosn):
+        if 'axial' in view:
+            nearPt = self.getNearestPoint(currentPosn, idx=2)
+            if nearPt.size > 0:
+                self.plottable[view].setData(x=[nearPt[0], ],
+                                             y=[nearPt[1], ])
+            else:
+                self.plottable[view].setData(x=[], y=[])
+            return
+        elif 'saggital' in view:
+            nearestSegments = self.getNearestSegment(currentPosn)
+            self.plottable[view].setData(x=nearestSegments[:, 2],
+                                         y=nearestSegments[:, 1])
+
     def getNearestPoint(self, posn, idx=2):
-        measArray = np.asarray(self.measurements)
+        measArray = np.asarray(self.interp_measurements)
 
         # if its an exact match:
         if posn[idx] in measArray[:, idx]:
@@ -159,36 +241,43 @@ class CatheterObj(object):
 
         return nearestPt
 
-    def makePlottable(self):
+    def getNearestSegment(self, posn, bandwidth=20, idx=0):
+        # COULD ADD INTERPOLATION TYPE THING HERE
 
-        axial = pg.PlotDataItem([], [],
-                                antialias=True,
-                                pen=None,
-                                symbol='o',
-                                symbolBrush=None,
-                                symbolSize=15,
-                                symbolPen=pg.mkPen(color=self.Color,
-                                                   width=self.linewidth))
+        measArray = np.asarray(self.interp_measurements)
+        thresh = (posn[idx] - bandwidth / 2, posn[idx] + bandwidth / 2)
 
-        pen = pg.mkPen(color=self.Color, width=self.linewidth)
-        saggi = pg.PlotDataItem([], [],
-                                antialias=True,
-                                pen=pen,
-                                shadowPen=pg.mkPen(color=self.Color,
-                                                   width=self.linewidth),
-                                connect='finite',
-                                symbol=None)
+        colVect = measArray[:, idx]
+        GT = colVect > thresh[0]
+        LT = colVect < thresh[1]
+        inRange = -(LT - GT)
+        outRange = -inRange
 
-        self.plottable['axial'] = axial
-        self.plottable['saggital'] = saggi
+        relevantData = measArray.copy().astype(np.float)
 
-    def updatePlottable(self, view, currentPosn):
-        nearPt = self.getNearestPoint(currentPosn, 2)
-        if nearPt.size > 0:
-            self.plottable[view].setData(x=[nearPt[0], ],
-                                         y=[nearPt[1], ])
-        else:
-            self.plottable[view].setData(x=[], y=[])
+        nanshape = relevantData[outRange, :].shape
+        nanarray = np.empty(nanshape)
+        nanarray[:] = np.NAN
+
+        relevantData[outRange, :] = nanarray
+
+        return relevantData
+
+
+def interpolatrix(point1, point2, value, idx):
+    """ find 3d point (with idx entry Value) between point1 and point2 """
+    P1P2 = point1 - point2
+    V = (value - point1[idx]) / P1P2[idx]
+
+    if np.isnan(V) or np.isinf(V):
+        print("UNINTERPOLABLE")
+        return (point1 + point2) / 2
+
+    return point1 + V * P1P2
+
+
+def newHoverEvent(event, accept):
+    print('WOW HOVER')
 
 
 def getFreeLength(measurement):
@@ -261,6 +350,14 @@ def calculateTemplateTransform(indCoord1=np.array([0, 4]),
 
 if __name__ == "__main__":
 
+    # a = np.array([-1, 0, 0])
+    # b = np.array([1, 1, 1])
+    # value = 0.25
+    # idx = 1
+
+    # out = interpolatrix(a, b, value, idx)
+    # print('out', out)
+
     aa = CatheterObj(rowInt=1, colLetter='b')
 
     aa.addDescribingPoint([0, 0, 0])
@@ -269,10 +366,24 @@ if __name__ == "__main__":
     aa.addDescribingPoint([-3, 2, 3])
     aa.addDescribingPoint([-4, 3, 4])
     aa.addDescribingPoint([-5, 4, 5])
+    aa.addDescribingPoint([-4, 4, 5])
+    aa.addDescribingPoint([-3, 4, 5])
+    aa.addDescribingPoint([-2, 4, 5])
+    aa.addDescribingPoint([-1, 4, 5])
+    aa.addDescribingPoint([-0, 4, 5])
+    aa.addDescribingPoint([1, 4, 5])
 
-    bb = aa.getNearestPoint([0, 0, 1.75], idx=2)
+    # bb = aa.getNearestPoint([0, 0, 1.75], idx=2)
 
-    print("my returned point {}".format(bb))
+    aa.finishMeasuring()
+
+    cc = aa.getNearestSegment([-2, 0, 1], idx=0, bandwidth=3)
+
+    print('thresh', cc)
+
+    del aa
+
+    # print("my returned point {}".format(bb))
 
 
 

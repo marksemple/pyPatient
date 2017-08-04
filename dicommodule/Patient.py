@@ -35,7 +35,7 @@ class Patient(object):
 
         self.Image = Patient_Image(revRot=reverse_rotation)
         self.StructureSet = Patient_StructureSet()
-        self.Plan = Patient_Plan()
+        self.Plan = Patient_Plan(patient=self)
         self.add_data(patientPath)
 
     def __str__(self):

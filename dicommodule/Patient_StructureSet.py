@@ -80,9 +80,22 @@ class Patient_StructureSet(object):
     # def create_ROI(self, **kwargs):
     #     ROI = Patient_ROI_Obj(**kwargs)
 
-    def add_ROI(self, **kwargs):
-        num = len(self.ROI_List)
-        new_ROI = Patient_ROI_Obj(number=num, **kwargs)
+    def get_similar_ROI(self, targetName):
+        myROI = None
+        for ROI in self.ROI_List:
+            if targetName.lower() in ROI.Name.lower():
+                myROI = ROI
+                break
+            elif ROI.Name.lower() in targetName.lower():
+                myROI = ROI
+                break
+        return myROI
+
+
+    def add_ROI(self, new_ROI=None, **kwargs):
+        if new_ROI is None:
+            num = len(self.ROI_List)
+            new_ROI = Patient_ROI_Obj(number=num, **kwargs)
         print("Adding {} ROI {}".format(new_ROI.Name, new_ROI))
         self.ROI_List.append(new_ROI)
         self.ROI_byName[new_ROI.Name] = new_ROI

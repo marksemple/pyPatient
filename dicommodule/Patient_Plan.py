@@ -18,23 +18,46 @@ from dicommodule.Patient_Catheter import CatheterObj
 
 class Patient_Plan(object):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, patient=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.Exporter = Plan_Writers()
         self.CatheterList = []
+        if patient is not None:
+            self.setPatient(patient)
 
-    def addCatheter(self, catheter=None):
+    def setPatient(self, patient):
+        self.patient = patient
+
+    def addCatheter(self, catheter=None, coords=None):
+        print("cathType {}".format(type(catheter)))
+
+        if catheter is None:
+            row, col = coords
+            catheter = CatheterObj(rowInt=float(row), colLetter=col)
+            catheter.makePlottable()
+
         if type(catheter) is tuple:
             catheter = catheter[0]
-        print("cathType {}".format(type(catheter)))
+
         if type(catheter) is CatheterObj:
-            if catheter.editable:
-                print("still editable")
-                return
+            catheter.setParent(self)
+
             self.CatheterList.append(catheter)
             print('adding catheter {} {}'.format(len(self.CatheterList),
                                                  self.CatheterList))
+
+        return catheter
+
+    def removeCatheter(self, catheter=None):
+        targetUID = catheter.uid
+        for ind, cath in enumerate(self.CatheterList):
+            if cath.uid == targetUID:
+                print("a match! catheter being removed")
+                del(self.CatheterList[ind])
+
+        N = len(self.CatheterList)
+        print("There are {} catheters remaining".format(N))
 
     def export_as_CHA(self, sourcePath, destPath):
         # self.plan_exporter. DO THING ()

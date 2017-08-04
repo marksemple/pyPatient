@@ -38,7 +38,9 @@ class Patient_Image(object):
                      'Loc2UID': {},
                      'Loc2Ind': {},
                      'Ind2UID': {},
-                     'Ind2Loc': {}}
+                     'Ind2Loc': {},
+                     'Pix2Pat': np.eye(4),
+                     'Pat2Pix': np.eye(4)}
 
         self.revRot = revRot
 
