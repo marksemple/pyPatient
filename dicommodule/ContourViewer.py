@@ -339,13 +339,19 @@ class QContourViewerWidget(QWidget):
             medicalIm = np.zeros(self.imageData[:, :, self.thisSlice].shape,
                                  dtype=imDtype)
 
+        # print(medicalIm.dtype)
+        # medicalIm = medicalIm.astype(np.uint)
+
         if self.hideContours or not bool(self.StructureSet):
             self.imageItem.setImage(medicalIm, autoLevels=autoLevs)
             return
 
         if isNewSlice:  # create new Background Im
-            if len(medicalIm.shape) == 2:
-                medicalIm = cv2.cvtColor(medicalIm, cv2.COLOR_GRAY2BGR)
+            # if len(medicalIm.shape) == 2:
+                # try:
+                    # medicalIm = cv2.cvtColor(medicalIm, cv2.COLOR_GRAY2BGR)
+                # except cv2.error:
+                    # print("Somtehing wrong with pixel data type")
 
             for ROI in self.StructureSet.ROI_List:
 
@@ -375,8 +381,11 @@ class QContourViewerWidget(QWidget):
 
         backgroundIm = self.backgroundIm
 
-        if len(backgroundIm.shape) == 2:
-            backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
+        # if len(backgroundIm.shape) == 2:
+        #     try:
+        #         backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
+        #     except cv2.error:
+        #         print("Something ELSE wrong iwth pixel data type")
 
         if self.StructureSet.activeROI is not None:
             thisROI = self.StructureSet.activeROI
@@ -473,7 +482,7 @@ class QContourViewerWidget(QWidget):
         viewBox = plotWidge.getViewBox()
         viewBox.invertY(True)
         viewBox.setAspectLocked(ratio=1.0)
-        viewBox.setBackgroundColor('#DDDDDD')
+        viewBox.setBackgroundColor('#FFFFFF')
         viewBox.state['autoRange'] = [False, False]
         viewBox.sigStateChanged.connect(self.on_VB_Resize)
         htmlOpener = '<font size="12" color="white"><b>'

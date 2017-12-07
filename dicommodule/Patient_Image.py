@@ -25,7 +25,7 @@ class Patient_Image(object):
         UID2IPP
     """
 
-    def __init__(self, fileList=[], revRot=False):
+    def __init__(self, fileList=(), revRot=False):
 
         # must have fileList attribute
         # must all belong to same reference set
@@ -47,31 +47,50 @@ class Patient_Image(object):
         if bool(fileList):
             self.setData(fileList=fileList)
 
+    def get_Image_Info(self, multiframe):
+        pass
+
 
     def setData(self, fileList):
 
+        """ some DICOM exporters put the whole set into a single file
+            this must be handled differently than when each slices gets its
+            own file.  Can check for this by looking up SOPClassUID) """
+        multiframe = is_file_multiframe(fileList[0])
+
         info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
 
-        print("MR IOP: {}".format(info['IOP']))
+        if multiframe:
+            dcm = dicom.read_file(fileList[0])
+            self.data = dcm.pixel_array
+            self.data = np.transpose(self.data, [1, 2, 0])
+            info['NSlices'] = self.data.shape[2]
+            info['SliceSpacing'] = float(dcm.SliceThickness)
+            info['ImagePositionPatient'] = np.asarray(dcm.ImagePositionPatient)
+            info['R'] = info['ImageOrientationPatient']
+            info['RT'] = info['ImageOrientationPatient'].T
+            sliceLoc0 = info['ImagePositionPatient']
 
-        info['NSlices'] = len(fileList)
-        self.get_sliceVariable_Properties(fileList)
-        self.data = self.get_pixel_data()
+        else:
+            info['NSlices'] = len(fileList)
+            self.get_sliceVariable_Properties(fileList)
+            self.data = self.get_pixel_data()
+            sliceLoc0 = info['UID2IPP'][self.UID_zero]
 
         info['R'] = info['ImageOrientationPatient']
         info['RT'] = info['ImageOrientationPatient'].T
 
         if not self.revRot:
-            info['Pat2Pix'] = self.GetPatient2Pixels(info['R'])
-            info['Pix2Pat'] = self.GetPixels2Patient(info['RT'])
+            info['Pat2Pix'] = self.GetPatient2Pixels(sliceLoc0=sliceLoc0,
+                                                     R=info['R'])
+            info['Pix2Pat'] = self.GetPixels2Patient(sliceLoc0=sliceLoc0,
+                                                     R=info['RT'])
+
         else:
-            info['Pat2Pix'] = self.GetPatient2Pixels(info['RT'])
-            info['Pix2Pat'] = self.GetPixels2Patient(info['R'])
-
-        print("Image Scaling: ", info['PixelSpacing'][0],
-              info['PixelSpacing'][1], info['SliceSpacing'])
-
-        print("R =:\n{}".format(info['Pat2Pix']))
+            info['Pat2Pix'] = self.GetPatient2Pixels(sliceLoc0=sliceLoc0,
+                                                     R=info['RT'])
+            info['Pix2Pat'] = self.GetPixels2Patient(sliceLoc0=sliceLoc0,
+                                                     R=info['R'])
 
     def __str__(self):
         strang = "Image Object: {} slices".format(self.info['NSlices'])
@@ -129,10 +148,10 @@ class Patient_Image(object):
             pixelData[:, :, ind] = self.dataDict[uid]['PixelData']
         return pixelData
 
-    def GetPatient2Pixels(self, R=np.eye(3)):
+    def GetPatient2Pixels(self, sliceLoc0, R=np.eye(3)):
         """ Transformaton of Patient Coordinate to Pixel Indices
             """
-        sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
+        # sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
 
         # ROTATION
         temp = np.eye(4)
@@ -155,9 +174,10 @@ class Patient_Image(object):
 
         return Scaling.dot(Rotation).dot(Translation)
 
-    def GetPixels2Patient(self, R=np.eye(3)):
+
+    def GetPixels2Patient(self, sliceLoc0, R=np.eye(3)):
         """ Transformation of Pixel Indices to Patient Coordinates """
-        sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
+        # sliceLoc0 = self.info['UID2IPP'][self.UID_zero]
 
         # ROTATION
         # if Rotation:
@@ -186,11 +206,8 @@ class Patient_Image(object):
         nSlices = len(self.info['Ind2UID'])
         prettyString = ''
         for i in range(0, nSlices):
-
             ipp = self.info['UID2IPP'][self.info['Ind2UID'][i]]
-
             prettyString += str(ipp) + '\n'
-
         print(prettyString)
 
 
@@ -203,7 +220,6 @@ def getStaticDicomSizeProps(imFile, staticProps={}):
         staticProps['IOP'] = di.ImageOrientationPatient
     except AttributeError:
         staticProps['IOP'] = [1, 0, 0, 0, 1, 0]
-    # print("IOP: ", staticProps['ImageOrientationPatient'])
     staticProps['Rows'] = di.Rows
     staticProps['Cols'] = di.Columns
     staticProps['PixelSpacing'] = [float(pxsp) for pxsp in di.PixelSpacing]
@@ -216,12 +232,18 @@ def getStaticDicomSizeProps(imFile, staticProps={}):
     return staticProps
 
 
+def is_file_multiframe(filepath):
+    dcm = dicom.read_file(filepath)
+    multifile_CLASSUID = '1.2.840.10008.5.1.4.1.1.3.1'
+    multiframe = True if dcm.SOPClassUID == multifile_CLASSUID else False
+    return multiframe
+
+
 def getDicomPixelData(filePath):
     di = dicom.read_file(filePath)
     imageOrientation = getImOrientationMatrix(di)
     imPos = np.array([float(x) for x in di.ImagePositionPatient])
     sliceLoc = imageOrientation.dot(imPos)[2]
-    # print(sliceLoc)
     pixelData = np.asarray(di.pixel_array)
     thisDiDict = {'UID': di.SOPInstanceUID,
                   'ImagePositionPatient': imPos,
@@ -229,7 +251,6 @@ def getDicomPixelData(filePath):
                   'PixelData': pixelData,
                   'FileName': filePath}
     return thisDiDict
-    # return imPos, pixelData
 
 
 def getImOrientationMatrix(di):
@@ -257,4 +278,14 @@ def getImOrientationMatrix(di):
 
 
 if __name__ == "__main__":
-    pass
+
+    fname = r'2.16.840.1.114362.1.6.7.7.17914.9994565197.469319163.1074.11.dcm'
+    pathname = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\US'
+    fullpath = os.path.join(pathname, fname)
+
+    print('looking at:', fullpath)
+
+    P_IM = Patient_Image([fullpath])
+
+    print(P_IM.data.shape)
+    print(P_IM.info['Pat2Pix'])

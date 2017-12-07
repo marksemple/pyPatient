@@ -10,39 +10,63 @@ import uuid
 
 
 class CatheterObj(object):
-    def __init__(self, rowInt=None, colLetter=None,
-                 rowIndex=None, colIndex=None,
-                 parent=None):
+    def __init__(self, rowNumber=None, colLetter=None,
+                 coords=(None, None),
+                 parent=None,
+                 catheterLength=240.00):
         super().__init__()
+
+
 
         self.editable = True
         self.templateCols = ['A', 'a', 'B', 'b',
                              'C', 'c', 'D', 'd',
                              'E', 'e', 'F', 'f', 'G']
-        self.templateRows = [1, 1.5, 2, 2.5,
-                             3, 3.5, 4, 4.5,
-                             5, 5.5, 6, 6.5, 7]
+        self.templateRows = [7, 6.5, 6, 5.5,
+                             5, 4.5, 4, 3.5,
+                             3, 2.5, 2, 1.5, 1]
+
+        self.template_X = None
+        self.template_Y = None
+        self.patient_Transform = np.eye(4)
+        self.templateCoordinates = coords
 
         self.uid = uuid.uuid4()
-        self.label = "{} {}".format(colLetter, rowInt)
+        msg = "New Catheter at {} {}".format(colLetter, rowNumber)
+        self.label = msg
+        print(msg)
 
         self.setParent(parent)
         self.plottable = {}
         self.Color = (255, 0, 255)
         self.linewidth = 4
+        self.CatheterNumber = None
 
         self.measurements = []
         self.interp_measurements = []
         self.template_index2location = calculateTemplateTransform()
 
-        if rowInt is not None and colLetter is not None:
-            self.setTemplatePosition_byCode(row=rowInt, col=colLetter)
+        if rowNumber is not None and colLetter is not None:
+            self.setTemplatePosition_byCode(row=rowNumber, col=colLetter)
+        elif coords[0] is not None:
+            self.setTemplateCoords(coords)
 
-        elif rowIndex is not None and colIndex is not None:
-            self.setTemplateCoords(rowIndex, colIndex)
+    def __str__(self):
+        string = "Catheter Object at {}, {}".format(self.template_X,
+                                                    self.template_Y)
+        return string
 
     def setParent(self, parent):
         self.parent = parent
+        if parent is None:
+            return
+        self.patient_Transform = parent.patient.Image.info['Pix2Pat']
+
+    def setCatheterNumber(self, number):
+        if type(number) is not int:
+            raise TypeError
+        else:
+            self.CatheterNumber = number
 
     def addDescribingPoint(self, pointCoordinates):
         if not self.editable:
@@ -53,6 +77,7 @@ class CatheterObj(object):
     def finishMeasuring(self, compress=True):
         # let measurements *just* be all points north of the template
         # we then add our corresponding template points, and our free end
+
         if not self.editable:
             print("this Catheter is already finished")
             return
@@ -69,18 +94,7 @@ class CatheterObj(object):
                                    [tx, ty, -131.00]])
 
         patientCoordinates = self.toPatientCoordinates(self.measurements)
-
         alt_pat_coords = self.alt_toPatientCoordinates(self.measurements)
-
-        # final_measurements = np.vstack((self.measurements, templatePoints))
-        # self.length = calculateLength(final_measurements)
-        # self.depth = final_measurements[0, 2]
-        # freeLength = getFreeLength(final_measurements)
-        # freePosn = final_measurements[-1, 2] - freeLength
-        # lastPt = np.array([[tx, ty, freePosn]])
-        # final_measurements = np.vstack((final_measurements, lastPt))
-        # self.measurements = final_measurements
-
         final_measurements = np.vstack((patientCoordinates, templatePoints))
         self.length = calculateLength(final_measurements)
         self.depth = final_measurements[0, 2]
@@ -88,7 +102,6 @@ class CatheterObj(object):
         freePosn = final_measurements[-1, 2] - freeLength
         lastPt = np.array([[tx, ty, freePosn]])
         final_measurements = np.vstack((final_measurements, lastPt))
-        # self.measurements = final_measurements
 
         print("New Catheter at {}: \nL = {}".format(self.label, self.length))
 
@@ -98,18 +111,14 @@ class CatheterObj(object):
 
     def toPatientCoordinates(self, PixCoords):
         rows, cols = PixCoords.shape
-        info = self.parent.patient.Image.info
         tempMeas = np.hstack((PixCoords, np.ones((rows, 1))))
-        return info['Pix2Pat'].dot(tempMeas.T).T[:, 0:3]
+        return self.patient_Transform.dot(tempMeas.T).T[:, 0:3]
 
     def alt_toPatientCoordinates(self, PixCoords):
         rows, cols = PixCoords.shape
-        info = self.parent.patient.Image.info
         tempMeas = np.hstack((PixCoords, np.ones((rows, 1))))
-        # altMeas = tempMeas.dot(info['Pix2Pat'])[:, 0:3]
-        altMeas = info['Pix2Pat'].dot(tempMeas.T).T[:, 0:3]
+        altMeas = self.patient_Transform.dot(tempMeas.T).T[:, 0:3]
         return altMeas
-
 
     def simplifyPoints(self, epsilon=0.5):
         # using Ramer Douglar Peucker Algorithm for Poly-Compression
@@ -133,11 +142,11 @@ class CatheterObj(object):
         except ValueError as ve:
             print(ve)
             return -1
-        self.setTemplateCoords(rowInd, colInd)
+        self.setTemplateCoords((rowInd, colInd))
 
-    def setTemplateCoords(self, rowIndex, colIndex):
-        self.templateCoordinates = [rowIndex, colIndex]
-        indexCoords = np.array([colIndex, rowIndex, 1])
+    def setTemplateCoords(self, coords):
+        self.templateCoordinates = coords
+        indexCoords = np.array([coords[0], coords[1], 1])
         tempCoords = self.template_index2location.dot(indexCoords)
         self.template_X = tempCoords[0]
         self.template_Y = tempCoords[1]
@@ -331,9 +340,9 @@ def interpolateMeasurements(pointlist, spacing):
     print("this should never be printedd...")
 
 
-def calculateTemplateTransform(indCoord1=np.array([0, 4]),
+def calculateTemplateTransform(indCoord1=np.array([0, 0]),
                                indCoord2=np.array([12, 12]),
-                               location1=np.array([34.329114, 28.75]),
+                               location1=np.array([34.329114, 8.75]),
                                location2=np.array([94.329114, 68.75])):
 
     scale = (location2 - location1) / (indCoord2 - indCoord1)
@@ -358,39 +367,25 @@ if __name__ == "__main__":
     # out = interpolatrix(a, b, value, idx)
     # print('out', out)
 
-    aa = CatheterObj(rowInt=1, colLetter='b')
+    aa = CatheterObj(rowNumber=1, colLetter='b')
 
     aa.addDescribingPoint([0, 0, 0])
-    aa.addDescribingPoint([-1, 0, 1])
-    aa.addDescribingPoint([-2, 1, 2])
-    aa.addDescribingPoint([-3, 2, 3])
-    aa.addDescribingPoint([-4, 3, 4])
-    aa.addDescribingPoint([-5, 4, 5])
-    aa.addDescribingPoint([-4, 4, 5])
-    aa.addDescribingPoint([-3, 4, 5])
-    aa.addDescribingPoint([-2, 4, 5])
-    aa.addDescribingPoint([-1, 4, 5])
-    aa.addDescribingPoint([-0, 4, 5])
-    aa.addDescribingPoint([1, 4, 5])
+    aa.addDescribingPoint([-1, 0, -1])
+    aa.addDescribingPoint([-2, 1, -2])
+    aa.addDescribingPoint([-3, 2, -3])
+    aa.addDescribingPoint([-4, 3, -4])
+    aa.addDescribingPoint([-5, 4, -5])
+    aa.addDescribingPoint([-4, 4, -6])
+    aa.addDescribingPoint([-3, 4, -7])
+    aa.addDescribingPoint([-2, 4, -8])
+    aa.addDescribingPoint([-1, 4, -9])
+    aa.addDescribingPoint([-0, 4, -10])
+    aa.addDescribingPoint([1, 4, -11])
 
     # bb = aa.getNearestPoint([0, 0, 1.75], idx=2)
-
     aa.finishMeasuring()
 
-    cc = aa.getNearestSegment([-2, 0, 1], idx=0, bandwidth=3)
-
-    print('thresh', cc)
-
-    del aa
-
+    # cc = aa.getNearestSegment([-2, 0, 1], idx=0, bandwidth=3)
+    # print('thresh', cc)
+    # del aa
     # print("my returned point {}".format(bb))
-
-
-
-
-
-
-
-
-
-
