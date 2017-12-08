@@ -32,7 +32,7 @@ class Patient_Plan(object):
         self.patient = patient
         origin = patient.Image.info['Pix2Pat'].dot(np.array([0, 0, 0, 1]))
         self.Pat2Cath[0:2, 3] = -origin[0:2]
-        print("PAT 2 CATH {}".format(self.Pat2Cath))
+        # print("PAT 2 CATH {}".format(self.Pat2Cath))
 
     def addCatheter(self, catheter=None, coords=None):
         print("cathType {}".format(type(catheter)))
