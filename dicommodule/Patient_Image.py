@@ -2,15 +2,18 @@
 
 import numpy as np
 import os
-
 from copy import deepcopy
 from multiprocessing.pool import ThreadPool
-# import
 
 try:
     import dicom as dicom
 except:
     import pydicom as dicom
+
+modality_dict = {'MR': '1.2.840.10008.5.1.4.1.1.4',
+                 'US': '1.2.840.10008.5.1.4.1.1.6.1',
+                 'US_Multiframe': '1.2.840.10008.5.1.4.1.1.3.1',
+                 'CT': '1.2.840.10008.5.1.4.1.1.2'}
 
 
 class Patient_Image(object):
@@ -50,12 +53,12 @@ class Patient_Image(object):
     def get_Image_Info(self, multiframe):
         pass
 
-
     def setData(self, fileList):
-
         """ some DICOM exporters put the whole set into a single file
             this must be handled differently than when each slices gets its
             own file.  Can check for this by looking up SOPClassUID) """
+
+        self.ImageModality = get_image_modality(fileList[0])
         multiframe = is_file_multiframe(fileList[0])
 
         info = self.info = getStaticDicomSizeProps(fileList[0], self.info)
@@ -223,6 +226,9 @@ def getStaticDicomSizeProps(imFile, staticProps={}):
     staticProps['Rows'] = di.Rows
     staticProps['Cols'] = di.Columns
     staticProps['PixelSpacing'] = [float(pxsp) for pxsp in di.PixelSpacing]
+
+    staticProps['PatientName'] = di.PatientName
+
     try:
         staticProps['PatientPosition'] = di.PatientPosition
         print("Patient Position: {}".format(di.PatientPosition))
@@ -237,6 +243,14 @@ def is_file_multiframe(filepath):
     multifile_CLASSUID = '1.2.840.10008.5.1.4.1.1.3.1'
     multiframe = True if dcm.SOPClassUID == multifile_CLASSUID else False
     return multiframe
+
+
+def get_image_modality(filepath):
+    dcm = dicom.read_file(filepath)
+    IM_CLASS = dcm.SOPClassUID
+    for modality in modality_dict.keys():
+        if IM_CLASS in modality_dict[modality]:
+            return modality
 
 
 def getDicomPixelData(filePath):

@@ -17,6 +17,7 @@ from dicommodule.Patient_Image import Patient_Image
 from dicommodule.Patient_Plan import Patient_Plan
 from dicommodule.Patient_Dose import Patient_Dose
 
+
 class Patient(object):
     """ Primary container class responsible for reading and writing DICOM
         to file. Can have image data, ROI data, and Plan/Catheter data.

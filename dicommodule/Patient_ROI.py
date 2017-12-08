@@ -79,20 +79,24 @@ class Patient_ROI_Obj(object):
         if contour is not None:
 
             self.Color = [int(x) for x in contour.ROIDisplayColor]
-            contourSequence = contour.ContourSequence
-            self.nContours = len(contourSequence)
+            try:
+                contourSequence = contour.ContourSequence
+                self.nContours = len(contourSequence)
 
-            for contour in contourSequence:
-                PA = ContourData2PatientArray(contour.ContourData)
-                VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix'])
+                for contour in contourSequence:
+                    PA = ContourData2PatientArray(contour.ContourData)
+                    VA = Patient2VectorArray(PA, self.imageInfo['Pat2Pix'])
 
-                CA = [VectorArray2CVContour(VA)]
-                ImSlice = CVContour2ImageArray(CA, self.volSize[1],
-                                               self.volSize[0])
-                ind = int(np.around(VA[2, 0]))
-                self.DataVolume[:, :, ind] += ImSlice.copy()
+                    CA = [VectorArray2CVContour(VA)]
+                    ImSlice = CVContour2ImageArray(CA, self.volSize[1],
+                                                   self.volSize[0])
+                    ind = int(np.around(VA[2, 0]))
+                    self.DataVolume[:, :, ind] += ImSlice.copy()
 
-            self.DataVolume[self.DataVolume > 0] = 1
+                self.DataVolume[self.DataVolume > 0] = 1
+
+            except:
+                print("NO CONTOUR SEQUENCE< WHAT {}".format(self.Name))
 
     def makePlottable(self):
         plottable = pg.PlotDataItem(antialias=True,
