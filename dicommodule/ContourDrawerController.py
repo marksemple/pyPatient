@@ -49,6 +49,7 @@ class PatientContourDrawer(QContourDrawerWidget):
         print('prostate bounds', bounds)
         self.prostateStart = bounds[0, :]
         self.prostateStop = bounds[1, :]
+        self.setModality(Patient.Image.ImageModality)
 
     def viewPick(self, index):
 

@@ -47,19 +47,19 @@ class QContourViewerWidget(QWidget):
         self.shiftModifier = False
 
         # Variables
-        self.contOpacity = 0.20
+        self.contOpacity = 0.00
         self.contThickness = 2
-        self.contCompression = 0.75
+        self.contCompression = 0.00
         self.radius = 20
         self.thisSlice = 0
         self.hoverCount = 0
         self.planeInd = 2
+        self.modality = modality
 
         # Lists
         self.TableSliceCount = []
         self.TableHideCheck = []
         self.tableHeaders = ['ROI', 'Color', 'Show']
-        self.modality = modality
 
         # Data Items
         self.imageItem = pg.ImageItem()
@@ -67,6 +67,7 @@ class QContourViewerWidget(QWidget):
 
         # Widget parts
         self.applyLayout()
+        self.setModality(modality)
         self.connectSignals()
         self.resize(1200, 700)
 
@@ -77,6 +78,13 @@ class QContourViewerWidget(QWidget):
         if bool(ROIs):
             print("Has {} Contours".format(len(ROIs)))
             self.init_ROIs(ROIs)
+
+    def setModality(self, modality):
+        self.modality = modality
+        htmlOpener = '<font size="12" color="white"><b>'
+        htmlCloser = '</b></font>'
+        htmlString = htmlOpener + ' ' + str(self.modality) + htmlCloser
+        self.axText.setHtml('{}'.format(htmlString))
 
     def init_Image(self, imageData):
         """ registers imageData to Viewer, extracts some more variables;
@@ -379,13 +387,13 @@ class QContourViewerWidget(QWidget):
 
             self.backgroundIm = medicalIm.copy()
 
-        backgroundIm = self.backgroundIm
+        backgroundIm = self.backgroundIm.astype(np.uint8)
 
-        # if len(backgroundIm.shape) == 2:
-        #     try:
-        #         backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
-        #     except cv2.error:
-        #         print("Something ELSE wrong iwth pixel data type")
+        if len(backgroundIm.shape) == 2:
+            try:
+                backgroundIm = cv2.cvtColor(backgroundIm, cv2.COLOR_GRAY2BGR)
+            except cv2.error:
+                print("Something ELSE wrong iwth pixel data type")
 
         if self.StructureSet.activeROI is not None:
             thisROI = self.StructureSet.activeROI

@@ -59,6 +59,13 @@ class Patient_StructureSet(object):
         for ROI in self.ROI_List:
             self.setImageInfo(imageInfo)
 
+    def hasROI(self, roiQuery):
+        """ """
+        if roiQuery.lower() in (r.lower() for r in self.ROI_byName.keys()):
+            return True
+        else:
+            return False
+
     def setData(self, filePath=None, imageInfo=None):
         if bool(imageInfo):
             self.setImageInfo(imageInfo)

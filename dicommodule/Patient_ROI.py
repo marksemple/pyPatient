@@ -42,7 +42,7 @@ class Patient_ROI_Obj(object):
         self.FrameRef_UID = frameRef_UID
         self.hidden = hidden
         self.id = uuid.uuid4()
-        self.polyCompression = 0.7
+        self.polyCompression = 0
         self.vector = []  # list of plottable items
         self.DataVolume = dataVolume
 
