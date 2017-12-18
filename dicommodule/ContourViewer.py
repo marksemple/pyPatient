@@ -183,6 +183,10 @@ class QContourViewerWidget(QWidget):
         self.updateContours(isNewSlice=True)
         self.plotWidge.setFocus()
 
+    def enterEvent(self, e):
+        super().enterEvent(e)
+        self.slider.setFocus()
+
     def thicknessChange(self, thicknessValue):
         """ Fcn called upon motion of the "LINE WIDTH" slider;
         adjusts the thickness of the outline for the Active Contour"""

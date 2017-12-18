@@ -90,6 +90,7 @@ class Patient(object):
                 self.loadPatientData(dcmFiles)
             else:
                 print("No DICOM Files Found at {}".format(patientPath))
+                raise IOError
 
     def hasData(self):
         if True in self.patientContents.values():

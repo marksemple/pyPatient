@@ -98,12 +98,19 @@ class Patient_StructureSet(object):
                 break
         return myROI
 
-
     def add_ROI(self, new_ROI=None, **kwargs):
         if new_ROI is None:
             num = len(self.ROI_List)
             new_ROI = Patient_ROI_Obj(number=num, **kwargs)
         print("Adding {} ROI {}".format(new_ROI.Name, new_ROI))
+
+        newName = new_ROI.Name
+        if newName in self.ROI_byName:
+            print("{} already exists".format(newName))
+            existing_ROI = self.ROI_byName[newName]
+            idx = self.ROI_List.index(existing_ROI)
+            del self.ROI_List[idx]
+
         self.ROI_List.append(new_ROI)
         self.ROI_byName[new_ROI.Name] = new_ROI
         self.select_ROI(name=new_ROI.Name)
