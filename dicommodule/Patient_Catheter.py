@@ -1,66 +1,105 @@
-#
-"""
-    Object Representation for a CATHETER object
-"""
-
 import numpy as np
-import pyqtgraph as pg
 from rdp import rdp  # Ramer-Douglas-Peucker algorithm
 import uuid
 
+templateCols = ['A', 'a', 'B', 'b',
+                'C', 'c', 'D', 'd',
+                'E', 'e', 'F', 'f', 'G']
+templateRows = [7, 6.5, 6, 5.5,
+                5, 4.5, 4, 3.5,
+                3, 2.5, 2, 1.5, 1]
+
 
 class CatheterObj(object):
-    def __init__(self, rowNumber=None, colLetter=None,
+    """ Container for CATHETER data. Has a BUFFER for measurements,
+        can filter and simplify these points. Has a unique location ID
+        for keeping track of self in template.
+
+        <raw_measurements> holds all measurements directly from system
+        < >
+    """
+
+    def __init__(self, rowNumber, colLetter,
                  coords=(None, None),
                  parent=None,
                  catheterLength=240.00):
         super().__init__()
 
-
-
         self.editable = True
-        self.templateCols = ['A', 'a', 'B', 'b',
-                             'C', 'c', 'D', 'd',
-                             'E', 'e', 'F', 'f', 'G']
-        self.templateRows = [7, 6.5, 6, 5.5,
-                             5, 4.5, 4, 3.5,
-                             3, 2.5, 2, 1.5, 1]
-
         self.template_X = None
         self.template_Y = None
-        self.patient_Transform = np.eye(4)
+        self.templateCode = [None, None]
         self.templateCoordinates = coords
-
         self.uid = uuid.uuid4()
-        msg = "New Catheter at {} {}".format(colLetter, rowNumber)
-        self.label = msg
-        print(msg)
-
-        self.setParent(parent)
         self.plottable = {}
         self.Color = (255, 0, 255)
         self.linewidth = 4
         self.CatheterNumber = None
-
-        self.measurements = []
+        self.raw_measurements = []
         self.interp_measurements = []
         self.template_index2location = calculateTemplateTransform()
-
-        if rowNumber is not None and colLetter is not None:
-            self.setTemplatePosition_byCode(row=rowNumber, col=colLetter)
-        elif coords[0] is not None:
-            self.setTemplateCoords(coords)
+        self.setTemplatePosition_byCode(row=rowNumber, col=colLetter)
+        # self.setTemplateCoords(coords)
+        # self.patient_Transform = np.eye(4)
+        # self.setParent(parent)
 
     def __str__(self):
-        string = "Catheter Object at {}, {}".format(self.template_X,
-                                                    self.template_Y)
+        string = "Catheter Object at {}".format(self.getTemplateCoordinates())
         return string
 
-    def setParent(self, parent):
-        self.parent = parent
-        if parent is None:
-            return
-        self.patient_Transform = parent.patient.Image.info['Pix2Pat']
+    def has_data(self):
+        """ returns BOOL for whether data exists here """
+        return bool(self.raw_measurements)
+
+    def has_template_spot(self):
+        """ returns BOOL for whether cath has been assigned a template loc """
+        templateBool = False if self.template_X is None else True
+        return templateBool
+
+    def getTemplateAlphanumeric(self):
+        """ returns alpha-numeric string indicating template position """
+        if self.has_template_spot():
+            return "{}{}".format(*self.templateCode)
+        else:
+            return "<Template Location Unassigned>"
+
+    def get_N_raw_pts(self):
+        """ how many unfiltered points did this catheter collect """
+        return len(self.raw_measurements)
+
+    def get_raw_data(self):
+        """ """
+        return np.asarray(self.raw_measurements)
+
+    def is_editable(self):
+        """ BOOL for if we can add more points """
+        return self.editable
+
+    def add_raw_measurement(self, measurement):
+        """ Add unfiltered Probe-Tip measurements to BUFFER
+            Probe Tip Measurement is expected to be a (Nx3) NUMPY array. """
+        if not self.is_editable():
+            print("this catheter can no longer accept new measurements")
+            return False
+
+        if measurement.ndim == 1:
+            self.raw_measurements.append(measurement)
+        elif measurement.ndim == 2:
+            for pt in measurement:
+                self.raw_measurements.append(pt)
+        return True
+
+    def setTemplatePosition_byCode(self, row=1, col='A'):
+        """ TRANSLATE ALPHA-NUMERIC TEMPLATE CODE INTO ARRAY COORDINATES """
+        self.templateCode = [col, row]
+
+        try:
+            colInd = templateCols.index(col)
+            rowInd = templateRows.index(row)
+        except ValueError as ve:
+            print(ve)
+            return -1
+        self.setTemplateCoords((rowInd, colInd))
 
     def setCatheterNumber(self, number):
         if type(number) is not int:
@@ -68,46 +107,104 @@ class CatheterObj(object):
         else:
             self.CatheterNumber = number
 
-    def addDescribingPoint(self, pointCoordinates):
-        if not self.editable:
-            print("this Catheter can no longer be edited")
-            return
-        self.measurements.append(pointCoordinates)
+    # def setParent(self, parent):
+    #     self.parent = parent
+    #     if parent is None:
+    #         return
+    #     self.patient_Transform = parent.patient.Image.info['Pix2Pat']
+
+    # def addDescribingPoint(self, pointCoordinates):
+    #     """ If this """
+    #     if not self.editable:
+    #         print("this Catheter can no longer be edited")
+    #         return
+
+    #     if pointCoordinates.ndim == 1:
+    #         self.measurements.append(pointCoordinates)
+    #     elif pointCoordinates.ndim == 2:
+    #         for
+
+    def getLength(self):
+        return
+
+    def setTemplateCoords(self, coords):
+        self.templateCoordinates = coords
+        indexCoords = np.array([coords[0], coords[1], 1])
+        tempCoords = self.template_index2location.dot(indexCoords)
+        self.template_X = tempCoords[0]
+        self.template_Y = tempCoords[1]
 
     def finishMeasuring(self, compress=True):
+        """ Closes Catheter to prevent adding any more points
+            IF compress is TRUE, use RDP to simplify point line.
+        """
         # let measurements *just* be all points north of the template
         # we then add our corresponding template points, and our free end
 
-        if not self.editable:
-            print("this Catheter is already finished")
-            return
+        if not self.has_data():
+            return False
+
+        # if not self.has_patient():
+            # return False
 
         if compress is True:
-            self.simplifyPoints(epsilon=2.0)
+            self.describingPoints = rdp(self.get_raw_data(),
+                                        epsilon=2.0)
+        else:
+            self.describingPoints = self.get_raw_data()
 
-        self.interp_measurements = interpolateMeasurements(self.measurements,
-                                                           1)
 
-        tx = self.template_X
-        ty = self.template_Y
-        templatePoints = np.array([[tx, ty, -117.75],
-                                   [tx, ty, -131.00]])
-
-        patientCoordinates = self.toPatientCoordinates(self.measurements)
-        alt_pat_coords = self.alt_toPatientCoordinates(self.measurements)
-        final_measurements = np.vstack((patientCoordinates, templatePoints))
-        self.length = calculateLength(final_measurements)
-        self.depth = final_measurements[0, 2]
-        freeLength = getFreeLength(final_measurements)
-        freePosn = final_measurements[-1, 2] - freeLength
-        lastPt = np.array([[tx, ty, freePosn]])
-        final_measurements = np.vstack((final_measurements, lastPt))
-
-        print("New Catheter at {}: \nL = {}".format(self.label, self.length))
+        # self.interp_measurements = interpolateMeasurements(self.describing)
 
         self.editable = False
-        print('final_measurements \n', final_measurements)
-        print('alt meas:\n', alt_pat_coords)
+        return True
+
+
+    def to_virtual_catheter(self):
+        """ return ND array for VirtualCatheter points
+            VCs consist of 4 CDPs (tip + the 3 special CDPs) and are
+            always straight
+        """
+
+        x_0 = self.template_X
+        y_0 = self.template_Y
+        return np.array([[x_0, y_0, 4.0],
+                         [x_0, y_0, -117.5],
+                         [x_0, y_0, -131.0],
+                         [x_0, y_0, -236.0]])
+
+
+        # if not self.is_editable():
+        #     print("this Catheter is already finished")
+        #     return
+
+        # if compress is True:
+        #     self.simplifyPoints(epsilon=2.0)
+
+        # self.interp_measurements = interpolateMeasurements(self.measurements,
+        #                                                    1)
+
+        # tx = self.template_X
+        # ty = self.template_Y
+        # templatePoints = np.array([[tx, ty, -117.75],
+        #                            [tx, ty, -131.00]])
+
+        # patientCoordinates = self.toPatientCoordinates(self.measurements)
+        # alt_pat_coords = self.alt_toPatientCoordinates(self.measurements)
+        # final_measurements = np.vstack((patientCoordinates, templatePoints))
+        # self.length = calculateLength(final_measurements)
+        # self.depth = final_measurements[0, 2]
+        # freeLength = getFreeLength(final_measurements)
+        # freePosn = final_measurements[-1, 2] - freeLength
+        # lastPt = np.array([[tx, ty, freePosn]])
+        # final_measurements = np.vstack((final_measurements, lastPt))
+
+        # print("New Catheter at {}: \nL = {}".format(self.label, self.length))
+
+        # self.editable = False
+        # print('final_measurements \n', final_measurements)
+        # print('alt meas:\n', alt_pat_coords)
+
 
     def toPatientCoordinates(self, PixCoords):
         rows, cols = PixCoords.shape
@@ -120,41 +217,13 @@ class CatheterObj(object):
         altMeas = self.patient_Transform.dot(tempMeas.T).T[:, 0:3]
         return altMeas
 
-    def simplifyPoints(self, epsilon=0.5):
-        # using Ramer Douglar Peucker Algorithm for Poly-Compression
-        if not self.editable:
-            print("this Catheter can no longer be edited")
-            return
-
-        input_meas = np.asarray(self.measurements)
-        compr = rdp(input_meas, epsilon=epsilon)
-        print("Compressed from {} to {}".format(input_meas.shape,
-                                                compr.shape))
-        self.measurements = compr
-
-    def setTemplatePosition_byCode(self, row=1, col='A'):
-        # TRANSLATE ALPHA-NUMERIC TEMPLATE CODE INTO ARRAY COORDINATES
-        self.templateCode = [col, row]
-
-        try:
-            colInd = self.templateCols.index(col)
-            rowInd = self.templateRows.index(row)
-        except ValueError as ve:
-            print(ve)
-            return -1
-        self.setTemplateCoords((rowInd, colInd))
-
-    def setTemplateCoords(self, coords):
-        self.templateCoordinates = coords
-        indexCoords = np.array([coords[0], coords[1], 1])
-        tempCoords = self.template_index2location.dot(indexCoords)
-        self.template_X = tempCoords[0]
-        self.template_Y = tempCoords[1]
 
     def getPointCoordinate(self):
+        """ """
         return self.templateCoordinates
 
     def getPointList(self):
+        """ """
         if self.measurements is None:
             self.addMeasurements(np.array([[self.template_X,
                                             self.template_Y,
@@ -162,12 +231,8 @@ class CatheterObj(object):
         return self.measurements.tolist()
 
     def getVirtualPoints(self):
-        x_0 = self.template_X
-        y_0 = self.template_Y
-        return np.array([[x_0, y_0, 4.0],
-                         [x_0, y_0, -117.5],
-                         [x_0, y_0, -131.0],
-                         [x_0, y_0, -236.0]])
+        """ """
+
 
     def getVirtualInterpolatedPoints(self, spacing):
         if self.measurements is None:
@@ -363,27 +428,29 @@ if __name__ == "__main__":
     # b = np.array([1, 1, 1])
     # value = 0.25
     # idx = 1
-
     # out = interpolatrix(a, b, value, idx)
     # print('out', out)
 
-    aa = CatheterObj(rowNumber=1, colLetter='b')
+    cath = CatheterObj(rowNumber=4, colLetter='D')
+    print(cath.to_virtual_catheter())
 
-    aa.addDescribingPoint([0, 0, 0])
-    aa.addDescribingPoint([-1, 0, -1])
-    aa.addDescribingPoint([-2, 1, -2])
-    aa.addDescribingPoint([-3, 2, -3])
-    aa.addDescribingPoint([-4, 3, -4])
-    aa.addDescribingPoint([-5, 4, -5])
-    aa.addDescribingPoint([-4, 4, -6])
-    aa.addDescribingPoint([-3, 4, -7])
-    aa.addDescribingPoint([-2, 4, -8])
-    aa.addDescribingPoint([-1, 4, -9])
-    aa.addDescribingPoint([-0, 4, -10])
-    aa.addDescribingPoint([1, 4, -11])
+    # aa = CatheterObj(rowNumber=1, colLetter='b')
 
-    # bb = aa.getNearestPoint([0, 0, 1.75], idx=2)
-    aa.finishMeasuring()
+    # aa.addDescribingPoint([0, 0, 0])
+    # aa.addDescribingPoint([-1, 0, -1])
+    # aa.addDescribingPoint([-2, 1, -2])
+    # aa.addDescribingPoint([-3, 2, -3])
+    # aa.addDescribingPoint([-4, 3, -4])
+    # aa.addDescribingPoint([-5, 4, -5])
+    # aa.addDescribingPoint([-4, 4, -6])
+    # aa.addDescribingPoint([-3, 4, -7])
+    # aa.addDescribingPoint([-2, 4, -8])
+    # aa.addDescribingPoint([-1, 4, -9])
+    # aa.addDescribingPoint([-0, 4, -10])
+    # aa.addDescribingPoint([1, 4, -11])
+
+    # # bb = aa.getNearestPoint([0, 0, 1.75], idx=2)
+    # aa.finishMeasuring()
 
     # cc = aa.getNearestSegment([-2, 0, 1], idx=0, bandwidth=3)
     # print('thresh', cc)

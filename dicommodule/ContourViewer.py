@@ -340,7 +340,7 @@ class QContourViewerWidget(QWidget):
         result in something different being shown on the axes;
         ie. draw new ROI, or change slice to be shown"""
 
-        autoLevs = False
+        autoLevs = True
 
         if self.hideImage is False:
             self.imageItem.show()
@@ -348,11 +348,12 @@ class QContourViewerWidget(QWidget):
         else:
             self.imageItem.hide()
             imDtype = self.imageData[:, :, self.thisSlice].dtype
-            medicalIm = np.zeros(self.imageData[:, :, self.thisSlice].shape,
-                                 dtype=imDtype)
+            medicalIm = np.zeros(self.imageData[:, :, self.thisSlice].shape)
+
+        # print(self.imageData.dtype)
 
         # print(medicalIm.dtype)
-        # medicalIm = medicalIm.astype(np.uint)
+        # medicalIm = medicalIm.astype(np.uint8)
 
         if self.hideContours or not bool(self.StructureSet):
             self.imageItem.setImage(medicalIm, autoLevels=autoLevs)
@@ -391,7 +392,7 @@ class QContourViewerWidget(QWidget):
 
             self.backgroundIm = medicalIm.copy()
 
-        backgroundIm = self.backgroundIm.astype(np.uint8)
+        backgroundIm = self.backgroundIm  #.astype(np.uint8)
 
         if len(backgroundIm.shape) == 2:
             try:
@@ -432,7 +433,8 @@ class QContourViewerWidget(QWidget):
 
             self.updateTableFields(thisROI, activeCont)
 
-        self.imageItem.setImage(backgroundIm, autoLevels=autoLevs)
+        self.imageItem.setImage(backgroundIm,
+                                autoLevels=autoLevs)
 
     def updateOutlines(self, ROI, contours, thickness, color):
         """ """
@@ -717,7 +719,7 @@ if __name__ == "__main__":
 
     import pickle
 
-    staplefile = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\Validation Data\MR2US Baseline Dataset 2017\STAPLE_contours\P1\Staple 0.5.dat'
+    staplefile = r''
 
     with open(staplefile, 'rb') as filepath:
         StapleContour = pickle.load(filepath)

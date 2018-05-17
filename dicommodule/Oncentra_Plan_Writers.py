@@ -2,16 +2,9 @@
 Catheter Plan File Writers
 """
 
-# Built-In Modules
 import os
-# import sys
-# import datetime
-from shutil import copy
-
-# Third-Party Modules
 import numpy as np
-# import cv2
-
+from shutil import copy
 try:
     import dicom as dicom
 except:
@@ -19,11 +12,12 @@ except:
 
 
 class Plan_Writers(object):
-    def __init__(self, info={}, *args, **kwargs):
+    def __init__(self, info={}, outputPath=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # self.root =
-        self.setOutputPath(r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\modified sample plan')
+        self.setOutputPath(outputPath)
+        # self.setOutputPath()
 
     def setInputPath(self, input_path):
         self.inputPath = input_path
@@ -320,6 +314,10 @@ if __name__ == "__main__":
 
     writer = Plan_Writers()
 
+    outputPath = r'P:\USERS\PUBLIC\Mark Semple\EARTh\tests for importing plans\modified sample plan'
+
+    writer.setOutputPath(outputPath)
+
     from dicommodule.Patient_Catheter import CatheterObj
     cathList = []
 
@@ -359,10 +357,9 @@ if __name__ == "__main__":
     #            2, 2.5, 3,
     #            5, 5.5, 5, 5.5]
 
-
     for ind, colLetter in enumerate(colLetters):
-        newCath = CatheterObj(rowInt=rowInts[ind], colLetter=colLetter)
-        newCath.addMeasurements(measurements[ind])
+        newCath = CatheterObj(rowNumber=rowInts[ind], colLetter=colLetter)
+        newCath.addDescribingPoint(measurements[ind])
         # newCath.setTemplatePosition(row=4, col='b')
         cathList.append(newCath)
 

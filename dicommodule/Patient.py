@@ -44,6 +44,7 @@ class Patient(object):
                  patientPath=None,
                  imagefiles=None,
                  structureset=None,
+                 dosefile=None,
                  reverse_rotation=False):
         super().__init__()
 
@@ -69,6 +70,9 @@ class Patient(object):
         if structureset is not None:
             self.add_rtst(structureset)
 
+        if dosefile is not None:
+            self.add_dose(dosefile)
+
     def __str__(self):
         if True in self.patientContents.values():
             strang = "Patient Object with: "
@@ -83,8 +87,8 @@ class Patient(object):
     def add_data(self, patientPath):
         if patientPath is not None:
             dcmFiles = find_DCM_files_serial(patientPath)
-            for key in dcmFiles.keys():
-                print('Patient has {}'.format(key))
+            # for key in dcmFiles.keys():
+                # print('Patient has {}'.format(key))
 
             if bool(dcmFiles):
                 self.loadPatientData(dcmFiles)
@@ -107,6 +111,9 @@ class Patient(object):
     def hasPlan(self):
         return self.patientContents['plan']
 
+    def hasDose(self):
+        return self.patientContents['dose']
+
     def add_images(self, filelist):
         self.Image.setData(fileList=filelist)
         self.patientContents['image'] = True
@@ -115,6 +122,10 @@ class Patient(object):
         self.StructureSet.setData(filePath=file,
                                   imageInfo=self.Image.info)
         self.patientContents['ROI'] = True
+
+    def add_dose(self, dosefile):
+        self.Dose.setData(filePath=dosefile)
+        self.patientContents['dose'] = True
 
     def loadPatientData(self, dcmFiles={}):
         # print(dcmFiles)
@@ -147,13 +158,17 @@ class Patient(object):
 
         # DOSE
         if DO in dcmFiles.keys():
-            self.Dose.setData(filePath=dcmFiles[DO][0])
+            self.add_dose(dosefile=dcmFiles[DO][0])
 
         # SOMETHING ELSE?
         if 'unknown' in dcmFiles.keys():
             self.StructureSet.setData(filePath=dcmFiles['unknown'][0],
                                       imageInfo=self.Image.info)
             self.patientContents['ROI'] = True
+
+        for item in self.patientContents.keys():
+            if self.patientContents[item]:
+                print("Patient has {}".format(item))
 
     def getPatient_specific_data(self):
         pass
@@ -266,14 +281,35 @@ def backupFile_finder(path):
 
 if __name__ == "__main__":
 
-    test_root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\US'
-    fname = r'2.16.840.1.114362.1.6.7.7.17914.9994565197.469319163.1074.11.dcm'
-    test_file = os.path.join(test_root, fname)
+    # test_root = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\US'
+    # fname = r'2.16.840.1.114362.1.6.7.7.17914.9994565197.469319163.1074.11.dcm'
+    # test_file = os.path.join(test_root, fname)
 
-    patient = Patient(patientPath=test_root)
-    print(patient)
-    print("has data:", patient.hasData())
 
+    pathname = r'P:\USERS\PUBLIC\Ananth\Research Projects\1 - CLINICAL TRIALS\PRIVATE\Trials\Active\Radiogenomics HDR - retro\Data - Working\Pt_3\US\fx1 (with warped structures)'
+
+    import pprint
+
+    patient = Patient(patientPath=pathname)
+    # print(patient)
+
+    pprint.pprint(patient.Dose.info)
+    pprint.pprint(patient.Image.info)
+
+    print('dose', patient.Dose.DoseGrid.shape)
+    print('dose', patient.Dose.info['PixelSpacing'])
+
+    print('im', patient.Image.data.shape)
+    print('im', patient.Image.info['PixelSpacing'])
+
+    LD = patient.Dose.DoseGrid.shape[1] * patient.Dose.info['PixelSpacing'][1]
+    print(LD)
+
+    LIM = patient.Image.data.shape[0] * patient.Image.info['PixelSpacing'][0]
+    print(LIM)
+
+
+    # print("has data:", patient.hasData())
     # rootTest = r'X:\MR_to_US_Fusion\Curran_John'
     # backupFile_finder(rootTest)
     # patient = Patient('')  #patientPath=rootTest)

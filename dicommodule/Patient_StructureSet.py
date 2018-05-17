@@ -19,19 +19,20 @@ from dicommodule.Patient_ROI import (Patient_ROI_Obj, mkNewROIObs_dataset,
                                      ImageArray2CVContour)
 
 
+from dicommodule.ROI_Manipulations import (mirror_ROI_about_centroid_of_other,)
 # from dicommodule.Patient_Catheter import CatheterObj
 
 
 class Patient_StructureSet(object):
 
-    def __init__(self, file=None, dcm=None, imageInfo={},
+    def __init__(self, file=None, dcm=None, imageInfo={}, linewidth=1,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.ROI_List = []
         self.ROI_byName = {}
+        self.lineWidth = linewidth
         self.setImageInfo(imageInfo)
-        self.lineWidth = 1
         self.activeROI = None
 
         if file is not None:
@@ -87,6 +88,33 @@ class Patient_StructureSet(object):
     # def create_ROI(self, **kwargs):
     #     ROI = Patient_ROI_Obj(**kwargs)
 
+
+    def mirror_ROI(self, roi_name, mirror_name, save_as=None):
+        pass
+
+        if roi_name in self.ROI_byName:
+            ROIDATA = self.ROI_byName[roi_name].DataVolume
+        else:
+            raise NameError
+
+        if mirror_name in self.ROI_byName:
+            mirrorDATA = self.ROI_byName[mirror_name].DataVolume
+        else:
+            raise NameError
+
+        outROI = mirror_ROI_about_centroid_of_other(ROI_to_go=ROIDATA,
+                                                    Ref_ROI=mirrorDATA,
+                                                    ax=0)
+
+        if save_as is None:
+            save_as = 'mirrored_{}'.format(roi_name)
+
+        self.add_ROI(name=save_as,
+                     dataVolume=outROI,
+                     enablePlotting=False,
+                     imageInfo=self.imageInfo)
+
+
     def get_similar_ROI(self, targetName):
         myROI = None
         for ROI in self.ROI_List:
@@ -98,7 +126,23 @@ class Patient_StructureSet(object):
                 break
         return myROI
 
+
     def add_ROI(self, new_ROI=None, **kwargs):
+        """ Either a dicommodule ROI object, OR
+            a dictionary of kwargs enough to make one
+             name='ROI_Name',
+             number=None,
+             color=(0, 0, 0),
+             linewidth=2,
+             frameRef_UID=None,
+             structure=None,
+             contour=None,
+             hidden=False,
+             enablePlotting=False,
+             dataVolume=None,
+             imageInfo=None
+        """
+
         if new_ROI is None:
             num = len(self.ROI_List)
             new_ROI = Patient_ROI_Obj(number=num, **kwargs)

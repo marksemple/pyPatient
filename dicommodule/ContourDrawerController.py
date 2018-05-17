@@ -40,15 +40,22 @@ class PatientContourDrawer(QContourDrawerWidget):
         for thisROI in self.StructureSet.ROI_List:
             self.register_ROI(thisROI)
         MRProsKey = 'prostate'
+        hasProstate = False
         for key in self.StructureSet.ROI_byName:
             if 'warped_mr_prostate' in key.lower():
                 MRProsKey = key.lower()
+                hasProstate = True
                 break
-        pros = self.StructureSet.ROI_byName[MRProsKey].DataVolume
-        bounds, size = ARF.findBoundingCuboid(pros)
-        print('prostate bounds', bounds)
-        self.prostateStart = bounds[0, :]
-        self.prostateStop = bounds[1, :]
+        if hasProstate:
+            pros = self.StructureSet.ROI_byName[MRProsKey].DataVolume
+            bounds, size = ARF.findBoundingCuboid(pros)
+            print('prostate bounds', bounds)
+            self.prostateStart = bounds[0, :]
+            self.prostateStop = bounds[1, :]
+        else:
+            self.prostateStart = 0
+            self.prostateStop = 1
+
         self.setModality(Patient.Image.ImageModality)
 
     def viewPick(self, index):
@@ -117,7 +124,16 @@ if __name__ == "__main__":
 
     # Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\MR'
 
-    Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\US'
+    # Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\US'
+
+    # Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\radiomics\radiomics - data\test_p2\MR_pre (with warped structures)'
+
+    # Patient_ImagePath = r'X:\MR_to_US_Fusion\Methven_William A_728760\RTStructure'
+
+    # Patient_ImagePath = r'P:\USERS\PUBLIC\Ananth\Research Projects\1 - CLINICAL TRIALS\PRIVATE\Trials\Active\Radiogenomics HDR - retro\Data - Working\Pt_3\MR_post (with warped structures)'
+
+    Patient_ImagePath = r'Z:\Public\USERS\PUBLIC\Ananth\Research Projects\1 - CLINICAL TRIALS\PRIVATE\Trials\Active\Radiogenomics HDR - retro\Data - DWI raw\Pt_1\post\imgs'
+    # r'P:\USERS\PUBLIC\Mark Semple\radiomics\code\sample_files\MR'
 
     patient = PatientObj(Patient_ImagePath)
     # patient.StructureSet.setData(filePath=AL_P1_StructPath)

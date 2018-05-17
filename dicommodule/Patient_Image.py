@@ -66,7 +66,7 @@ class Patient_Image(object):
         if multiframe:
             dcm = dicom.read_file(fileList[0])
             self.data = dcm.pixel_array
-            self.data = np.transpose(self.data, [1, 2, 0])
+            self.d = np.transpose(self.data, [1, 2, 0])
             info['NSlices'] = self.data.shape[2]
             info['SliceSpacing'] = float(dcm.SliceThickness)
             info['ImagePositionPatient'] = np.asarray(dcm.ImagePositionPatient)
