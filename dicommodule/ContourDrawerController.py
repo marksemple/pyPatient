@@ -46,6 +46,10 @@ class PatientContourDrawer(QContourDrawerWidget):
                 MRProsKey = key.lower()
                 hasProstate = True
                 break
+            elif 'prostate' in key.lower():
+                MRProsKey = key.lower()
+                hasProstate = True
+                break
         if hasProstate:
             pros = self.StructureSet.ROI_byName[MRProsKey].DataVolume
             bounds, size = ARF.findBoundingCuboid(pros)
@@ -53,8 +57,8 @@ class PatientContourDrawer(QContourDrawerWidget):
             self.prostateStart = bounds[0, :]
             self.prostateStop = bounds[1, :]
         else:
-            self.prostateStart = 0
-            self.prostateStop = 1
+            self.prostateStart = [0, 0, 0]
+            self.prostateStop = [1, 1, 1]
 
         self.setModality(Patient.Image.ImageModality)
 
@@ -122,18 +126,9 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    # Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\MR'
 
-    # Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\Dicom Module\sample_one_file\US'
+    Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\mr2us-code\mr2us-data\MR2US Baseline Dataset 2017\0_INPUT_DATA\P2\US (with warped structures)'
 
-    # Patient_ImagePath = r'P:\USERS\PUBLIC\Mark Semple\radiomics\radiomics - data\test_p2\MR_pre (with warped structures)'
-
-    # Patient_ImagePath = r'X:\MR_to_US_Fusion\Methven_William A_728760\RTStructure'
-
-    # Patient_ImagePath = r'P:\USERS\PUBLIC\Ananth\Research Projects\1 - CLINICAL TRIALS\PRIVATE\Trials\Active\Radiogenomics HDR - retro\Data - Working\Pt_3\MR_post (with warped structures)'
-
-    Patient_ImagePath = r'Z:\Public\USERS\PUBLIC\Ananth\Research Projects\1 - CLINICAL TRIALS\PRIVATE\Trials\Active\Radiogenomics HDR - retro\Data - DWI raw\Pt_1\post\imgs'
-    # r'P:\USERS\PUBLIC\Mark Semple\radiomics\code\sample_files\MR'
 
     patient = PatientObj(Patient_ImagePath)
     # patient.StructureSet.setData(filePath=AL_P1_StructPath)

@@ -196,7 +196,7 @@ def find_DCM_files_parallel(rootpath=None):
 
     if len(dcmFileList) > 300:
         print('Too many files!')
-        return
+        return {}
 
     # ~~ Create Threadpool same size as dcm list, get modality for each file
     if not bool(dcmFileList):
@@ -205,6 +205,8 @@ def find_DCM_files_parallel(rootpath=None):
     pool = ThreadPool(len(dcmFileList))
     results = pool.map(func=lambda x: (dicom.read_file(x, force=True).Modality, x),
                        iterable=dcmFileList)
+    pool.close()
+    pool.join()
 
     # ~~ sort into a dictionary by modality type
     dcmDict = {}
@@ -286,27 +288,34 @@ if __name__ == "__main__":
     # test_file = os.path.join(test_root, fname)
 
 
-    pathname = r'P:\USERS\PUBLIC\Ananth\Research Projects\1 - CLINICAL TRIALS\PRIVATE\Trials\Active\Radiogenomics HDR - retro\Data - Working\Pt_3\US\fx1 (with warped structures)'
+    # pathname = r'P:\USERS\PUBLIC\Ananth\Research Projects\1 - CLINICAL TRIALS\PRIVATE\Trials\Active\Radiogenomics HDR - retro\Data - Working\Pt_3\US\fx1 (with warped structures)'
+
+    ppath = r'P:\USERS\PUBLIC\Mark Semple\MR2USRegistration\mr2us-code\mr2us-data\MR2US Baseline Dataset 2017\0_INPUT_DATA\P1\MR'
 
     import pprint
 
-    patient = Patient(patientPath=pathname)
+
+    t0 = time.time()
+
+    patient = Patient(patientPath=ppath)
     # print(patient)
 
     pprint.pprint(patient.Dose.info)
     pprint.pprint(patient.Image.info)
 
-    print('dose', patient.Dose.DoseGrid.shape)
-    print('dose', patient.Dose.info['PixelSpacing'])
+    # print('dose', patient.Dose.DoseGrid.shape)
+    # print('dose', patient.Dose.info['PixelSpacing'])
 
     print('im', patient.Image.data.shape)
     print('im', patient.Image.info['PixelSpacing'])
 
-    LD = patient.Dose.DoseGrid.shape[1] * patient.Dose.info['PixelSpacing'][1]
-    print(LD)
+    print("Finished in {} seconds".format(time.time() - t0))
 
-    LIM = patient.Image.data.shape[0] * patient.Image.info['PixelSpacing'][0]
-    print(LIM)
+    # LD = patient.Dose.DoseGrid.shape[1] * patient.Dose.info['PixelSpacing'][1]
+    # print(LD)
+
+    # LIM = patient.Image.data.shape[0] * patient.Image.info['PixelSpacing'][0]
+    # print(LIM)
 
 
     # print("has data:", patient.hasData())
